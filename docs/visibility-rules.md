@@ -148,7 +148,7 @@ query, so both paths return without touching finance tables.
 
 ## 5. Rules that override the resolver
 
-Two cases sit outside the per-module model. Both are deliberate.
+Four cases sit outside the per-module model. All are deliberate.
 
 ### 5.1 Member loans (FR-M2-16)
 
@@ -171,6 +171,44 @@ other. So the household always sees "Papá contributed $1.000.000" via the
 contributions endpoint, while Papá's expense ledger stays as private as he set
 it. The same fact, two surfaces, two different rules — implementers must not
 "simplify" this by making the derived expense always visible.
+
+### 5.3 Household expenses (FR-M4-15)
+
+The household ledger is visible to every household member, always, and is not
+configurable. Same reasoning as contributions: this is shared money, and a
+household that cannot see where its own pot went has no ledger at all.
+
+This covers the amount, the category, the date, the note, **and who paid it**
+when it was member-funded. "Mamá paid the electricity bill" is household
+information, not personal information.
+
+**But the mirrored personal expense (FR-M4-16) is a normal transaction** and
+resolves against the payer's `expenses` setting — exactly as in §5.2. The
+household sees the bill on the household ledger; whether that same row is
+visible inside Mamá's personal expense list is her setting to make.
+
+This is the second instance of the same shape, so state the rule generally:
+**a fact recorded on a shared surface is shared; the personal row it generates
+stays governed by its owner.**
+
+A guest sees household expenses, because a guest sees household aggregates
+(§5 of the spec's role table). A guest still sees no per-member module.
+
+### 5.4 Chores (FR-M8-15)
+
+Chores, assignments, completion history and effort balances are visible to the
+whole household. There is no visibility setting on any of them, and no plan to
+add one.
+
+The privacy model exists because **money** is private. Housework is the
+opposite: its entire purpose is being seen and counted, and a private chore
+ledger could not settle the argument the module was built to settle. A member
+who could hide their effort balance would break fairness for everyone else,
+because the assignment algorithm reads exactly that number.
+
+Absences are visible too — the household needs to know why the rota changed.
+The **reason** field is optional precisely because "I am away" is household
+business while *why* may not be.
 
 ---
 

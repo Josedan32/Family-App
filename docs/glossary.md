@@ -81,6 +81,28 @@ conversation is the single most likely source of confusion in this project.
 | Recaudado | `collected_minor` | Actually contributed so far. |
 | Periodo | `contribution_period` | One calendar month. |
 | Abierto / Cerrado | `open` / `closed` | |
+| Gasto del hogar | `household_expense` | A shared expense: rent, utilities, groceries. Lives in the household ledger, **not** in anyone's personal ledger. |
+| Pozo común | `pot` | The collected, unspent contribution money. `pot_balance` is derived, never stored. |
+| Fondeo | `funding` | `pot` or `member` — where the money for a household expense came from. |
+| Aporte en especie | `in_kind` contribution | A member paid a household expense from their own pocket and it counts as their contribution. |
+| Saldo del pozo | `pot_balance` | Non-in-kind contributions minus pot-funded expenses. |
+
+**Never** call a `household_expense` a `transaction`. A `transaction` is a row
+in one member's personal ledger; a `household_expense` belongs to the household.
+A member-funded household expense *generates* a transaction, but they are two
+different rows in two different tables with two different visibility rules.
+
+### Cuotas (installments)
+
+| Spanish (UI) | English (code) | Notes |
+| ------------ | -------------- | ----- |
+| Cuota | `installment` | One scheduled payment of a debt. |
+| Número de cuotas | `installments_total` | |
+| Valor de la cuota | `installment_amount_minor` | |
+| Primera cuota | `first_installment_on` | |
+| Próxima cuota | `next_installment_on` | **Derived**, never stored. |
+| Cuotas pagadas | `installments_paid` | Derived from payments, never a counter. |
+| En mora | `is_overdue` | Derived. |
 
 **Never** call a contribution a `payment` or a `quota`. `payment` means a
 payment against a debt or loan; `quota` means nothing here.
@@ -119,11 +141,33 @@ Recorded now so Phase 2 and 3 do not invent competing terms.
 | Inventario | `inventory` | M6 |
 | Disponible / Bajo / Agotado | `available` / `low` / `out` | M6 |
 | Planeación | `shopping_plan` | M7 |
-| Tarea del hogar | `chore` | M8 — **never** `task`, which means a unit of implementation work |
-| Frecuencia | `frequency` | M8 |
-| Sorteo / Rotación | `rotation` | M8 |
-| Equidad | `fairness` / `load_balance` | M8 |
 | Notificación | `notification` | M9 |
+
+---
+
+## 5B. Tareas del hogar (M8)
+
+Fully specified in the spec §7.4, so these names are binding, not provisional.
+
+| Spanish (UI) | English (code) | Notes |
+| ------------ | -------------- | ----- |
+| Tarea del hogar | `chore` | **Never** `task` — `task` means a unit of implementation work, and confusing the two in a repo full of implementation plans would be genuinely painful. |
+| Frecuencia | `frequency` | `daily` / `weekly` / `biweekly` / `monthly` |
+| Diaria / Semanal / Quincenal / Mensual | the four values above | |
+| Esfuerzo | `effort_points` | 1–10. The currency of the fairness system. |
+| Asignación | `chore_assignment` | One chore, one member, one due date. |
+| Ciclo | `chore_cycle` | The date range a batch of assignments covers. |
+| Balance de esfuerzo | `effort_balance` | Derived over a rolling window. Never stored. |
+| Ventana | `effort_window_days` | Household setting, default 60. |
+| Pendiente / Hecha / Omitida / Reasignada | `pending` / `done` / `skipped` / `reassigned` | |
+| Ausencia | `member_absence` | A date range during which a member is not assigned. |
+| Ajuste de esfuerzo | `effort_adjustment` | A manual, attributed correction by an administrator. |
+| Equidad | `fairness` | The property. The mechanism is `effort_balance`. |
+
+**Do not use `rotation`.** It survives from an earlier sketch and describes a
+round-robin, which is precisely the design that was rejected — the system
+assigns by lowest effort balance, and calling that a rotation invites someone
+to "simplify" it back into one.
 
 ---
 

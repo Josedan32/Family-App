@@ -111,3 +111,16 @@ visibility matrix, no float on money, no financial field in a log line.
   truth waiting to disagree with the first.
 - **Blurring a private figure instead of hiding it.** A blurred number invites
   guessing at a magnitude. Render `PrivateBlock`.
+- **Counting an in-kind contribution into the pot balance.** It counts toward
+  the period goal, never toward the pot — that money went pocket-to-expense and
+  never arrived. See spec FR-M4-13.
+- **Adding an effort-debt table for chore absences.** The compensation is
+  emergent: an absent member earns nothing, so their balance stays flat while
+  others rise and the existing rule assigns them more on return. A second table
+  would be a second source of truth for fairness. See FR-M8-13.
+- **Making the chore tie-break deterministic.** Sorting by name or join date
+  silently hands the same person the same chore forever. It must be random.
+- **Calling the chore algorithm a "rotation".** Round-robin is the design that
+  was rejected, and the word invites someone to simplify it back into one.
+- **A stored `installments_paid` counter, or a stored `pot_balance`.** Both
+  drift the moment an underlying row is edited. Derive them.

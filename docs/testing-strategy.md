@@ -97,6 +97,34 @@ line someone deliberately wrote and a reviewer can see.
 | L-09 | Savings balance | Equals `SUM(deposits) − SUM(withdrawals)`; no stored balance column exists (FR-M2-08). |
 | L-10 | Grep the codebase for `float(`, `Decimal` on money paths, and JS arithmetic on amounts | No hits. Money is integers end to end. |
 | L-11 | Period boundaries near midnight in `America/Bogota` | A transaction on the 1st at 00:30 local falls in the correct month, not the previous UTC one. |
+| L-12 | Member-funded household expense | Exactly one mirrored personal transaction exists; both rows created and deleted atomically (INV-D-07). |
+| L-13 | In-kind household expense | The household expense and the contribution reference the **same** transaction — the member's ledger records the money leaving exactly once (INV-D-08). |
+| L-14 | In-kind contribution and the pot | Counts toward the period goal; does **not** raise `pot_balance` (FR-M4-13). |
+| L-15 | Pot-funded expense exceeding the balance | `409 insufficient_pot`; balance never goes negative, under concurrency too (INV-D-09). |
+| L-16 | Installment fields | All three or none (`422` otherwise); `installments_paid`, `next_installment_on` and `is_overdue` are derived, and no counter column exists. |
+| L-17 | Editing a debt payment | The derived installment figures move with it. Nothing is stale. |
+
+---
+
+## 4B. Chore fairness (Phase 3)
+
+The chore module's whole claim is fairness, so the tests are about the
+algorithm, not about CRUD.
+
+| # | Case | Expectation |
+| - | ---- | ----------- |
+| C-01 | Four members, equal start, 20 assignments | The spread between the highest and lowest effort balance never exceeds the largest single chore's weight. |
+| C-02 | The stated failure case — "Daniel 10, Papá 2" | Cannot be produced by the algorithm from an equal start. |
+| C-03 | Two members tied at the lowest balance | Over 1000 runs, each is chosen roughly half the time. A deterministic tie-break silently favours one person forever (FR-M8-07). |
+| C-04 | A chore's `effort_points` changes | Existing assignments keep their frozen weight; only new ones use the new value (INV-D-10). |
+| C-05 | Member absent across a due date | Never assigned that occurrence (INV-D-11). |
+| C-06 | Member returns from a two-week absence | Receives more assignments than the others until balances converge — with **no** effort-debt rows written (FR-M8-13). |
+| C-07 | Guest in the household | Never assigned anything (INV-D-12). |
+| C-08 | New member joins an established household | Starts at the household median, not zero, and is not handed every chore (FR-M8-09). |
+| C-09 | Assignment reassigned and completed by someone else | Effort credits the completer, not the original assignee (FR-M8-11). |
+| C-10 | Effort window boundary | Work completed one day outside the window drops out of the balance. |
+| C-11 | Non-admin creates a chore or changes a weight | `403 forbidden_role` (FR-M8-03). |
+| C-12 | Effort adjustment with no reason | `422`. An unexplained adjustment to a fairness ledger is indistinguishable from favouritism. |
 
 ---
 

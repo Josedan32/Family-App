@@ -29,7 +29,7 @@ CREATE TYPE member_role         AS ENUM ('admin','adult','teen','guest');
 CREATE TYPE member_status       AS ENUM ('active','invited','inactive');
 CREATE TYPE category_kind       AS ENUM ('income','expense');
 CREATE TYPE transaction_kind    AS ENUM ('income','expense');
-CREATE TYPE transaction_source  AS ENUM ('manual','contribution');
+CREATE TYPE transaction_source  AS ENUM ('manual','contribution','household_expense');
 CREATE TYPE savings_entry_kind  AS ENUM ('deposit','withdrawal');
 CREATE TYPE debt_creditor_type  AS ENUM ('bank','family','credit_card','addi','other');
 CREATE TYPE debt_status         AS ENUM ('active','paid','cancelled');
@@ -37,6 +37,9 @@ CREATE TYPE loan_status         AS ENUM ('pending','partially_paid','paid','canc
 CREATE TYPE visibility_module   AS ENUM ('income','expenses','savings','debts');
 CREATE TYPE visibility_level    AS ENUM ('private','summary','public');
 CREATE TYPE period_status       AS ENUM ('open','closed');
+CREATE TYPE expense_funding     AS ENUM ('pot','member');
+CREATE TYPE chore_frequency     AS ENUM ('daily','weekly','biweekly','monthly');
+CREATE TYPE assignment_status   AS ENUM ('pending','done','skipped','reassigned');
 ```
 
 ---
@@ -211,9 +214,22 @@ Index: `(goal_id, occurred_on)`.
 `due_day SMALLINT NULL CHECK (due_day BETWEEN 1 AND 31)` ·
 `status debt_status NOT NULL DEFAULT 'active'` · audit.
 
+Optional installment plan (FR-M2-17): `installments_total SMALLINT NULL CHECK
+(installments_total > 0)` · `installment_amount_minor BIGINT NULL CHECK
+(installment_amount_minor > 0)` · `first_installment_on DATE NULL`.
+
+- `CHECK ((installments_total IS NULL AND installment_amount_minor IS NULL AND first_installment_on IS NULL) OR (installments_total IS NOT NULL AND installment_amount_minor IS NOT NULL AND first_installment_on IS NOT NULL))`
+  — the plan is all-or-nothing. A half-filled schedule computes nothing useful.
+
 Outstanding is derived: `principal_minor - SUM(debt_payments.amount_minor)`
 (FR-M2-11). `status` transitions to `paid` in the service layer when the
 derived outstanding reaches zero.
+
+**Everything about the installment plan is derived too** (FR-M2-18), never
+stored: `installments_paid = floor(paid_total / installment_amount_minor)`,
+`installments_remaining`, `next_installment_on = first_installment_on +
+installments_paid months`, and `is_overdue`. A stored counter drifts the moment
+a payment is edited.
 
 ### `debt_payments`
 
@@ -288,6 +304,7 @@ service layer as payments land.
 | `paid_on` | `DATE NOT NULL` | |
 | `note` | `TEXT NULL` | |
 | `expense_transaction_id` | `UUID NOT NULL UNIQUE REFERENCES transactions ON DELETE RESTRICT` | The mirrored personal expense (FR-M4-05). |
+| `in_kind` | `BOOLEAN NOT NULL DEFAULT false` | True when this came from a member paying a household expense directly (FR-M4-12). Counts toward the period **goal** but never enters the **pot balance** — that money went pocket-to-expense and never arrived (FR-M4-13). |
 
 **The mirroring contract.** Creating a contribution writes the `transactions`
 row and the `contributions` row **in one database transaction**. Deleting one
@@ -322,6 +339,122 @@ another's expense.
 
 ---
 
+## 8B. Household ledger (Phase 1)
+
+### `household_expenses`
+
+| Column | Type | Notes |
+| ------ | ---- | ----- |
+| `id` | `UUID PK` | |
+| `household_id` | `UUID NOT NULL REFERENCES households ON DELETE CASCADE` | |
+| `category_id` | `UUID NOT NULL REFERENCES categories ON DELETE RESTRICT` | Must be an `expense` category. |
+| `amount_minor` | `BIGINT NOT NULL CHECK (amount_minor > 0)` | |
+| `occurred_on` | `DATE NOT NULL` | |
+| `note` | `TEXT NULL` | |
+| `funding` | `expense_funding NOT NULL` | `pot` or `member` (FR-M4-10). |
+| `paid_by_member_id` | `UUID NULL REFERENCES household_members ON DELETE RESTRICT` | Required when `funding = 'member'`. |
+| `expense_transaction_id` | `UUID NULL UNIQUE REFERENCES transactions ON DELETE RESTRICT` | The payer's mirrored personal expense (FR-M4-11). |
+
+- `CHECK ((funding = 'pot' AND paid_by_member_id IS NULL AND expense_transaction_id IS NULL) OR (funding = 'member' AND paid_by_member_id IS NOT NULL AND expense_transaction_id IS NOT NULL))`
+- Index: `(household_id, occurred_on DESC)`
+
+**The in-kind link.** When a `member`-funded expense is marked in kind
+(FR-M4-12), the service also creates a `Contribution` whose
+`expense_transaction_id` points at the **same** transaction this row points at.
+One transaction, referenced from two places, so the member's ledger records the
+money leaving exactly once. Finding the contribution for a household expense is
+a join through the transaction; there is deliberately no second FK to keep in
+sync.
+
+**Pot balance is derived** (FR-M4-13), never a column:
+
+```sql
+SELECT
+  COALESCE((SELECT SUM(amount_minor) FROM contributions
+            WHERE household_id = :h AND in_kind = false), 0)
+- COALESCE((SELECT SUM(amount_minor) FROM household_expenses
+            WHERE household_id = :h AND funding = 'pot'), 0)
+```
+
+---
+
+## 8C. Chores (Phase 3)
+
+### `households` — one added column
+
+`effort_window_days SMALLINT NOT NULL DEFAULT 60 CHECK (effort_window_days BETWEEN 7 AND 365)`
+
+The rolling window over which effort balances are computed (FR-M8-08).
+
+### `chores`
+
+`id` · `household_id` · `name TEXT NOT NULL` · `description TEXT NULL` ·
+`frequency chore_frequency NOT NULL` ·
+`effort_points SMALLINT NOT NULL CHECK (effort_points BETWEEN 1 AND 10)` ·
+`archived_at TIMESTAMPTZ NULL` · audit.
+
+- `UNIQUE (household_id, name)`
+- Seeded defaults (FR-M8-02): Sacar la basura 1, Tender camas 2, Lavar platos 3,
+  Lavar ropa 4, Cocinar 5, Trapear 5, Limpiar baño 7.
+
+### `chore_cycles`
+
+`id` · `household_id` · `starts_on DATE NOT NULL` · `ends_on DATE NOT NULL` ·
+`generated_at TIMESTAMPTZ NOT NULL DEFAULT now()`.
+
+- `UNIQUE (household_id, starts_on)` — a cycle is generated once.
+- `CHECK (ends_on >= starts_on)`
+
+### `chore_assignments`
+
+| Column | Type | Notes |
+| ------ | ---- | ----- |
+| `id` | `UUID PK` | |
+| `household_id` | `UUID NOT NULL` | |
+| `cycle_id` | `UUID NOT NULL REFERENCES chore_cycles ON DELETE CASCADE` | |
+| `chore_id` | `UUID NOT NULL REFERENCES chores ON DELETE RESTRICT` | |
+| `member_id` | `UUID NOT NULL REFERENCES household_members ON DELETE RESTRICT` | Current assignee; changes on reassignment. |
+| `due_on` | `DATE NOT NULL` | |
+| `status` | `assignment_status NOT NULL DEFAULT 'pending'` | |
+| `effort_points` | `SMALLINT NOT NULL` | **Frozen at assignment time** (FR-M8-04). Re-pricing a chore never rewrites history. |
+| `completed_at` | `TIMESTAMPTZ NULL` | |
+| `completed_by_member_id` | `UUID NULL REFERENCES household_members` | Credit follows whoever actually did it (FR-M8-11). |
+
+- `CHECK ((status = 'done') = (completed_at IS NOT NULL))`
+- Index: `(household_id, member_id, due_on)` and `(cycle_id)`
+
+### `member_absences`
+
+`id` · `household_id` · `member_id` · `starts_on DATE NOT NULL` ·
+`ends_on DATE NOT NULL` · `reason TEXT NULL` · audit.
+
+- `CHECK (ends_on >= starts_on)`
+- Index: `(household_id, member_id, starts_on)`
+
+### `effort_adjustments`
+
+`id` · `household_id` · `member_id` · `points INT NOT NULL CHECK (points <> 0)` ·
+`reason TEXT NOT NULL` · `created_by_member_id` · audit.
+
+Manual, attributed, auditable corrections only (FR-M8-14). **Absence
+compensation does NOT write rows here** — it is emergent from the balance rule
+(FR-M8-13), and a table that duplicated that mechanism would be a second source
+of truth for fairness.
+
+**Effort balance is derived:**
+
+```sql
+SELECT COALESCE(SUM(a.effort_points), 0) + COALESCE((
+         SELECT SUM(points) FROM effort_adjustments
+         WHERE member_id = :m AND created_at >= :window_start), 0)
+FROM chore_assignments a
+WHERE a.completed_by_member_id = :m
+  AND a.status = 'done'
+  AND a.completed_at >= :window_start
+```
+
+---
+
 ## 9. Migration order
 
 Alembic revisions, in dependency order. One concern per revision.
@@ -337,6 +470,10 @@ Alembic revisions, in dependency order. One concern per revision.
 9. `contribution_periods`, `contribution_pledges`, `contributions`
 10. `visibility_settings`
 11. `indexes` — the composite read-path indexes listed above
+12. `household_expenses` (+ `contributions.in_kind`) — Phase 1
+13. `debt_installments` — the three optional columns on `debts` — Phase 1
+14. `chores`, `chore_cycles`, `chore_assignments` — Phase 3
+15. `member_absences`, `effort_adjustments`, `households.effort_window_days` — Phase 3
 
 Every revision must have a working `downgrade()`. Every revision is applied and
 rolled back once in CI against an empty database before it is considered done.
@@ -357,3 +494,9 @@ it, each with a named test.
 | INV-D-04 | A transaction's `category_id` belongs to the same household and matches the transaction's `kind`. |
 | INV-D-05 | Invite redemption never pushes `uses` past `max_uses` under concurrency. |
 | INV-D-06 | A derived transaction (`source <> 'manual'`) is never edited or deleted through the transactions API. |
+| INV-D-07 | A `member`-funded household expense and its mirrored personal transaction are created and deleted atomically (FR-M4-11). |
+| INV-D-08 | An in-kind contribution and its household expense reference the **same** transaction; no transaction is mirrored twice. |
+| INV-D-09 | A `pot`-funded expense never drives the pot balance below zero (FR-M4-14), checked under `SELECT ... FOR UPDATE` on the household. |
+| INV-D-10 | A chore assignment's `effort_points` equals the chore's weight **at assignment time**, not its current weight. |
+| INV-D-11 | No member is assigned a chore whose `due_on` falls inside one of their absences. |
+| INV-D-12 | A guest is never assigned a chore. |

@@ -61,9 +61,9 @@ model stays coherent, but only Phase 1 is specified at implementable depth.
 
 | Phase | Modules | Theme |
 | ----- | ------- | ----- |
-| **1** | M1 Household, M2 Personal Finance, M3 Transparency, M4 Household Contribution | The financial spine |
+| **1** | M1 Household, M2 Personal Finance, M3 Transparency, M4 Household Contribution **and Ledger** | The financial spine |
 | 2 | M5 Smart Market, M6 Home Inventory, M7 Purchase Planning | The consumption engine |
-| 3 | M8 Household Chores, M9 Notifications | Operations and reminders |
+| 3 | **M8 Household Chores** (fully specified, §7.4), M9 Notifications | Operations and reminders |
 | 4 | M10 Executive Dashboard (full), AI agent | Insight |
 
 Phase 1 ships with a **reduced dashboard** (financial totals and contribution
@@ -251,6 +251,20 @@ original principal, an optional interest rate, and an optional monthly due day.
 derived as `principal − sum(payments)`. A debt whose outstanding balance
 reaches zero is automatically `paid`.
 
+**FR-M2-17** A debt may optionally carry an **installment plan**: a total
+number of installments, an installment amount, and the date of the first one.
+This is how Addi, credit cards and bank loans are actually experienced by the
+person paying them — not as a balance, but as a payment falling due on a day.
+
+**FR-M2-18** From the installment plan the system derives, and never stores:
+installments paid (`floor(sum(payments) / installment_amount)`), installments
+remaining, the next installment date, and whether it is overdue. A stored
+counter would drift the moment a payment is edited.
+
+**FR-M2-19** A debt without an installment plan is valid and behaves exactly as
+before. The plan is additive: a family loan with no fixed schedule should not
+be forced to invent one.
+
 #### Loans between members
 
 **FR-M2-12** A loan between two household members is **one row** naming a
@@ -316,7 +330,7 @@ household** and are not configurable. See §6.4.
 Spanish, what others currently see about them, including the disclosure
 required by §8.4.
 
-### 6.4 Module 4 — Household contribution
+### 6.4 Module 4 — Household contribution and ledger
 
 **FR-M4-01** An administrator opens a monthly contribution period with a target
 amount. One period per household per calendar month.
@@ -349,6 +363,61 @@ member discovers it by surprise.
 **FR-M4-08** An administrator can close a period. A closed period accepts no
 new contributions and its target cannot be edited.
 
+#### The household ledger
+
+The contribution module collects money. Without this half, that money enters
+the system and vanishes — the household could report `$1.900.000` collected and
+have nowhere to record that `$1.200.000` of it went to rent. A pot with no
+outflow is not an accounting model, it is a jar.
+
+**FR-M4-09** A household has its own expense ledger, separate from every
+member's personal ledger. A household expense records: category, amount, date,
+note, and **how it was funded**.
+
+**FR-M4-10** Funding is one of two cases:
+
+- **`pot`** — paid with money from the common pot. It reduces the pot balance
+  and touches no personal ledger.
+- **`member`** — a member paid it from their own pocket. It records who paid.
+
+**FR-M4-11** A `member`-funded household expense **always writes a mirrored
+expense in that member's personal ledger**, in the same database transaction,
+exactly as FR-M4-05 does for contributions. The money genuinely left their
+pocket; their ledger must say so.
+
+**FR-M4-12** A `member`-funded household expense may be marked **in kind**
+(`en especie`), meaning it counts toward that member's contribution for the
+open period. This is how families actually work — "yo pagué el mercado, eso
+cuenta como mi cuota". Marking it in kind creates a `Contribution` linked to
+the **same** mirrored transaction, so the expense is never double-counted in
+the member's ledger.
+
+**FR-M4-13** The pot balance is derived, never stored:
+
+```
+pot_balance = sum(contributions where NOT in_kind)
+            − sum(household_expenses where funding = 'pot')
+```
+
+An in-kind contribution counts toward the period **goal** but never enters the
+pot, because that money never arrived — it went straight from a member's pocket
+to the expense. Conflating these two would report cash the household does not
+have.
+
+**FR-M4-14** A `pot`-funded expense that would drive the pot balance below zero
+is rejected with `409 insufficient_pot`. A household cannot spend money it has
+not collected, and silently allowing a negative balance would make every later
+figure meaningless.
+
+**FR-M4-15** Household expenses are **always visible to every household
+member**, on the same reasoning as FR-M4-07: this is shared money. There is no
+per-member visibility setting on the household ledger.
+
+**FR-M4-16** The mirrored personal expense created by FR-M4-11 is a **normal
+transaction** and resolves against the paying member's `expenses` visibility
+setting like any other. Same fact, two surfaces, two rules — identical to the
+contribution case in `visibility-rules.md` §5.2.
+
 ### 6.5 Phase 1 dashboard
 
 **FR-D1-01** The dashboard shows, for the current month: household income,
@@ -364,10 +433,14 @@ relationship when every one of their modules is Private.
 
 ---
 
-## 7. Later phases — specified for coherence, not for implementation
+## 7. Later phases
 
-These modules are summarized so Phase 1's data model does not paint them into a
-corner. Each gets its own design document before it is built.
+Most of these are summarized so Phase 1's data model does not paint them into a
+corner, and each gets its own design document before it is built.
+
+**Module 8 (§7.4) is the exception: it is fully specified here**, because its
+fairness algorithm has schema consequences and an implementation plan is being
+written against it.
 
 ### 7.1 Module 5 — Smart market (Phase 2)
 
@@ -391,13 +464,91 @@ purchases from M5 and decremented by the consumption model, correctable by hand.
 A suggested shopping list from predicted depletion plus an estimated cost from
 recent prices.
 
-### 7.4 Module 8 — Household chores (Phase 3)
+### 7.4 Module 8 — Household chores (Phase 3, fully specified)
 
-Recurring chores with daily, weekly, biweekly or monthly frequency, and an
-automatic rotation that **balances cumulative load** rather than merely
-alternating — the stated goal is preventing "Daniel did 10 chores, Papá did 2".
-The fairness algorithm needs its own design; weighting chores by effort and
-handling absences are the real questions.
+The stated goal is preventing *"Daniel hizo 10 tareas, Papá hizo 2"*. That goal
+rules out the two obvious designs: **random assignment permits exactly that
+outcome**, and **fixed round-robin ignores that mopping costs more than taking
+out the rubbish**, so whoever draws the bathroom every cycle is permanently
+worse off. The model below balances accumulated effort instead.
+
+#### Chores
+
+**FR-M8-01** A household defines recurring chores. Each has a name, an optional
+description, a frequency of `daily`, `weekly`, `biweekly` or `monthly`, and an
+**effort weight** from 1 to 10.
+
+**FR-M8-02** Effort is the whole mechanism, so it is set deliberately, not
+guessed. Seeded defaults: Sacar la basura 1, Lavar platos 3, Tender camas 2,
+Trapear 5, Limpiar baño 7, Cocinar 5, Lavar ropa 4.
+
+**FR-M8-03** Only an administrator can create chores or change an effort
+weight, because effort weight is the currency of the fairness system and
+letting anyone re-price their own chore defeats it.
+
+**FR-M8-04** Changing a chore's effort weight never rewrites history.
+Assignments store the weight **as it was when assigned**.
+
+#### Cycles and assignment
+
+**FR-M8-05** The system generates assignments one **cycle** at a time. A cycle
+covers a date range and produces one assignment per due occurrence of each
+active chore.
+
+**FR-M8-06** For each occurrence, the system assigns the chore to the
+**eligible member with the lowest effort balance**. Eligible means: an active
+member, role `admin`, `adult` or `teen`, and not absent on the due date.
+**Guests are never assigned chores.**
+
+**FR-M8-07** Ties are broken **at random**, not alphabetically or by join date.
+A deterministic tie-break silently favours the same person forever.
+
+**FR-M8-08** A member's effort balance is the sum of effort weights of their
+assignments completed within a **rolling window**, plus any manual adjustments.
+The window is a household setting, default **60 days**.
+
+The window matters: an all-time balance means someone who worked hard two years
+ago is still coasting on it today, and the system stops responding to how the
+household actually lives now.
+
+**FR-M8-09** A member who joins an existing household starts at the **median
+balance of the current members**, not at zero. Starting at zero would hand every
+chore in the household to the newest person as a welcome gift.
+
+#### Completion
+
+**FR-M8-10** An assignment is `pending`, `done`, `skipped` or `reassigned`. Only
+the assignee or an administrator may mark it `done`. Completion records the
+timestamp and freezes the effort weight earned.
+
+**FR-M8-11** Any member may **reassign** their own chore to another member who
+accepts it. The effort credit follows the person who actually does it, never
+the person originally assigned.
+
+#### Absences
+
+**FR-M8-12** A member can declare an absence — a date range with an optional
+reason. During it they are ineligible for assignment, and their occurrences go
+to the next-lowest-balance member.
+
+**FR-M8-13** Compensation on return is **automatic and needs no separate debt
+ledger**. An absent member earns no effort while away, so their balance stays
+flat while everyone else's rises; when they return, they are the lowest balance
+and the algorithm assigns them more until they catch up. The fairness the
+household wants falls out of the same rule that produces the assignment.
+
+**FR-M8-14** An administrator can record a **manual effort adjustment** with a
+reason — forgiving a long illness, crediting work the app does not model. It is
+an explicit, attributed, auditable act, never a silent recalculation.
+
+#### Visibility
+
+**FR-M8-15** Chores, assignments and effort balances are **visible to the whole
+household**. There is no per-member visibility setting on chores.
+
+The privacy model exists because money is private. **Housework is not** — its
+entire purpose is being seen and counted, and a private chore ledger could not
+settle the argument the module was built to settle.
 
 ### 7.5 Module 9 — Notifications (Phase 3)
 
@@ -527,6 +678,13 @@ Explicitly excluded from every phase in this document:
 | 8 | Contributions are always household-visible | Shared money; FR-M4-04 is unbuildable otherwise | Making contributions configurable like other modules |
 | 9 | Household totals stay true, derivability disclosed | Suppressing totals breaks the dashboard the product exists for | Suppression below a visibility threshold |
 | 10 | Member loans always visible to both parties | A lender who cannot see their own loan has a worse tool than a notebook | Applying the owner's visibility setting to loans |
+| 11 | The household gets its own expense ledger | Without it the pot collects money that then vanishes from the model; a pot with no outflow is a jar, not an accounting model | Tracking only pot outflows; treating shared expenses as tagged personal expenses |
+| 12 | A member-paid household expense can count as an in-kind contribution | "Yo pagué el mercado, eso cuenta como mi cuota" is how families actually settle up | Forcing every contribution through the pot |
+| 13 | In-kind contributions count toward the goal but never enter the pot balance | That money went pocket-to-expense and never arrived; conflating the two would report cash the household does not have | One combined figure |
+| 14 | Chores balance accumulated effort, weighted per chore | It is the only option that meets the stated goal; random permits "10 vs 2" and round-robin punishes whoever draws the bathroom | Pure random; fixed rotation; random with a cap |
+| 15 | Absence compensation is emergent, not a separate ledger | An absent member earns nothing, so their balance stays flat while others rise and the existing rule assigns them more on return | An explicit effort-debt table |
+| 16 | Chores and effort balances are visible to the whole household | The privacy model exists because money is private; housework's whole purpose is being seen and counted | Applying per-member visibility to chores |
+| 17 | Debt installment plans are optional and derived | Addi and credit cards are experienced as a payment due on a day, not a balance — but a family loan should not be forced to invent a schedule | Mandatory schedules; a stored installments-paid counter |
 
 ---
 
@@ -536,11 +694,19 @@ Non-blocking for Phase 1. Each needs an answer before the phase named.
 
 1. **Phase 2:** How does the consumption model handle its cold start, when a
    product has been purchased exactly once and no rate can be inferred?
-2. **Phase 3:** Should chore fairness weight chores by effort, and how are
-   absences (travel, illness) handled without the rotation punishing the
-   remaining members?
+2. ~~**Phase 3:** Should chore fairness weight chores by effort, and how are
+   absences handled?~~ **Resolved** — see §7.4. Effort weights 1–10, assignment
+   to the lowest rolling-window balance, random tie-break, absence compensation
+   emergent from the balance rule.
 3. **Phase 3:** What is the onboarding for iOS Web Push, given it requires the
    PWA to be added to the Home Screen?
+5. **Phase 1:** Should a `pot`-funded household expense require a second
+   member's approval above some amount? Currently any member may spend from the
+   pot and FR-M4-14 only prevents overdrawing it. Deferred because a
+   four-person household that already trusts each other with a shared account
+   does not obviously need a second signature, and adding one is cheap later.
+6. **Phase 3:** Is the 60-day effort window right? It is a household setting, so
+   this is tunable rather than blocking, but nobody has run it for 60 days yet.
 4. **Phase 4:** Does the AI agent answer only from the asking member's readable
    scope, or may it answer aggregate questions that mix readable and unreadable
    data as long as it emits no unreadable fact? The former is safer and is the

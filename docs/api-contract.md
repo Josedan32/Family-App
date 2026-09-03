@@ -52,6 +52,11 @@ Related: `docs/visibility-rules.md`, `docs/data-model.md`
 | `period_closed` | 409 | FR-M4-08. |
 | `period_exists` | 409 | A period already exists for that month. |
 | `invite_not_found` / `invite_expired` / `invite_exhausted` / `invite_revoked` | 400 | FR-M1-04. |
+| `insufficient_pot` | 409 | FR-M4-14 — a pot-funded expense would overdraw the pot. |
+| `no_open_period` | 409 | An in-kind contribution was requested with no open contribution period. |
+| `immutable_field` | 409 | Amount or funding on an existing household expense. |
+| `cycle_exists` | 409 | A chore cycle already starts on that date. |
+| `duplicate_category` | 409 | Same name and kind already exists in the household. |
 | `validation_error` | 422 | Field-level validation. |
 | `rate_limited` | 429 | Carries `Retry-After`. |
 
@@ -252,3 +257,114 @@ and relationship only (FR-D1-03).
 `household` totals include every member, private ones included (FR-D1-02, §8.4
 of the spec). The client must render the disclosure from `/me/visibility`
 alongside them.
+
+---
+
+## 11. Household ledger
+
+Always visible to every household member (FR-M4-15). No visibility resolution.
+
+| Method | Path | Role | Notes |
+| ------ | ---- | ---- | ----- |
+| `GET` | `/household-expenses?period=&funding=&category_id=` | member | The household's own ledger. |
+| `POST` | `/household-expenses` | member | See below. |
+| `PATCH` | `/household-expenses/{id}` | payer or admin | Category, date and note only. **Amount and funding are immutable** — changing either would silently rewrite the pot balance and, for member-funded rows, someone's personal ledger. Delete and re-create instead. |
+| `DELETE` | `/household-expenses/{id}` | payer or admin | Removes the expense, its mirrored transaction and any in-kind contribution, atomically. |
+| `GET` | `/household-expenses/pot` | member | `{balance_minor, collected_minor, spent_minor, currency}`. All derived (FR-M4-13). |
+
+Create request:
+
+```json
+{
+  "category_id": "...",
+  "amount_minor": 1200000,
+  "occurred_on": "2026-09-03",
+  "note": "Arriendo septiembre",
+  "funding": "pot",
+  "paid_by_member_id": null,
+  "counts_as_contribution": false
+}
+```
+
+- `funding: "pot"` → `paid_by_member_id` must be absent. Rejected with
+  `409 insufficient_pot` if it would overdraw the pot (FR-M4-14).
+- `funding: "member"` → `paid_by_member_id` required, and **must be the
+  caller** unless the caller is an admin. Writes the mirrored personal expense
+  atomically (FR-M4-11).
+- `counts_as_contribution: true` → valid only with `funding: "member"` and an
+  open contribution period. Creates an in-kind `Contribution` pointing at the
+  **same** transaction (FR-M4-12). Rejected with `409 no_open_period` otherwise.
+
+Response includes `expense_transaction_id` and `contribution_id` (null when not
+in kind) so a client can navigate between the three surfaces.
+
+---
+
+## 12. Debt installments
+
+No new endpoints. The three optional fields join the existing debt payloads.
+
+`POST /me/debts` and `PATCH /me/debts/{id}` accept:
+
+```json
+{
+  "installments_total": 12,
+  "installment_amount_minor": 100000,
+  "first_installment_on": "2026-10-15"
+}
+```
+
+All three together or all three absent — `422 validation_error` otherwise
+(FR-M2-17). `DebtResponse` gains four **derived** fields (FR-M2-18):
+
+```json
+{
+  "installments_total": 12,
+  "installments_paid": 2,
+  "installments_remaining": 10,
+  "next_installment_on": "2026-12-15",
+  "next_installment_amount_minor": 100000,
+  "is_overdue": false
+}
+```
+
+They are `null` on a debt with no plan.
+
+---
+
+## 13. Chores (Phase 3)
+
+Visible to the whole household (FR-M8-15). No visibility resolution.
+
+| Method | Path | Role | Notes |
+| ------ | ---- | ---- | ----- |
+| `GET` | `/chores?include_archived=false` | member | |
+| `POST` | `/chores` | **admin** | `{name, description?, frequency, effort_points}`. Effort weight is the currency of fairness, so only admins price it (FR-M8-03). |
+| `PATCH` | `/chores/{id}` | **admin** | Changing `effort_points` never rewrites existing assignments (FR-M8-04). |
+| `DELETE` | `/chores/{id}` | **admin** | Archives. |
+| `POST` | `/chore-cycles` | **admin** | `{starts_on, ends_on}` → generates assignments. `409 cycle_exists` if one already starts that day. |
+| `GET` | `/chore-cycles/current` | member | The cycle covering today, with all its assignments. |
+| `GET` | `/chore-assignments?member_id=&status=&from=&to=` | member | |
+| `POST` | `/chore-assignments/{id}/complete` | assignee or admin | Credits `completed_by_member_id` (FR-M8-10). |
+| `POST` | `/chore-assignments/{id}/reassign` | assignee or admin | `{member_id}`. Credit follows whoever does it (FR-M8-11). |
+| `GET` | `/effort-balances` | member | Every member's balance over the household window. |
+| `GET` \| `POST` \| `DELETE` | `/me/absences`, `/me/absences/{id}` | member | `{starts_on, ends_on, reason?}` (FR-M8-12). |
+| `POST` | `/effort-adjustments` | **admin** | `{member_id, points, reason}`. `reason` is required — an unexplained adjustment to a fairness ledger is indistinguishable from favouritism (FR-M8-14). |
+
+`GET /effort-balances`:
+
+```json
+{
+  "window_days": 60,
+  "window_start": "2026-07-05",
+  "members": [
+    { "member_id": "...", "display_name": "Daniel",
+      "effort_points": 34, "completed_count": 11, "pending_count": 2 },
+    { "member_id": "...", "display_name": "Papá",
+      "effort_points": 31, "completed_count": 7, "pending_count": 1 }
+  ]
+}
+```
+
+`completed_count` is safe to expose here — chores carry no visibility rules, so
+the reasoning in §3.1 that forbids counts in a financial summary does not apply.
