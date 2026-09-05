@@ -68,34 +68,64 @@ Defined as CSS custom properties on `:root`, overridden under
 `@media (prefers-color-scheme: dark)`. Semantic names only — no component may
 reference a raw hex value.
 
+**These names are binding.** They come from the published Hoja de estilo
+(`docs/design-index.md`), not from this document's first draft — an earlier
+version of this file called them `--surface-sunken` and `--brand-contrast`, and
+using those would leave half the interface with no background.
+
 ```css
-:root {
+[data-theme="light"] {
   --bg:            #FAFAF9;
   --surface:       #FFFFFF;
-  --surface-sunken:#F5F5F4;
+  --sunken:        #F5F5F4;
   --border:        #E7E5E4;
   --text:          #1C1917;
   --text-muted:    #78716C;
 
-  --brand:         #0F766E;   /* teal-700 */
-  --brand-contrast:#FFFFFF;
+  --brand:         #0F766E;
+  --brand-pressed: #0B5B55;   /* :active — there is no hover state */
+  --brand-on:      #FFFFFF;
 
-  --income:        #15803D;   /* green-700  */
-  --expense:       #B91C1C;   /* red-700    */
-  --savings:       #1D4ED8;   /* blue-700   */
-  --debt:          #C2410C;   /* orange-700 */
+  --income:        #15803D;
+  --expense:       #B91C1C;
+  --savings:       #1D4ED8;
+  --debt:          #C2410C;
 
   --private:       #78716C;   /* the locked state, deliberately grey */
+  --private-panel: #F5F5F4;
+  --skeleton:      #E7E5E4;
 
   --danger:        #B91C1C;
   --warning:       #A16207;
   --success:       #15803D;
 }
+
+[data-theme="dark"] {
+  --bg:            #1C1917;
+  --surface:       #292524;
+  --sunken:        #211E1B;
+  --border:        #44403C;
+  --text:          #FAFAF9;
+  --text-muted:    #A8A29E;
+
+  --brand:         #2DD4BF;
+  --brand-pressed: #14B8A6;
+  --brand-on:      #10312E;
+
+  --income:        #4ADE80;
+  --expense:       #F87171;
+  --savings:       #60A5FA;
+  --debt:          #FB923C;
+
+  --private:       #A8A29E;
+  --private-panel: #211E1B;
+  --skeleton:      #3B3633;
+}
 ```
 
-Dark mode swaps `--bg` to `#1C1917`, `--surface` to `#292524`, lightens text,
-and shifts the semantic hues two steps lighter (`green-400`, `red-400`,
-`blue-400`, `orange-400`) so they clear AA contrast on the dark surface.
+Note `--sunken` in dark is `#211E1B`, **not** the same value as `--bg`. An
+earlier draft of this file made them identical, which renders every sunken
+panel invisible in dark mode. The design caught it.
 
 **Every pairing must hit WCAG AA 4.5:1 for text and 3:1 for UI boundaries, in
 both schemes.** This is checked, not assumed.
@@ -133,7 +163,8 @@ Without it, columns of amounts visibly jitter and comparison gets harder.
 
 | Rule | Detail |
 | ---- | ------ |
-| Formatting | `Intl.NumberFormat('es-CO', {style:'currency', currency:'COP', maximumFractionDigits:0})` → `$2.000.000`. |
+| Formatting | `Intl.NumberFormat('es-CO', {style:'currency', currency:'COP', maximumFractionDigits:0})` → **`$ 2.000.000`, with the space after the symbol kept.** The design uses it throughout. Do **not** strip whitespace from the formatter's output — an earlier draft of Plan 4's `formatMoney` did exactly that. |
+| Negative | `−$ 890.000` — true minus (U+2212) **before** the symbol, space after it. |
 | Source | The API sends `amount_minor` integers. The client formats. **The client never does arithmetic on money** — totals come from the server, where they are computed in integers. |
 | Input | `inputmode="numeric"`, live thousands grouping as the user types, caret preserved on reformat. No spinner arrows, no `type="number"` (its mobile keyboard and validation are both wrong for currency). |
 | Emphasis | Amounts are the largest text in their row. A transaction row is amount-first in the visual hierarchy, description second. |
@@ -154,12 +185,26 @@ first-class components.
 | `summary` | Resumen | eye-off | `--text-muted` |
 | `public` | Público | eye | `--brand` |
 
-### `<PrivateBlock>`
+### `<PrivateBlock member?>`
 
-Renders where a private module would appear on another member's card. It is a
-muted panel reading **"Privado"** with a lock icon — **not** a blurred number,
-not a skeleton, not a `$—`. A blurred or placeholder figure invites people to
-guess at a magnitude, and a skeleton implies data is loading and will arrive.
+Renders where a private module would appear on another member's card. A muted
+panel on `--private-panel` reading **"Privado"** with a lock icon — **not** a
+blurred number, not a skeleton, not a `$—`. A blurred or placeholder figure
+invites people to guess at a magnitude, and a skeleton implies data is loading
+and will arrive.
+
+**When the owner is known, a second line names them:**
+
+> Privado
+> *Julián decidió no compartir este monto*
+
+That line matters more than it looks. "Privado" alone reads as the app hiding
+something; naming the person reframes it as *their decision, respected* — which
+is exactly what it is, and the difference between a member feeling surveilled
+and a member feeling safe entering real numbers.
+
+The lock icon and the word say the same thing twice on purpose, so colour never
+carries the message alone.
 
 ### The settings screen
 
@@ -209,6 +254,34 @@ caller's perspective — receivable or payable from the same row), `MemberCard`,
 | `/hogar/miembros/[id]` | Another member's finances, rendered at the resolved level |
 | `/ajustes/privacidad` | The visibility settings screen |
 | `/ajustes/perfil` | Own profile |
+
+---
+
+## 9B. Specifics carried over from the published design
+
+Reconciled from the Spec artifact (`docs/design-index.md`). Where these differ
+from the rest of this document, these win — they are what the design actually
+decided.
+
+| Element | Spec |
+| ------- | ---- |
+| Button height | **48 px** actual, against a 44 px minimum touch target. All four variants. |
+| Button states | normal · pressed · disabled. **No hover state exists**, in any variant. |
+| Text inputs | 16 px minimum so Safari does not zoom on focus. |
+| Date input | Native iOS picker, displayed `d/m/aaaa` in `es-CO`. |
+| Money input | Dot grouping, no decimals, numeric keypad. |
+| Transaction rows | The kind carries a glyph **and** a word: `↑ Ingreso`, `↓ Gasto`, `● Deuda`, `◆ Ahorro`. Colour is the third signal, never the first. |
+| Debt rows | Show installment progress inline in the list — `2 sep · 14 de 36` — not only inside the expanded card. **Plan 5 task 10 puts `InstallmentSummary` in `DebtCard` only; the list row needs it too.** |
+| Error state | Two actions, not one: **Reintentar** and **Ver sin conexión**. |
+| Empty state | One sentence plus the action that fills it — e.g. "Todavía no hay movimientos en septiembre." / "Registrar el primero". |
+
+### Visibility levels, in the design's own words
+
+Use this copy on the settings screen and the badges:
+
+- **Privado** — nadie más lo ve.
+- **Resumen** — los demás ven que existe y su efecto en el total, no el detalle.
+- **Público** — lo ve toda la familia.
 
 ---
 
