@@ -431,12 +431,241 @@ app de dinero familiar: debe verse tranquila y confiable, no llamativa.
 
 ---
 
+## Módulos nuevos (libro del hogar, cuotas, tareas)
+
+Siete prompts más, para lo que se agregó al spec el 3 de septiembre. Mismo
+bloque base si abres sesión nueva.
+
+Un cambio transversal antes de empezar: **la barra inferior pasa de cinco
+destinos a seis**, con "Tareas" entre Aportes y Hogar. Seis todavía cabe cómodo
+en un iPhone; siete ya no.
+
+---
+
+### P13 — Libro del hogar
+
+```
+Diseña la pantalla del libro contable del hogar, en /hogar/gastos. Es donde se
+ve en qué se gastó el dinero que la familia recaudó.
+
+Arriba, la tarjeta del pozo común:
+- Etiqueta "Pozo del hogar".
+- Saldo $700.000 como la cifra más grande de la pantalla.
+- Debajo, en letra pequeña y en una sola línea: "Recaudado $1.900.000" y
+  "Gastado $1.200.000".
+
+Luego la lista de gastos del hogar. Cada fila lleva categoría, nota, fecha, y a
+la derecha el monto grande más una etiqueta de quién lo pagó. Dibuja estos tres
+casos, que son visualmente distintos:
+
+1. Otros / "Arriendo septiembre" / 03 sep / $1.200.000 / etiqueta "Del pozo".
+2. Comida / "Mercado de la semana" / 07 sep / $250.000 / etiqueta "Pagó Mamá".
+3. Servicios / "Luz" / 08 sep / $180.000 / etiqueta "Pagó Papá" MÁS una segunda
+   etiqueta en color de marca: "Cuenta como aporte".
+
+Botón flotante para agregar, sobre la barra inferior, con safe area.
+
+Importante: aquí NO existe el bloque "Privado" en ninguna parte. El dinero del
+hogar es compartido y todos ven todo, incluido quién pagó cada cosa. Que la
+pantalla se sienta abierta, sin candados ni zonas veladas — es lo contrario de
+la pantalla de un miembro.
+
+Dibuja también el estado vacío: "Aún no hay gastos del hogar" con el botón que
+lo resuelve.
+```
+
+---
+
+### P14 — Hoja de nuevo gasto del hogar
+
+```
+Diseña la hoja para registrar un gasto del hogar. Sube desde abajo en móvil,
+modal centrado desde 768px.
+
+Encabezado "Nuevo gasto del hogar" con X para cerrar.
+
+Campos, en este orden:
+1. Monto, grande, con "$" y agrupación por puntos. Muestra "$250.000".
+2. Categoría (selector).
+3. Fecha (selector nativo).
+4. Nota (opcional).
+5. Un selector de dos opciones para el fondeo, tipo segmentado, no un
+   desplegable: "Del pozo" | "Lo pagué yo". Es la decisión más importante de la
+   hoja y debe verse de un vistazo cuál está activa.
+6. SOLO cuando está elegido "Lo pagué yo", aparece una casilla:
+   "Que cuente como mi aporte del mes". Debajo, en caption gris:
+   "El dinero salió de tu bolsillo, así que suma a la meta del hogar pero no al
+   pozo."
+
+Dibuja tres estados de la hoja:
+- Con "Del pozo" elegido: la casilla de aporte no existe, y bajo el campo de
+  monto se lee "Disponible en el pozo: $700.000".
+- Con "Lo pagué yo" elegido y la casilla marcada.
+- Un estado de error: "El pozo no alcanza. Saldo disponible: $700.000."
+
+El botón "Guardar" ancho completo, abajo, con padding de safe area.
+```
+
+---
+
+### P15 — Cuotas de créditos
+
+```
+Diseña dos cosas relacionadas con los créditos a cuotas, como Addi o una tarjeta.
+
+Primero, la tarjeta de deuda con plan de cuotas. Sobre la tarjeta que ya existe
+—acreedor, fecha de corte, saldo pendiente en naranja— agrega debajo un bloque
+de cuotas con:
+- "Cuota 2 de 12" a la izquierda.
+- Una barra de progreso delgada, naranja, al 17%.
+- "Próxima: $100.000 · 15 dic" en caption.
+
+Dibuja cuatro variantes de esa tarjeta:
+1. Al día, como arriba. Addi - Celular, saldo $1.000.000.
+2. En mora: la misma, pero con una etiqueta "En mora" en rojo arriba a la
+   derecha y la fecha de la próxima cuota también en rojo.
+3. Plan completado: sin próxima cuota, con "Plan completado" en verde.
+4. Sin plan de cuotas: Tío Jorge, $500.000, sin bloque de cuotas en absoluto.
+   Un préstamo familiar no tiene calendario y la tarjeta no debe inventarle uno
+   ni dejar un hueco donde iría.
+
+Segundo, la sección opcional del formulario de deuda: un bloque plegable
+"Plan de cuotas" con tres campos —número de cuotas, valor de la cuota, fecha de
+la primera— y una nota: "Los tres o ninguno". Muestra el estado de error cuando
+solo se llenaron dos.
+```
+
+---
+
+### P16 — Tareas del hogar
+
+```
+Diseña la pantalla principal de tareas del hogar, en /tareas. Es el módulo que
+existe para que la familia deje de discutir quién hace más, así que el reparto
+del esfuerzo tiene que verse antes que la lista.
+
+Arriba, la tarjeta "Esfuerzo del periodo": una barra horizontal por persona,
+ordenadas de mayor a menor, cada una con nombre, puntos, y debajo en caption
+"X hechas · Y pendientes". Usa:
+- Daniel 34 pts — 11 hechas · 2 pendientes
+- Papá 31 pts — 7 hechas · 1 pendiente
+- Mamá 28 pts — 9 hechas · 0 pendientes
+- Hermano 12 pts — 4 hechas · 3 pendientes
+
+Las barras se escalan contra el más alto, no contra 100: lo que importa es la
+distancia entre personas, no un puntaje absoluto. Que se vea de inmediato que
+Hermano va muy por debajo.
+
+Debajo, "Esta semana" con las tareas pendientes. Cada fila: nombre de la tarea,
+a quién le tocó, fecha, los puntos de esfuerzo ("1 pt", "7 pts"), y un botón
+"Hecha" a la derecha. Usa:
+- Sacar la basura / Daniel / hoy / 1 pt
+- Limpiar baño / Papá / 05 sep / 7 pts
+- Cocinar / Mamá / hoy / 5 pts
+- Trapear / Hermano / 06 sep / 5 pts
+
+Al final, una sección plegada "Hechas" con las completadas en gris.
+
+Los puntos de esfuerzo aparecen en todas partes a propósito: son la moneda del
+sistema y la razón por la que el reparto es justo. No los escondas.
+
+Dibuja también el estado sin ciclo: "No hay un ciclo activo" y, solo para
+administrador, un botón "Generar ciclo".
+```
+
+---
+
+### P17 — Administrar tareas
+
+```
+Diseña la pantalla de administración de tareas, visible solo para el
+administrador.
+
+Lista de tareas del hogar, ordenadas por esfuerzo ascendente. Cada fila:
+nombre, frecuencia, y los puntos de esfuerzo destacados a la derecha. Usa las
+siete que trae el sistema:
+- Sacar la basura — Diaria — 1
+- Tender camas — Diaria — 2
+- Lavar platos — Diaria — 3
+- Lavar ropa — Semanal — 4
+- Cocinar — Diaria — 5
+- Trapear — Semanal — 5
+- Limpiar baño — Semanal — 7
+
+Y una hoja para crear o editar una tarea con: nombre, descripción opcional,
+frecuencia (Diaria / Semanal / Quincenal / Mensual), y un selector de esfuerzo
+de 1 a 10.
+
+Ese selector de esfuerzo merece cuidado: no un campo numérico, sino algo que
+comunique peso relativo. Diez puntos en fila, o un deslizador con etiquetas en
+los extremos ("Rápida" ... "Pesada"). Debajo, una ayuda: "Trapear pesa más que
+sacar la basura. Este número decide a quién le toca."
+
+Muestra el estado deshabilitado que ve un miembro que no es administrador:
+puede ver la lista y los puntos, pero no editarlos. Que se lea como "esto lo
+define el administrador", no como "algo se rompió".
+```
+
+---
+
+### P18 — Ausencias
+
+```
+Diseña la gestión de ausencias, dentro de Ajustes.
+
+Título "Mis ausencias". Bajada: "Mientras estés ausente no se te asignan tareas.
+Al volver, el sistema te asigna más hasta emparejar."
+
+Lista de ausencias registradas, cada una con rango de fechas y motivo opcional,
+más un botón para eliminar. Usa:
+- 01 sep – 14 sep · "Viaje a Medellín"
+- 20 oct – 22 oct · sin motivo
+
+Y una hoja para crear una: fecha de inicio, fecha de fin, motivo opcional. Bajo
+el campo de motivo, en caption: "Opcional. Tu familia ve que no estás; el porqué
+es cosa tuya."
+
+En la pantalla de tareas, dibuja cómo se ve un miembro ausente dentro de la
+tarjeta de esfuerzo: su barra en gris apagado con una etiqueta "Ausente hasta el
+14 sep" en vez de los conteos. No debe parecer que está incumpliendo.
+```
+
+---
+
+### P19 — Actualizaciones a pantallas existentes
+
+```
+Tres ajustes a pantallas que ya diseñaste, para que el sistema quede coherente.
+
+1. Barra inferior: pasa de cinco destinos a seis. El orden es Inicio, Finanzas,
+   Aportes, Tareas, Hogar, Ajustes. Redibújala con los seis y confirma que las
+   etiquetas siguen legibles a 375px de ancho sin cortarse. En escritorio, el
+   mismo cambio en el sidebar.
+
+2. Pantalla de Inicio: agrega bajo la tarjeta de aportes una fila compacta con
+   el pozo del hogar — "Pozo: $700.000" — enlazada al libro del hogar. Es una
+   sola línea, no una tarjeta nueva: el Inicio ya está cargado y esto es un
+   dato de paso, no un destino.
+
+3. Pantalla de Hogar: agrega dos accesos, uno a "Gastos del hogar" y otro a
+   "Administrar tareas" (este último solo para administrador), como filas de
+   navegación bajo la lista de miembros.
+
+Mantén todo lo demás igual. Muéstrame solo lo que cambia, en claro y oscuro.
+```
+
+---
+
 ## Orden sugerido
 
 P0 primero, siempre. Después P3 (Inicio) y P10 (Privacidad): son las dos
 pantallas que definen el carácter del producto, y lo que salga ahí condiciona
 todo lo demás. Luego P4, P5, P7 (el uso diario), después P1, P2, P8, P9, P11, y
 P12 al final.
+
+Para los módulos nuevos: P16 (Tareas) antes que P17 y P18, porque la tarjeta de
+esfuerzo define cómo se lee todo el módulo. P13 antes que P14. P19 al final de
+todo, cuando ya existan las pantallas que actualiza.
 
 Si algo de lo que te devuelva Claude Design contradice `docs/design-system.md`,
 gana el documento — está escrito contra los problemas reales de Safari en iOS,
