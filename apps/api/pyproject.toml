@@ -13,6 +13,7 @@ dependencies = [
     "pyjwt>=2.10",
     "argon2-cffi>=23.1",
     "uuid6>=2024.7.10",
+    "email-validator>=2.2",
 ]
 
 [project.optional-dependencies]

@@ -60,3 +60,10 @@ def make_user(db_session: AsyncSession):
         return user
 
     return _make
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limits() -> None:
+    from family_api.ratelimit import reset_rate_limits
+
+    reset_rate_limits()
