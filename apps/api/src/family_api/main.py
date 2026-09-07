@@ -24,6 +24,7 @@ def create_app() -> FastAPI:
     register_error_handlers(app)
     app.include_router(health.router, prefix=API_PREFIX)
     app.include_router(auth.router, prefix=API_PREFIX)
+    app.include_router(auth.me_router, prefix=API_PREFIX)
     app.include_router(households.router, prefix=API_PREFIX)
     return app
 

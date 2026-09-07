@@ -34,3 +34,9 @@ class UserResponse(BaseModel):
     photo_url: str | None
     birth_date: date | None
     age: int | None
+
+
+class UpdateProfileRequest(BaseModel):
+    display_name: str | None = Field(default=None, min_length=1, max_length=120)
+    photo_url: str | None = None
+    birth_date: date | None = None
