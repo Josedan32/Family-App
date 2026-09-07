@@ -1,18 +1,20 @@
 from typing import Annotated
 from uuid import UUID as UUIDType
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from family_api.config import get_settings
 from family_api.db.models.household import Household, HouseholdMember
 from family_api.db.models.user import User
 from family_api.db.session import get_session
 from family_api.errors import NotFoundError
+from family_api.ratelimit import check_rate_limit
 from family_api.schemas.household import (
     CreateHouseholdRequest, HouseholdDetailResponse, HouseholdResponse,
 )
-from family_api.schemas.invite import CreateInviteRequest, InviteResponse
+from family_api.schemas.invite import CreateInviteRequest, InviteResponse, JoinHouseholdRequest
 from family_api.schemas.member import MemberResponse
 from family_api.security.deps import CurrentUser
 from family_api.services import households as household_service
@@ -88,3 +90,21 @@ async def revoke_invite(
 ) -> None:
     await invite_service.revoke_invite(session, member, invite_id)
     await session.commit()
+
+
+@router.post("/join", status_code=status.HTTP_201_CREATED)
+async def join(
+    body: JoinHouseholdRequest, user: CurrentUser, session: SessionDep, request: Request
+) -> HouseholdResponse:
+    # The household's front door. Rate limited hard.
+    client_host = request.client.host if request.client else "unknown"
+    check_rate_limit(f"join:{client_host}", get_settings().rate_limit_invite_per_hour, 3600)
+
+    member = await invite_service.redeem_invite(session, user, body.code)
+    household = await session.get(Household, member.household_id)
+    assert household is not None
+    await session.commit()
+    return HouseholdResponse(
+        id=household.id, name=household.name, currency=household.currency,
+        timezone=household.timezone, my_role=member.role,
+    )
