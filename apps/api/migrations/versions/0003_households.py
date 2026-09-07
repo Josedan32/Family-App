@@ -4,8 +4,8 @@ Revision ID: 0003_households
 Revises: 0002_users
 """
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import postgresql
 
 revision = "0003_households"

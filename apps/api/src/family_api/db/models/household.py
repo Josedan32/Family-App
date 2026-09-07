@@ -2,9 +2,17 @@ from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import (
-    CheckConstraint, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
 )
-from sqlalchemy.dialects.postgresql import ENUM as PgEnum, UUID as PgUUID
+from sqlalchemy.dialects.postgresql import ENUM as PgEnum
+from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from family_api.db.base import Base, TimestampMixin

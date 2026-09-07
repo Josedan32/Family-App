@@ -2,7 +2,8 @@ from datetime import date, datetime
 from uuid import UUID
 
 from sqlalchemy import Date, DateTime, ForeignKey, String, Text
-from sqlalchemy.dialects.postgresql import CITEXT, UUID as PgUUID
+from sqlalchemy.dialects.postgresql import CITEXT
+from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from family_api.db.base import Base, TimestampMixin
