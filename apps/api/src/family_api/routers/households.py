@@ -15,10 +15,11 @@ from family_api.schemas.household import (
     CreateHouseholdRequest, HouseholdDetailResponse, HouseholdResponse,
 )
 from family_api.schemas.invite import CreateInviteRequest, InviteResponse, JoinHouseholdRequest
-from family_api.schemas.member import MemberResponse
+from family_api.schemas.member import MemberResponse, UpdateMemberRequest
 from family_api.security.deps import CurrentUser
 from family_api.services import households as household_service
 from family_api.services import invites as invite_service
+from family_api.services import members as member_service
 from family_api.services.members import CurrentMember, derive_age
 
 router = APIRouter(prefix="/households", tags=["households"])
@@ -108,3 +109,31 @@ async def join(
         id=household.id, name=household.name, currency=household.currency,
         timezone=household.timezone, my_role=member.role,
     )
+
+
+@router.patch("/current/members/{member_id}")
+async def update_member(
+    member_id: UUIDType,
+    body: UpdateMemberRequest,
+    member: CurrentMember,
+    session: SessionDep,
+) -> MemberResponse:
+    updated = await member_service.update_member(
+        session, member, member_id, body.role, body.relationship
+    )
+    user = await session.get(User, updated.user_id)
+    assert user is not None
+    await session.commit()
+    return MemberResponse(
+        id=updated.id, display_name=user.display_name, photo_url=user.photo_url,
+        relationship=updated.relationship, role=updated.role, status=updated.status,
+        age=derive_age(user.birth_date),
+    )
+
+
+@router.delete("/current/members/{member_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def deactivate_member(
+    member_id: UUIDType, member: CurrentMember, session: SessionDep
+) -> None:
+    await member_service.deactivate_member(session, member, member_id)
+    await session.commit()
