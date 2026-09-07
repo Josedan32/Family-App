@@ -159,7 +159,11 @@ RATE_LIMIT_AUTH_PER_MINUTE=10
 RATE_LIMIT_INVITE_PER_HOUR=20
 DEFAULT_CURRENCY=COP
 DEFAULT_TIMEZONE=America/Bogota
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8001/api/v1
 ```
+
+Port 8001, not the uvicorn default 8000 — 8000 is occupied by Docker Desktop on
+this machine.
 
 - [ ] **Step 4: Create `apps/api/pyproject.toml`**
 
@@ -322,34 +326,61 @@ Create empty `apps/api/src/family_api/__init__.py` and `apps/api/src/family_api/
 
 - [ ] **Step 9: Create the Makefile**
 
+`make` is not installed on this machine and will not be installed. This
+Makefile is kept as living documentation of the command set; run the raw
+command shown next to each target directly instead of through `make`.
+
+Port 8001, not uvicorn's default 8000 — 8000 is occupied by Docker Desktop on
+this machine.
+
 ```makefile
 .PHONY: db api-dev web-dev test migrate seed lint
 
+# Raw: docker compose up -d db
 db:
 	docker compose up -d db
 
+# Raw: cd apps/api && uvicorn family_api.main:app --reload --port 8001
 api-dev:
-	cd apps/api && uvicorn family_api.main:app --reload
+	cd apps/api && uvicorn family_api.main:app --reload --port 8001
 
+# Raw: cd apps/api && pytest -v
 test:
 	cd apps/api && pytest -v
 
+# Raw: cd apps/api && alembic upgrade head
 migrate:
 	cd apps/api && alembic upgrade head
 
+# Raw: cd apps/api && python scripts/seed.py
 seed:
 	cd apps/api && python scripts/seed.py
 
+# Raw: cd apps/api && ruff check . && mypy src
 lint:
 	cd apps/api && ruff check . && mypy src
 ```
 
-- [ ] **Step 10: Run the test to verify it passes**
+- [ ] **Step 10: Create and activate the virtual environment**
+
+The `python` on PATH resolves to 3.10, which is too old — this plan requires
+3.12+. This machine has 3.13.7 installed, so target it explicitly with the
+`py` launcher rather than relying on whatever `python` happens to resolve to.
+
+```powershell
+cd apps/api
+py -3.13 -m venv .venv
+.venv\Scripts\Activate.ps1
+```
+
+Confirm the active interpreter is 3.13 before continuing: `python --version`.
+
+- [ ] **Step 11: Run the test to verify it passes**
 
 Run: `cd apps/api && cp ../../.env.example .env && pip install -e ".[dev]" && pytest tests/integration/test_health.py -v`
 Expected: PASS
 
-- [ ] **Step 11: Commit**
+- [ ] **Step 12: Commit**
 
 ```bash
 git add .gitattributes docker-compose.yml Makefile .env.example apps/api
@@ -3675,7 +3706,8 @@ Create `apps/api/scripts/seed.py`:
 ```python
 """Build the Familia Hernández demo household from spec §1.1.
 
-Run with `make seed`. Idempotent: it does nothing if the household exists.
+Run with `make seed` (`cd apps/api && python scripts/seed.py`). Idempotent: it
+does nothing if the household exists.
 """
 
 import asyncio
@@ -3792,7 +3824,10 @@ Expected: both succeed.
 - [ ] **Step 7: Verify the seed against a real database**
 
 Run: `make db && make migrate && make seed`
-Expected: prints the seeded confirmation. Then `make api-dev` and confirm `GET /api/v1/health` returns `{"status": "ok"}`.
+(`docker compose up -d db && cd apps/api && alembic upgrade head && python scripts/seed.py`)
+Expected: prints the seeded confirmation. Then `make api-dev`
+(`cd apps/api && uvicorn family_api.main:app --reload --port 8001`) and
+confirm `GET http://localhost:8001/api/v1/health` returns `{"status": "ok"}`.
 
 - [ ] **Step 8: Commit**
 
