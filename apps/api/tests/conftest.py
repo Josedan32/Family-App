@@ -10,10 +10,7 @@ from family_api.db.models.user import User
 from family_api.db.session import engine_for, get_session, session_factory_for
 from family_api.ids import new_id
 from family_api.main import create_app
-
-# TODO(task 6): replace with family_api.security.passwords.hash_password
-def hash_password(plain: str) -> str:
-    return plain
+from family_api.security.passwords import hash_password
 
 
 @pytest_asyncio.fixture
