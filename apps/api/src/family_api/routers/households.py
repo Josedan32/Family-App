@@ -1,4 +1,5 @@
 from typing import Annotated
+from uuid import UUID as UUIDType
 
 from fastapi import APIRouter, Depends, status
 from sqlalchemy import select
@@ -11,9 +12,11 @@ from family_api.errors import NotFoundError
 from family_api.schemas.household import (
     CreateHouseholdRequest, HouseholdDetailResponse, HouseholdResponse,
 )
+from family_api.schemas.invite import CreateInviteRequest, InviteResponse
 from family_api.schemas.member import MemberResponse
 from family_api.security.deps import CurrentUser
 from family_api.services import households as household_service
+from family_api.services import invites as invite_service
 from family_api.services.members import CurrentMember, derive_age
 
 router = APIRouter(prefix="/households", tags=["households"])
@@ -60,3 +63,28 @@ async def current(member: CurrentMember, session: SessionDep) -> HouseholdDetail
             for m, u in rows
         ],
     )
+
+
+@router.post("/current/invites", status_code=status.HTTP_201_CREATED)
+async def create_invite(
+    body: CreateInviteRequest, member: CurrentMember, session: SessionDep
+) -> InviteResponse:
+    invite = await invite_service.issue_invite(
+        session, member, body.role_granted, body.expires_in_days, body.max_uses
+    )
+    await session.commit()
+    return InviteResponse.model_validate(invite, from_attributes=True)
+
+
+@router.get("/current/invites")
+async def list_invites(member: CurrentMember, session: SessionDep) -> list[InviteResponse]:
+    rows = await invite_service.list_invites(session, member)
+    return [InviteResponse.model_validate(r, from_attributes=True) for r in rows]
+
+
+@router.delete("/current/invites/{invite_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def revoke_invite(
+    invite_id: UUIDType, member: CurrentMember, session: SessionDep
+) -> None:
+    await invite_service.revoke_invite(session, member, invite_id)
+    await session.commit()
