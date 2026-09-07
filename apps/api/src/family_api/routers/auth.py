@@ -1,4 +1,3 @@
-from datetime import date, datetime, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request, status
@@ -16,6 +15,7 @@ from family_api.schemas.auth import (
 )
 from family_api.security.deps import CurrentUser
 from family_api.services import auth as auth_service
+from family_api.services.members import derive_age
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
@@ -25,17 +25,6 @@ def _limit_auth(request: Request) -> None:
     settings = get_settings()
     client = request.client.host if request.client else "unknown"
     check_rate_limit(f"auth:{client}", settings.rate_limit_auth_per_minute, 60)
-
-
-def _derive_age(birth_date: date | None) -> int | None:
-    """Inlined pending Task 9's services.members.derive_age (FR-M1-06)."""
-    if birth_date is None:
-        return None
-    today = datetime.now(timezone.utc).date()
-    years = today.year - birth_date.year
-    if (today.month, today.day) < (birth_date.month, birth_date.day):
-        years -= 1
-    return years
 
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
@@ -77,5 +66,5 @@ async def me(user: CurrentUser) -> UserResponse:
         display_name=user.display_name,
         photo_url=user.photo_url,
         birth_date=user.birth_date,
-        age=_derive_age(user.birth_date),
+        age=derive_age(user.birth_date),
     )
