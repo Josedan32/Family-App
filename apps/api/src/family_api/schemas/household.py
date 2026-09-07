@@ -21,3 +21,10 @@ class HouseholdResponse(BaseModel):
 
 class HouseholdDetailResponse(HouseholdResponse):
     members: list[MemberResponse]
+
+
+class UpdateHouseholdRequest(BaseModel):
+    """Currency is deliberately absent: it is immutable after creation."""
+
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    timezone: str | None = None

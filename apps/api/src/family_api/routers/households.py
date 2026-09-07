@@ -15,6 +15,7 @@ from family_api.schemas.household import (
     CreateHouseholdRequest,
     HouseholdDetailResponse,
     HouseholdResponse,
+    UpdateHouseholdRequest,
 )
 from family_api.schemas.invite import CreateInviteRequest, InviteResponse, JoinHouseholdRequest
 from family_api.schemas.member import MemberResponse, UpdateMemberRequest
@@ -22,7 +23,7 @@ from family_api.security.deps import CurrentUser
 from family_api.services import households as household_service
 from family_api.services import invites as invite_service
 from family_api.services import members as member_service
-from family_api.services.members import CurrentMember, derive_age
+from family_api.services.members import CurrentMember, derive_age, require_admin
 
 router = APIRouter(prefix="/households", tags=["households"])
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
@@ -67,6 +68,25 @@ async def current(member: CurrentMember, session: SessionDep) -> HouseholdDetail
             )
             for m, u in rows
         ],
+    )
+
+
+@router.patch("/current")
+async def update_household(
+    body: UpdateHouseholdRequest, member: CurrentMember, session: SessionDep
+) -> HouseholdResponse:
+    require_admin(member)
+    household = await session.get(Household, member.household_id)
+    if household is None:
+        raise NotFoundError
+    if body.name is not None:
+        household.name = body.name
+    if body.timezone is not None:
+        household.timezone = body.timezone
+    await session.commit()
+    return HouseholdResponse(
+        id=household.id, name=household.name, currency=household.currency,
+        timezone=household.timezone, my_role=member.role,
     )
 
 
