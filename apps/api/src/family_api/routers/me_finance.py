@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from family_api.db.models.household import Household
 from family_api.db.session import get_session
 from family_api.periods import parse_period
+from family_api.schemas.debt import CreateDebtPaymentRequest, CreateDebtRequest, DebtResponse
 from family_api.schemas.savings import CreateEntryRequest, CreateGoalRequest, SavingsGoalResponse
 from family_api.schemas.transaction import (
     CreateTransactionRequest,
@@ -14,6 +15,7 @@ from family_api.schemas.transaction import (
     TransactionResponse,
     UpdateTransactionRequest,
 )
+from family_api.services import debts as debt_service
 from family_api.services import savings as savings_service
 from family_api.services import transactions as transaction_service
 from family_api.services.members import CurrentMember
@@ -171,5 +173,61 @@ async def add_entry(
         id=goal.id, name=goal.name, target_amount_minor=goal.target_amount_minor,
         target_date=goal.target_date, balance_minor=balance,
         progress=savings_service.progress(balance, goal.target_amount_minor),
+        currency=await _currency(session, member.household_id),
+    )
+
+
+@router.get("/debts")
+async def list_debts(member: CurrentMember, session: SessionDep) -> list[DebtResponse]:
+    currency = await _currency(session, member.household_id)
+    rows = await debt_service.list_debts_with_outstanding(session, member.id)
+    return [
+        DebtResponse(
+            id=d.id, creditor_type=d.creditor_type, creditor_label=d.creditor_label,
+            principal_minor=d.principal_minor, outstanding_minor=out,
+            annual_interest_rate=float(d.annual_interest_rate)
+            if d.annual_interest_rate is not None else None,
+            due_day=d.due_day, status=d.status, currency=currency,
+        )
+        for d, out in rows
+    ]
+
+
+@router.post("/debts", status_code=status.HTTP_201_CREATED)
+async def create_debt(
+    body: CreateDebtRequest, member: CurrentMember, session: SessionDep
+) -> DebtResponse:
+    debt = await debt_service.create_debt(
+        session, member, body.creditor_type, body.creditor_label,
+        body.principal_minor, body.annual_interest_rate, body.due_day,
+    )
+    await session.commit()
+    return DebtResponse(
+        id=debt.id, creditor_type=debt.creditor_type, creditor_label=debt.creditor_label,
+        principal_minor=debt.principal_minor, outstanding_minor=debt.principal_minor,
+        annual_interest_rate=body.annual_interest_rate, due_day=debt.due_day,
+        status=debt.status, currency=await _currency(session, member.household_id),
+    )
+
+
+@router.post("/debts/{debt_id}/payments", status_code=status.HTTP_201_CREATED)
+async def add_debt_payment(
+    debt_id: UUID,
+    body: CreateDebtPaymentRequest,
+    member: CurrentMember,
+    session: SessionDep,
+) -> DebtResponse:
+    await debt_service.add_payment(
+        session, member, debt_id, body.amount_minor, body.paid_on, body.note
+    )
+    await session.commit()
+    rows = await debt_service.list_debts_with_outstanding(session, member.id)
+    debt, outstanding = next((d, o) for d, o in rows if d.id == debt_id)
+    return DebtResponse(
+        id=debt.id, creditor_type=debt.creditor_type, creditor_label=debt.creditor_label,
+        principal_minor=debt.principal_minor, outstanding_minor=outstanding,
+        annual_interest_rate=float(debt.annual_interest_rate)
+        if debt.annual_interest_rate is not None else None,
+        due_day=debt.due_day, status=debt.status,
         currency=await _currency(session, member.household_id),
     )
