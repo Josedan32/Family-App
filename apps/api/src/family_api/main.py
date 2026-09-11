@@ -6,6 +6,7 @@ from family_api.errors import register_error_handlers
 from family_api.routers import (
     auth,
     categories,
+    contributions,
     health,
     households,
     loans,
@@ -40,6 +41,7 @@ def create_app() -> FastAPI:
     app.include_router(loans.router, prefix=API_PREFIX)
     app.include_router(visibility.router, prefix=API_PREFIX)
     app.include_router(member_finance.router, prefix=API_PREFIX)
+    app.include_router(contributions.router, prefix=API_PREFIX)
     return app
 
 
