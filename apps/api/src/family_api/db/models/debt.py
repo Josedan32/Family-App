@@ -38,6 +38,21 @@ class Debt(Base, TimestampMixin):
         CheckConstraint(
             "due_day IS NULL OR (due_day BETWEEN 1 AND 31)", name="ck_debt_due_day"
         ),
+        CheckConstraint(
+            "installments_total IS NULL AND installment_amount_minor IS NULL "
+            "AND first_installment_on IS NULL "
+            "OR installments_total IS NOT NULL AND installment_amount_minor IS NOT NULL "
+            "AND first_installment_on IS NOT NULL",
+            name="ck_debt_installment_plan_complete",
+        ),
+        CheckConstraint(
+            "installments_total IS NULL OR installments_total > 0",
+            name="ck_debt_installments_positive",
+        ),
+        CheckConstraint(
+            "installment_amount_minor IS NULL OR installment_amount_minor > 0",
+            name="ck_debt_installment_amount_positive",
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True)
@@ -55,6 +70,9 @@ class Debt(Base, TimestampMixin):
     annual_interest_rate: Mapped[float | None] = mapped_column(Numeric(5, 2), nullable=True)
     due_day: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
     status: Mapped[str] = mapped_column(debt_status, nullable=False, server_default="active")
+    installments_total: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
+    installment_amount_minor: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    first_installment_on: Mapped[date | None] = mapped_column(Date, nullable=True)
 
 
 class DebtPayment(Base, TimestampMixin):
