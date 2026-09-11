@@ -7,12 +7,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from family_api.db.models.household import Household
 from family_api.db.session import get_session
 from family_api.periods import parse_period
+from family_api.schemas.savings import CreateEntryRequest, CreateGoalRequest, SavingsGoalResponse
 from family_api.schemas.transaction import (
     CreateTransactionRequest,
     TransactionListResponse,
     TransactionResponse,
     UpdateTransactionRequest,
 )
+from family_api.services import savings as savings_service
 from family_api.services import transactions as transaction_service
 from family_api.services.members import CurrentMember
 from family_api.services.transactions import CategoryKindMismatchError
@@ -123,3 +125,51 @@ async def delete_transaction(
 ) -> None:
     await transaction_service.delete_transaction(session, member, transaction_id)
     await session.commit()
+
+
+@router.get("/savings-goals")
+async def list_goals(member: CurrentMember, session: SessionDep) -> list[SavingsGoalResponse]:
+    currency = await _currency(session, member.household_id)
+    rows = await savings_service.list_goals_with_balances(session, member.id)
+    return [
+        SavingsGoalResponse(
+            id=g.id, name=g.name, target_amount_minor=g.target_amount_minor,
+            target_date=g.target_date, balance_minor=balance,
+            progress=savings_service.progress(balance, g.target_amount_minor),
+            currency=currency,
+        )
+        for g, balance in rows
+    ]
+
+
+@router.post("/savings-goals", status_code=status.HTTP_201_CREATED)
+async def create_goal(
+    body: CreateGoalRequest, member: CurrentMember, session: SessionDep
+) -> SavingsGoalResponse:
+    goal = await savings_service.create_goal(
+        session, member, body.name, body.target_amount_minor, body.target_date
+    )
+    await session.commit()
+    return SavingsGoalResponse(
+        id=goal.id, name=goal.name, target_amount_minor=goal.target_amount_minor,
+        target_date=goal.target_date, balance_minor=0, progress=0.0,
+        currency=await _currency(session, member.household_id),
+    )
+
+
+@router.post("/savings-goals/{goal_id}/entries", status_code=status.HTTP_201_CREATED)
+async def add_entry(
+    goal_id: UUID, body: CreateEntryRequest, member: CurrentMember, session: SessionDep
+) -> SavingsGoalResponse:
+    await savings_service.add_entry(
+        session, member, goal_id, body.kind, body.amount_minor, body.occurred_on, body.note
+    )
+    await session.commit()
+    rows = await savings_service.list_goals_with_balances(session, member.id)
+    goal, balance = next((g, b) for g, b in rows if g.id == goal_id)
+    return SavingsGoalResponse(
+        id=goal.id, name=goal.name, target_amount_minor=goal.target_amount_minor,
+        target_date=goal.target_date, balance_minor=balance,
+        progress=savings_service.progress(balance, goal.target_amount_minor),
+        currency=await _currency(session, member.household_id),
+    )
