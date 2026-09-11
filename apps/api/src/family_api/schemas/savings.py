@@ -26,3 +26,10 @@ class SavingsGoalResponse(BaseModel):
     balance_minor: int
     progress: float
     currency: str
+
+
+class SavingsSummaryResponse(BaseModel):
+    """Total balance across all goals. No goal names, no goal count."""
+
+    total_balance_minor: int
+    currency: str

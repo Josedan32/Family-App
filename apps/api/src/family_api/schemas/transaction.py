@@ -35,3 +35,16 @@ class TransactionResponse(BaseModel):
 class TransactionListResponse(BaseModel):
     items: list[TransactionResponse]
     next_cursor: str | None
+
+
+class MoneyTotalResponse(BaseModel):
+    """A summary is exactly one number plus the period it covers.
+
+    docs/visibility-rules.md §3.1: no counts, no breakdowns, no statistics, no
+    dates beyond the period bounds, no pagination metadata. Adding a field to
+    this model is a security change — read that section first.
+    """
+
+    period: str
+    total_minor: int
+    currency: str

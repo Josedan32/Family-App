@@ -29,3 +29,10 @@ class DebtResponse(BaseModel):
     due_day: int | None
     status: str
     currency: str
+
+
+class DebtSummaryResponse(BaseModel):
+    """Total outstanding. No creditor names, no creditor types, no count."""
+
+    total_outstanding_minor: int
+    currency: str
