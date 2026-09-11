@@ -9,6 +9,7 @@ from family_api.db.models.loan import MemberLoan, MemberLoanPayment
 from family_api.errors import ForbiddenRoleError, NotFoundError
 from family_api.ids import new_id
 from family_api.services.debts import OverpaymentError
+from family_api.services.visibility import Level, resolve
 
 
 async def _assert_party_is_valid(
@@ -144,3 +145,41 @@ async def cancel_loan(
         raise ForbiddenRoleError
     loan.status = "cancelled"
     await session.flush()
+
+
+async def list_household_loans(
+    session: AsyncSession, viewer: HouseholdMember
+) -> list[tuple[MemberLoan, int]]:
+    """Every loan in the household the viewer may see.
+
+    docs/visibility-rules.md §5.1:
+      - A party to the loan always sees it (FR-M2-16), whatever the settings.
+      - Anyone else resolves it against the BORROWER's `debts` setting,
+        because a loan is a debt and the borrower is the exposed party.
+    """
+    stmt = (
+        select(
+            MemberLoan,
+            MemberLoan.amount_minor
+            - func.coalesce(func.sum(MemberLoanPayment.amount_minor), 0),
+        )
+        .outerjoin(MemberLoanPayment, MemberLoanPayment.loan_id == MemberLoan.id)
+        .where(MemberLoan.household_id == viewer.household_id)
+        .group_by(MemberLoan.id)
+        .order_by(MemberLoan.lent_on.desc())
+    )
+    rows = [(loan, int(out or 0)) for loan, out in (await session.execute(stmt)).all()]
+
+    visible: list[tuple[MemberLoan, int]] = []
+    for loan, outstanding in rows:
+        if viewer.id in (loan.lender_member_id, loan.borrower_member_id):
+            visible.append((loan, outstanding))
+            continue
+
+        borrower = await session.get(HouseholdMember, loan.borrower_member_id)
+        if borrower is None:
+            continue
+        if await resolve(session, viewer, borrower, "debts") is not Level.NONE:
+            visible.append((loan, outstanding))
+
+    return visible

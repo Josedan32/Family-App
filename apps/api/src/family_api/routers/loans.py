@@ -43,7 +43,11 @@ async def _render(
         amount_minor=loan.amount_minor, outstanding_minor=outstanding,
         currency=household.currency, lent_on=loan.lent_on, due_on=loan.due_on,
         status=loan.status, note=loan.note,
-        perspective="lender" if loan.lender_member_id == member.id else "borrower",
+        perspective=(
+            "lender" if loan.lender_member_id == member.id
+            else "borrower" if loan.borrower_member_id == member.id
+            else "observer"
+        ),
     )
 
 
@@ -52,8 +56,14 @@ async def list_loans(
     member: CurrentMember,
     session: SessionDep,
     role: Literal["lender", "borrower", "all"] = "all",
+    scope: Literal["mine", "household"] = "mine",
 ) -> list[LoanResponse]:
-    rows = await loan_service.list_loans(session, member, role)
+    """`scope=mine` returns loans the caller is party to (FR-M2-16).
+    `scope=household` adds third-party loans the caller may see (§5.1)."""
+    if scope == "household":
+        rows = await loan_service.list_household_loans(session, member)
+    else:
+        rows = await loan_service.list_loans(session, member, role)
     return [await _render(session, member, loan, out) for loan, out in rows]
 
 
