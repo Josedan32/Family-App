@@ -5,19 +5,29 @@ does nothing if the household exists.
 """
 
 import asyncio
+from datetime import date
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from family_api.db.models.contribution import ContributionPeriod, ContributionPledge
 from family_api.db.models.household import Household, HouseholdMember
 from family_api.db.models.seeded import VisibilitySetting
 from family_api.db.models.user import User
 from family_api.db.session import get_session_factory
 from family_api.ids import new_id
 from family_api.security.passwords import hash_password
+from family_api.services.contributions import record_contribution
 from family_api.services.households import create_household, seed_visibility
 
 DEMO_PASSWORD = "correct-horse-battery"
+
+# Spec §6.4: meta $2.000.000, recaudado $1.900.000, 95%.
+CONTRIBUTIONS = {
+    "Papá": (1_000_000, 1_000_000),   # (pledged, contributed)
+    "Mamá": (600_000, 600_000),
+    "Daniel": (400_000, 300_000),
+}
 
 MEMBERS = [
     ("papa@example.com", "Papá", "adult", "Padre"),
@@ -83,6 +93,40 @@ async def seed_demo_household(session: AsyncSession) -> None:
                 )
                 .values(level=level)
             )
+
+    period = ContributionPeriod(
+        id=new_id(), household_id=household.id,
+        period_month=date.today().replace(day=1),
+        goal_amount_minor=2_000_000, status="open",
+    )
+    session.add(period)
+    await session.flush()
+
+    all_members = (
+        await session.execute(
+            select(HouseholdMember, User)
+            .join(User, User.id == HouseholdMember.user_id)
+            .where(HouseholdMember.household_id == household.id)
+        )
+    ).all()
+
+    for seeded_member, seeded_user in all_members:
+        entry = CONTRIBUTIONS.get(seeded_user.display_name)
+        if entry is None:
+            continue
+        pledged, contributed = entry
+        session.add(
+            ContributionPledge(
+                id=new_id(), household_id=household.id, period_id=period.id,
+                member_id=seeded_member.id, expected_amount_minor=pledged,
+            )
+        )
+        await session.flush()
+        # Goes through the service, so the mirror is exercised by the seed too.
+        await record_contribution(
+            session, seeded_member, period.id, contributed,
+            date.today(), "Aporte del mes",
+        )
 
     await session.flush()
 

@@ -36,3 +36,46 @@ async def test_seed_produces_mixed_visibility(db_session: AsyncSession) -> None:
         s.level for s in (await db_session.scalars(select(VisibilitySetting))).all()
     }
     assert levels == {"private", "summary", "public"}
+
+
+@pytest.mark.asyncio
+async def test_seed_creates_the_spec_contribution_period(
+    db_session: AsyncSession,
+) -> None:
+    """Spec §6.4: target 2.000.000, collected 1.900.000, 95%."""
+    from sqlalchemy import func
+
+    from family_api.db.models.contribution import Contribution, ContributionPeriod
+
+    await seed_demo_household(db_session)
+
+    period = await db_session.scalar(select(ContributionPeriod))
+    assert period is not None
+    assert period.goal_amount_minor == 2_000_000
+    assert period.status == "open"
+
+    collected = await db_session.scalar(
+        select(func.coalesce(func.sum(Contribution.amount_minor), 0))
+    )
+    assert collected == 1_900_000
+
+
+@pytest.mark.asyncio
+async def test_every_seeded_contribution_has_a_mirrored_expense(
+    db_session: AsyncSession,
+) -> None:
+    """INV-D-01 holds for seeded data too."""
+    from family_api.db.models.contribution import Contribution
+    from family_api.db.models.transaction import Transaction
+
+    await seed_demo_household(db_session)
+
+    contributions = (await db_session.scalars(select(Contribution))).all()
+    mirrored = (
+        await db_session.scalars(
+            select(Transaction).where(Transaction.source == "contribution")
+        )
+    ).all()
+
+    assert len(contributions) == len(mirrored) == 3
+    assert {c.expense_transaction_id for c in contributions} == {t.id for t in mirrored}
