@@ -1,0 +1,179 @@
+import pytest
+from httpx import AsyncClient
+
+
+async def _household(client: AsyncClient) -> tuple[dict, dict, str]:
+    registered = await client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "daniel@example.com",
+            "password": "correct-horse-battery",
+            "display_name": "Daniel",
+        },
+    )
+    admin = {"Authorization": f"Bearer {registered.json()['access_token']}"}
+    await client.post(
+        "/api/v1/households", json={"name": "Familia Hernández"}, headers=admin
+    )
+    invite = await client.post(
+        "/api/v1/households/current/invites",
+        json={"role_granted": "adult"},
+        headers=admin,
+    )
+    registered_papa = await client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "papa@example.com",
+            "password": "correct-horse-battery",
+            "display_name": "Papá",
+        },
+    )
+    papa = {"Authorization": f"Bearer {registered_papa.json()['access_token']}"}
+    await client.post(
+        "/api/v1/households/join", json={"code": invite.json()["code"]}, headers=papa
+    )
+    listed = await client.get("/api/v1/households/current", headers=admin)
+    papa_id = next(
+        m["id"] for m in listed.json()["members"] if m["display_name"] == "Papá"
+    )
+    return admin, papa, papa_id
+
+
+async def _earn(client: AsyncClient, headers: dict, amount: int) -> None:
+    categories = await client.get("/api/v1/categories?kind=income", headers=headers)
+    salario = next(c["id"] for c in categories.json() if c["name"] == "Salario")
+    await client.post(
+        "/api/v1/me/transactions",
+        json={
+            "kind": "income", "category_id": salario,
+            "amount_minor": amount, "occurred_on": "2026-09-05",
+        },
+        headers=headers,
+    )
+
+
+@pytest.mark.asyncio
+async def test_household_totals_include_private_members(client: AsyncClient) -> None:
+    """FR-D1-02 / spec §8.4.
+
+    The derivability leak is disclosed, not fixed by suppression. Excluding
+    private members would make the dashboard wrong AND create a new leak.
+    """
+    admin, papa, _ = await _household(client)
+    await _earn(client, admin, 2_500_000)
+    await _earn(client, papa, 3_000_000)
+    await client.put(
+        "/api/v1/me/visibility",
+        json={m: "private" for m in ("income", "expenses", "savings", "debts")},
+        headers=papa,
+    )
+
+    response = await client.get("/api/v1/dashboard?period=2026-09", headers=admin)
+
+    assert response.status_code == 200
+    assert response.json()["household"]["income_minor"] == 5_500_000
+
+
+@pytest.mark.asyncio
+async def test_a_private_module_carries_level_and_no_figure(
+    client: AsyncClient,
+) -> None:
+    """A private module must not be `null` or `0` — both are disclosures."""
+    admin, papa, papa_id = await _household(client)
+    await _earn(client, papa, 3_000_000)
+    await client.put(
+        "/api/v1/me/visibility",
+        json={m: "private" for m in ("income", "expenses", "savings", "debts")},
+        headers=papa,
+    )
+
+    response = await client.get("/api/v1/dashboard?period=2026-09", headers=admin)
+    card = next(m for m in response.json()["members"] if m["member_id"] == papa_id)
+
+    assert card["income"] == {"level": "private"}
+    assert "total_minor" not in card["income"]
+
+
+@pytest.mark.asyncio
+async def test_a_summary_module_carries_the_total(client: AsyncClient) -> None:
+    admin, papa, papa_id = await _household(client)
+    await _earn(client, papa, 3_000_000)
+
+    response = await client.get("/api/v1/dashboard?period=2026-09", headers=admin)
+    card = next(m for m in response.json()["members"] if m["member_id"] == papa_id)
+
+    assert card["income"]["level"] == "summary"
+    assert card["income"]["total_minor"] == 3_000_000
+
+
+@pytest.mark.asyncio
+async def test_a_fully_private_member_shows_identity_only(
+    client: AsyncClient,
+) -> None:
+    """FR-D1-03."""
+    admin, papa, papa_id = await _household(client)
+    await client.put(
+        "/api/v1/me/visibility",
+        json={m: "private" for m in ("income", "expenses", "savings", "debts")},
+        headers=papa,
+    )
+
+    response = await client.get("/api/v1/dashboard?period=2026-09", headers=admin)
+    card = next(m for m in response.json()["members"] if m["member_id"] == papa_id)
+
+    assert card["display_name"] == "Papá"
+    assert all(
+        card[module] == {"level": "private"}
+        for module in ("income", "expenses", "savings", "debts")
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_member_sees_their_own_card_in_full(client: AsyncClient) -> None:
+    """VR-03 applies on the dashboard too."""
+    _, papa, papa_id = await _household(client)
+    await _earn(client, papa, 3_000_000)
+    await client.put(
+        "/api/v1/me/visibility",
+        json={m: "private" for m in ("income", "expenses", "savings", "debts")},
+        headers=papa,
+    )
+
+    response = await client.get("/api/v1/dashboard?period=2026-09", headers=papa)
+    card = next(m for m in response.json()["members"] if m["member_id"] == papa_id)
+
+    assert card["income"]["level"] == "full"
+    assert card["income"]["total_minor"] == 3_000_000
+
+
+@pytest.mark.asyncio
+async def test_a_guest_sees_aggregates_but_no_member_figures(
+    client: AsyncClient,
+) -> None:
+    """VR-02."""
+    admin, papa, papa_id = await _household(client)
+    await _earn(client, papa, 3_000_000)
+    invite = await client.post(
+        "/api/v1/households/current/invites",
+        json={"role_granted": "guest"},
+        headers=admin,
+    )
+    registered = await client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "tia@example.com",
+            "password": "correct-horse-battery",
+            "display_name": "Tía",
+        },
+    )
+    guest = {"Authorization": f"Bearer {registered.json()['access_token']}"}
+    await client.post(
+        "/api/v1/households/join", json={"code": invite.json()["code"]}, headers=guest
+    )
+
+    response = await client.get("/api/v1/dashboard?period=2026-09", headers=guest)
+
+    assert response.status_code == 200
+    assert response.json()["household"]["income_minor"] == 3_000_000
+    card = next(m for m in response.json()["members"] if m["member_id"] == papa_id)
+    assert card["income"] == {"level": "private"}
