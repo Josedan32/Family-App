@@ -9,8 +9,11 @@ from family_api.db.models.contribution import (
     Contribution, ContributionPeriod, ContributionPledge,
 )
 from family_api.db.models.household import HouseholdMember
-from family_api.errors import DomainError, NotFoundError
+from family_api.db.models.seeded import Category
+from family_api.db.models.transaction import Transaction
+from family_api.errors import DomainError, ForbiddenRoleError, NotFoundError
 from family_api.ids import new_id
+from family_api.services.households import CONTRIBUTION_CATEGORY
 from family_api.services.members import require_admin
 
 
@@ -165,3 +168,83 @@ async def period_totals(
         {member_id: int(total) for member_id, total in contributed_rows},
         {member_id: int(expected) for member_id, expected in pledged_rows},
     )
+
+
+async def record_contribution(
+    session: AsyncSession,
+    member: HouseholdMember,
+    period_id: UUID,
+    amount_minor: int,
+    paid_on: date,
+    note: str | None,
+) -> Contribution:
+    """Write the contribution AND the contributor's personal expense atomically.
+
+    INV-D-01 / FR-M4-05: either both rows exist or neither does. The caller
+    commits; every write below is inside that one transaction, so an error
+    anywhere rolls back both.
+    """
+    if member.role == "guest":
+        raise ForbiddenRoleError
+
+    period = await _load_period(session, member, period_id)
+    if period.status == "closed":
+        raise PeriodClosedError
+
+    category = await session.scalar(
+        select(Category).where(
+            Category.household_id == member.household_id,
+            Category.kind == "expense",
+            Category.name == CONTRIBUTION_CATEGORY,
+        )
+    )
+    if category is None:
+        raise NotFoundError
+
+    contribution_id = new_id()
+    transaction = Transaction(
+        id=new_id(), household_id=member.household_id, member_id=member.id,
+        kind="expense", category_id=category.id, amount_minor=amount_minor,
+        occurred_on=paid_on, note=note,
+        source="contribution", source_id=contribution_id,
+    )
+    session.add(transaction)
+    await session.flush()
+
+    contribution = Contribution(
+        id=contribution_id, household_id=member.household_id, period_id=period.id,
+        member_id=member.id, amount_minor=amount_minor, paid_on=paid_on, note=note,
+        expense_transaction_id=transaction.id,
+    )
+    session.add(contribution)
+    await session.flush()
+    return contribution
+
+
+async def delete_contribution(
+    session: AsyncSession, actor: HouseholdMember, contribution_id: UUID
+) -> None:
+    """Removes the contribution and its mirrored expense atomically (FR-M4-06).
+
+    Order matters: the contribution holds an ON DELETE RESTRICT FK to the
+    transaction, so the contribution must go first.
+    """
+    contribution = await session.scalar(
+        select(Contribution).where(
+            Contribution.id == contribution_id,
+            Contribution.household_id == actor.household_id,
+        )
+    )
+    if contribution is None:
+        raise NotFoundError
+    if contribution.member_id != actor.id and actor.role != "admin":
+        raise ForbiddenRoleError
+
+    transaction_id = contribution.expense_transaction_id
+    await session.delete(contribution)
+    await session.flush()
+
+    transaction = await session.get(Transaction, transaction_id)
+    if transaction is not None:
+        await session.delete(transaction)
+    await session.flush()

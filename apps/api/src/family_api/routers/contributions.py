@@ -10,13 +10,15 @@ from family_api.db.models.user import User
 from family_api.db.session import get_session
 from family_api.errors import NotFoundError
 from family_api.schemas.contribution import (
-    CreatePeriodRequest, PeriodDetailResponse, PeriodMemberRow, PeriodResponse,
+    ContributionResponse, CreateContributionRequest, CreatePeriodRequest,
+    PeriodDetailResponse, PeriodMemberRow, PeriodResponse,
     SetPledgesRequest, UpdatePeriodRequest,
 )
 from family_api.services import contributions as contribution_service
 from family_api.services.members import CurrentMember
 
 router = APIRouter(prefix="/contribution-periods", tags=["contributions"])
+contributions_router = APIRouter(prefix="/contributions", tags=["contributions"])
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
 
 
@@ -147,3 +149,31 @@ async def set_pledges(
     await session.commit()
     period = await contribution_service._load_period(session, member, period_id)
     return await _detail(session, member, period)
+
+
+@router.post("/{period_id}/contributions", status_code=status.HTTP_201_CREATED)
+async def record_contribution(
+    period_id: UUID,
+    body: CreateContributionRequest,
+    member: CurrentMember,
+    session: SessionDep,
+) -> ContributionResponse:
+    contribution = await contribution_service.record_contribution(
+        session, member, period_id, body.amount_minor, body.paid_on, body.note
+    )
+    await session.commit()
+    return ContributionResponse(
+        id=contribution.id, member_id=contribution.member_id,
+        amount_minor=contribution.amount_minor,
+        currency=await _currency(session, member.household_id),
+        paid_on=contribution.paid_on, note=contribution.note,
+        expense_transaction_id=contribution.expense_transaction_id,
+    )
+
+
+@contributions_router.delete("/{contribution_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_contribution(
+    contribution_id: UUID, member: CurrentMember, session: SessionDep
+) -> None:
+    await contribution_service.delete_contribution(session, member, contribution_id)
+    await session.commit()

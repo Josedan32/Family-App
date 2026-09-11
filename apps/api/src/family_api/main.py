@@ -42,6 +42,7 @@ def create_app() -> FastAPI:
     app.include_router(visibility.router, prefix=API_PREFIX)
     app.include_router(member_finance.router, prefix=API_PREFIX)
     app.include_router(contributions.router, prefix=API_PREFIX)
+    app.include_router(contributions.contributions_router, prefix=API_PREFIX)
     return app
 
 
