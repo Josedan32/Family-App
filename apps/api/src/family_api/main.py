@@ -10,6 +10,7 @@ from family_api.routers import (
     households,
     loans,
     me_finance,
+    member_finance,
     visibility,
 )
 
@@ -38,6 +39,7 @@ def create_app() -> FastAPI:
     app.include_router(me_finance.router, prefix=API_PREFIX)
     app.include_router(loans.router, prefix=API_PREFIX)
     app.include_router(visibility.router, prefix=API_PREFIX)
+    app.include_router(member_finance.router, prefix=API_PREFIX)
     return app
 
 
