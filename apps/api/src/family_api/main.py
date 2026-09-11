@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from family_api.config import get_settings
 from family_api.errors import register_error_handlers
-from family_api.routers import auth, categories, health, households, me_finance
+from family_api.routers import auth, categories, health, households, loans, me_finance
 
 API_PREFIX = "/api/v1"
 
@@ -28,6 +28,7 @@ def create_app() -> FastAPI:
     app.include_router(households.router, prefix=API_PREFIX)
     app.include_router(categories.router, prefix=API_PREFIX)
     app.include_router(me_finance.router, prefix=API_PREFIX)
+    app.include_router(loans.router, prefix=API_PREFIX)
     return app
 
 
