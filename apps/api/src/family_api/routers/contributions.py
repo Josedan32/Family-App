@@ -5,14 +5,20 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from family_api.db.models.contribution import ContributionPeriod
 from family_api.db.models.household import Household, HouseholdMember
 from family_api.db.models.user import User
 from family_api.db.session import get_session
 from family_api.errors import NotFoundError
 from family_api.schemas.contribution import (
-    ContributionResponse, CreateContributionRequest, CreatePeriodRequest,
-    PeriodDetailResponse, PeriodMemberRow, PeriodResponse,
-    SetPledgesRequest, UpdatePeriodRequest,
+    ContributionResponse,
+    CreateContributionRequest,
+    CreatePeriodRequest,
+    PeriodDetailResponse,
+    PeriodMemberRow,
+    PeriodResponse,
+    SetPledgesRequest,
+    UpdatePeriodRequest,
 )
 from family_api.services import contributions as contribution_service
 from family_api.services.members import CurrentMember
@@ -29,7 +35,7 @@ async def _currency(session: AsyncSession, household_id: UUID) -> str:
 
 
 async def _detail(
-    session: AsyncSession, member: HouseholdMember, period
+    session: AsyncSession, member: HouseholdMember, period: ContributionPeriod
 ) -> PeriodDetailResponse:
     collected, contributed, pledged = await contribution_service.period_totals(
         session, period.id

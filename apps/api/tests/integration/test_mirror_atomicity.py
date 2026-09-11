@@ -16,6 +16,7 @@ from family_api.db.models.seeded import Category, VisibilitySetting
 from family_api.db.models.transaction import Transaction
 from family_api.db.models.user import User
 from family_api.db.session import engine_for, session_factory_for
+from family_api.errors import NotFoundError
 from family_api.ids import new_id
 from family_api.security.passwords import hash_password
 from family_api.services import contributions as contribution_service
@@ -58,7 +59,7 @@ async def test_a_failure_after_the_expense_insert_leaves_no_rows(factory) -> Non
         )
         await session.flush()
 
-        with pytest.raises(Exception):
+        with pytest.raises(NotFoundError):
             await contribution_service.record_contribution(
                 session, member_obj, period_id, 1_000_000, date(2026, 9, 5), None
             )

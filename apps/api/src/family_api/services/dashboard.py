@@ -5,7 +5,11 @@ from family_api.db.models.household import Household, HouseholdMember
 from family_api.db.models.user import User
 from family_api.periods import parse_period
 from family_api.schemas.dashboard import (
-    ContributionSummary, DashboardResponse, HouseholdTotals, MemberCard, ModuleCell,
+    ContributionSummary,
+    DashboardResponse,
+    HouseholdTotals,
+    MemberCard,
+    ModuleCell,
 )
 from family_api.services import contributions as contribution_service
 from family_api.services import debts as debt_service

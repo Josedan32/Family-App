@@ -6,7 +6,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from family_api.db.models.contribution import (
-    Contribution, ContributionPeriod, ContributionPledge,
+    Contribution,
+    ContributionPeriod,
+    ContributionPledge,
 )
 from family_api.db.models.household import HouseholdMember
 from family_api.db.models.seeded import Category
@@ -66,7 +68,7 @@ async def list_periods(
 async def get_open_period(
     session: AsyncSession, household_id: UUID
 ) -> ContributionPeriod | None:
-    return await session.scalar(
+    period = await session.scalar(
         select(ContributionPeriod)
         .where(
             ContributionPeriod.household_id == household_id,
@@ -74,6 +76,7 @@ async def get_open_period(
         )
         .order_by(ContributionPeriod.period_month.desc())
     )
+    return period
 
 
 async def _load_period(
