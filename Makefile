@@ -27,3 +27,7 @@ lint:
 # Raw: cd apps/web && npx openapi-typescript http://localhost:8001/openapi.json -o src/lib/api/generated/schema.d.ts
 api-types:
 	cd apps/web && npx openapi-typescript http://localhost:8001/openapi.json -o src/lib/api/generated/schema.d.ts
+
+# Raw: cd apps/web && npm run dev
+web-dev:
+	cd apps/web && npm run dev
