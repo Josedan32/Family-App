@@ -24,8 +24,13 @@
   --success: #15803D;
 }
 
+/*
+ * Dark tokens apply when the system prefers dark AND the user hasn't
+ * explicitly picked light, or when the user explicitly picked dark —
+ * so the toggle in ThemeToggle.tsx wins over the OS setting either way.
+ */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #1C1917;
     --surface: #292524;
     --surface-sunken: #1C1917;
@@ -47,6 +52,29 @@
     --warning: #FBBF24;
     --success: #4ADE80;
   }
+}
+
+:root[data-theme="dark"] {
+  --bg: #1C1917;
+  --surface: #292524;
+  --surface-sunken: #1C1917;
+  --border: #44403C;
+  --text: #FAFAF9;
+  --text-muted: #A8A29E;
+
+  --brand: #2DD4BF;
+  --brand-contrast: #1C1917;
+
+  --income: #4ADE80;
+  --expense: #F87171;
+  --savings: #60A5FA;
+  --debt: #FB923C;
+
+  --private: #A8A29E;
+
+  --danger: #F87171;
+  --warning: #FBBF24;
+  --success: #4ADE80;
 }
 
 /* Tailwind v4 reads design tokens from CSS rather than tailwind.config.ts. */
@@ -123,6 +151,32 @@ a[role="button"] {
 :focus-visible {
   outline: 2px solid var(--brand);
   outline-offset: 2px;
+}
+
+/*
+ * Which half of ThemeToggle shows is decided in CSS, not React state: both
+ * icons always render, so there is nothing for server and client to
+ * disagree on. Shows the moon (switch to dark) by default; the sun (switch
+ * to light) shows once dark applies, by either path above.
+ */
+.theme-toggle-sun {
+  display: none;
+}
+
+:root[data-theme="dark"] .theme-toggle-sun {
+  display: inline-flex;
+}
+:root[data-theme="dark"] .theme-toggle-moon {
+  display: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .theme-toggle-sun {
+    display: inline-flex;
+  }
+  :root:not([data-theme="light"]) .theme-toggle-moon {
+    display: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
