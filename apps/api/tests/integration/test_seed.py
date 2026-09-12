@@ -79,3 +79,17 @@ async def test_every_seeded_contribution_has_a_mirrored_expense(
 
     assert len(contributions) == len(mirrored) == 3
     assert {c.expense_transaction_id for c in contributions} == {t.id for t in mirrored}
+
+
+@pytest.mark.asyncio
+async def test_the_seed_spends_part_of_the_pot(db_session: AsyncSession) -> None:
+    """The demo household must exercise both funding paths on first run."""
+    from family_api.db.models.household_expense import HouseholdExpense
+
+    await seed_demo_household(db_session)
+
+    expenses = (await db_session.scalars(select(HouseholdExpense))).all()
+    fundings = {e.funding for e in expenses}
+
+    assert "pot" in fundings
+    assert "member" in fundings

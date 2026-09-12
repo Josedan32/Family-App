@@ -10,11 +10,13 @@ from family_api.schemas.dashboard import (
     HouseholdTotals,
     MemberCard,
     ModuleCell,
+    PotSummary,
 )
 from family_api.services import contributions as contribution_service
 from family_api.services import debts as debt_service
 from family_api.services import savings as savings_service
 from family_api.services import transactions as transaction_service
+from family_api.services.household_expenses import pot_figures
 from family_api.services.visibility import Level, resolve
 
 
@@ -90,6 +92,8 @@ async def build_dashboard(
             if open_period.goal_amount_minor else 0.0,
         )
 
+    figures = await pot_figures(session, household.id)
+
     return DashboardResponse(
         period=period_label, currency=household.currency,
         household=HouseholdTotals(
@@ -97,5 +101,11 @@ async def build_dashboard(
             expenses_minor=household_expenses,
             savings_minor=household_savings,
         ),
-        contribution=contribution, members=cards,
+        contribution=contribution,
+        pot=PotSummary(
+            collected_minor=figures.collected_minor,
+            spent_minor=figures.spent_minor,
+            balance_minor=figures.balance_minor,
+        ),
+        members=cards,
     )

@@ -177,3 +177,19 @@ async def test_a_guest_sees_aggregates_but_no_member_figures(
     assert response.json()["household"]["income_minor"] == 3_000_000
     card = next(m for m in response.json()["members"] if m["member_id"] == papa_id)
     assert card["income"] == {"level": "private"}
+
+
+@pytest.mark.asyncio
+async def test_the_dashboard_reports_the_pot(client: AsyncClient) -> None:
+    admin, _, _ = await _household(client)
+    await client.post(
+        "/api/v1/contribution-periods",
+        json={"period_month": "2026-09-01", "goal_amount_minor": 2_000_000},
+        headers=admin,
+    )
+
+    response = await client.get("/api/v1/dashboard?period=2026-09", headers=admin)
+
+    assert response.status_code == 200
+    assert "pot" in response.json()
+    assert response.json()["pot"]["balance_minor"] == 0
