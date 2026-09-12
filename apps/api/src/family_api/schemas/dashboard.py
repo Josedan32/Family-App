@@ -27,6 +27,12 @@ class ContributionSummary(BaseModel):
     progress: float
 
 
+class PotSummary(BaseModel):
+    collected_minor: int
+    spent_minor: int
+    balance_minor: int
+
+
 class MemberCard(BaseModel):
     member_id: UUID
     display_name: str
@@ -43,4 +49,5 @@ class DashboardResponse(BaseModel):
     currency: str
     household: HouseholdTotals
     contribution: ContributionSummary | None
+    pot: PotSummary
     members: list[MemberCard]

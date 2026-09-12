@@ -12,12 +12,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from family_api.db.models.contribution import ContributionPeriod, ContributionPledge
 from family_api.db.models.household import Household, HouseholdMember
-from family_api.db.models.seeded import VisibilitySetting
+from family_api.db.models.seeded import Category, VisibilitySetting
 from family_api.db.models.user import User
 from family_api.db.session import get_session_factory
 from family_api.ids import new_id
 from family_api.security.passwords import hash_password
 from family_api.services.contributions import record_contribution
+from family_api.services.household_expenses import create_expense
 from family_api.services.households import create_household, seed_visibility
 
 DEMO_PASSWORD = "correct-horse-battery"
@@ -127,6 +128,42 @@ async def seed_demo_household(session: AsyncSession) -> None:
             session, seeded_member, period.id, contributed,
             date.today(), "Aporte del mes",
         )
+
+    otros = await session.scalar(
+        select(Category).where(
+            Category.household_id == household.id,
+            Category.kind == "expense",
+            Category.name == "Otros",
+        )
+    )
+    comida = await session.scalar(
+        select(Category).where(
+            Category.household_id == household.id,
+            Category.kind == "expense",
+            Category.name == "Comida",
+        )
+    )
+
+    # Pot-funded: rent, paid from the collected money.
+    await create_expense(
+        session, admin_member, otros.id, 1_200_000, date.today(),
+        "Arriendo", "pot", None, False,
+    )
+
+    # Member-funded and in kind: Mamá paid the groceries herself, and it counts
+    # as her contribution. Exercises all three rows in one go.
+    mama_member = await session.scalar(
+        select(HouseholdMember)
+        .join(User, User.id == HouseholdMember.user_id)
+        .where(
+            HouseholdMember.household_id == household.id,
+            User.display_name == "Mamá",
+        )
+    )
+    await create_expense(
+        session, mama_member, comida.id, 250_000, date.today(),
+        "Mercado de la semana", "member", mama_member.id, False,
+    )
 
     await session.flush()
 
