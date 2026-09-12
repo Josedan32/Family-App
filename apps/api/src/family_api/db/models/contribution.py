@@ -3,6 +3,7 @@ from uuid import UUID
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     CheckConstraint,
     Date,
     ForeignKey,
@@ -96,4 +97,10 @@ class Contribution(Base, TimestampMixin):
         ForeignKey("transactions.id", ondelete="RESTRICT"),
         nullable=False,
         unique=True,
+    )
+    # True when a member paid a household expense directly (FR-M4-12). Counts
+    # toward the period GOAL but never toward the POT BALANCE — that money went
+    # pocket-to-expense and never arrived (FR-M4-13).
+    in_kind: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default="false"
     )

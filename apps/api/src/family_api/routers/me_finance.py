@@ -4,10 +4,15 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from family_api.db.models.debt import Debt
 from family_api.db.models.household import Household
 from family_api.db.session import get_session
 from family_api.periods import parse_period
-from family_api.schemas.debt import CreateDebtPaymentRequest, CreateDebtRequest, DebtResponse
+from family_api.schemas.debt import (
+    CreateDebtPaymentRequest,
+    CreateDebtRequest,
+    DebtResponse,
+)
 from family_api.schemas.savings import CreateEntryRequest, CreateGoalRequest, SavingsGoalResponse
 from family_api.schemas.transaction import (
     CreateTransactionRequest,
@@ -18,6 +23,7 @@ from family_api.schemas.transaction import (
 from family_api.services import debts as debt_service
 from family_api.services import savings as savings_service
 from family_api.services import transactions as transaction_service
+from family_api.services.installments import InstallmentFigures
 from family_api.services.members import CurrentMember
 from family_api.services.transactions import CategoryKindMismatchError
 
@@ -177,20 +183,29 @@ async def add_entry(
     )
 
 
+def _debt_response(
+    debt: Debt, outstanding: int, figures: InstallmentFigures | None, currency: str
+) -> DebtResponse:
+    return DebtResponse(
+        id=debt.id, creditor_type=debt.creditor_type, creditor_label=debt.creditor_label,
+        principal_minor=debt.principal_minor, outstanding_minor=outstanding,
+        annual_interest_rate=float(debt.annual_interest_rate)
+        if debt.annual_interest_rate is not None else None,
+        due_day=debt.due_day, status=debt.status, currency=currency,
+        installments_total=figures.total if figures else None,
+        installments_paid=figures.paid if figures else None,
+        installments_remaining=figures.remaining if figures else None,
+        next_installment_on=figures.next_on if figures else None,
+        next_installment_amount_minor=figures.next_amount_minor if figures else None,
+        is_overdue=figures.is_overdue if figures else None,
+    )
+
+
 @router.get("/debts")
 async def list_debts(member: CurrentMember, session: SessionDep) -> list[DebtResponse]:
     currency = await _currency(session, member.household_id)
-    rows = await debt_service.list_debts_with_outstanding(session, member.id)
-    return [
-        DebtResponse(
-            id=d.id, creditor_type=d.creditor_type, creditor_label=d.creditor_label,
-            principal_minor=d.principal_minor, outstanding_minor=out,
-            annual_interest_rate=float(d.annual_interest_rate)
-            if d.annual_interest_rate is not None else None,
-            due_day=d.due_day, status=d.status, currency=currency,
-        )
-        for d, out in rows
-    ]
+    rows = await debt_service.list_debts_with_figures(session, member.id)
+    return [_debt_response(d, out, figures, currency) for d, out, figures in rows]
 
 
 @router.post("/debts", status_code=status.HTTP_201_CREATED)
@@ -200,14 +215,14 @@ async def create_debt(
     debt = await debt_service.create_debt(
         session, member, body.creditor_type, body.creditor_label,
         body.principal_minor, body.annual_interest_rate, body.due_day,
+        body.installments_total, body.installment_amount_minor,
+        body.first_installment_on,
     )
     await session.commit()
-    return DebtResponse(
-        id=debt.id, creditor_type=debt.creditor_type, creditor_label=debt.creditor_label,
-        principal_minor=debt.principal_minor, outstanding_minor=debt.principal_minor,
-        annual_interest_rate=body.annual_interest_rate, due_day=debt.due_day,
-        status=debt.status, currency=await _currency(session, member.household_id),
-    )
+    currency = await _currency(session, member.household_id)
+    rows = await debt_service.list_debts_with_figures(session, member.id)
+    d, outstanding, figures = next(row for row in rows if row[0].id == debt.id)
+    return _debt_response(d, outstanding, figures, currency)
 
 
 @router.post("/debts/{debt_id}/payments", status_code=status.HTTP_201_CREATED)
@@ -217,17 +232,23 @@ async def add_debt_payment(
     member: CurrentMember,
     session: SessionDep,
 ) -> DebtResponse:
-    await debt_service.add_payment(
+    _, payment = await debt_service.add_payment(
         session, member, debt_id, body.amount_minor, body.paid_on, body.note
     )
     await session.commit()
-    rows = await debt_service.list_debts_with_outstanding(session, member.id)
-    debt, outstanding = next((d, o) for d, o in rows if d.id == debt_id)
-    return DebtResponse(
-        id=debt.id, creditor_type=debt.creditor_type, creditor_label=debt.creditor_label,
-        principal_minor=debt.principal_minor, outstanding_minor=outstanding,
-        annual_interest_rate=float(debt.annual_interest_rate)
-        if debt.annual_interest_rate is not None else None,
-        due_day=debt.due_day, status=debt.status,
-        currency=await _currency(session, member.household_id),
-    )
+    currency = await _currency(session, member.household_id)
+    rows = await debt_service.list_debts_with_figures(session, member.id)
+    d, outstanding, figures = next(row for row in rows if row[0].id == debt_id)
+    response = _debt_response(d, outstanding, figures, currency)
+    response.last_payment_id = payment.id
+    return response
+
+
+@router.delete(
+    "/debts/{debt_id}/payments/{payment_id}", status_code=status.HTTP_204_NO_CONTENT
+)
+async def delete_debt_payment(
+    debt_id: UUID, payment_id: UUID, member: CurrentMember, session: SessionDep
+) -> None:
+    await debt_service.delete_payment(session, member, debt_id, payment_id)
+    await session.commit()

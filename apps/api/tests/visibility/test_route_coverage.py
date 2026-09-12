@@ -22,6 +22,7 @@ EXEMPT_PREFIXES = (
     "/api/v1/dashboard",     # household aggregates; resolves per member inline
     "/api/v1/loans",         # FR-M2-16: both parties always see their own loans
     "/api/v1/contribution-periods",  # FR-M4-07: always household-visible
+    "/api/v1/household-expenses",  # FR-M4-15: shared money, always household-visible
     "/docs",
     "/openapi.json",
     "/redoc",
