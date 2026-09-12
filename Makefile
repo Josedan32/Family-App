@@ -1,4 +1,4 @@
-.PHONY: db api-dev web-dev test migrate seed lint
+.PHONY: db api-dev web-dev test migrate seed lint api-types
 
 # Raw: docker compose up -d db
 db:
@@ -23,3 +23,7 @@ seed:
 # Raw: cd apps/api && ruff check . && mypy src
 lint:
 	cd apps/api && ruff check . && mypy src
+
+# Raw: cd apps/web && npx openapi-typescript http://localhost:8001/openapi.json -o src/lib/api/generated/schema.d.ts
+api-types:
+	cd apps/web && npx openapi-typescript http://localhost:8001/openapi.json -o src/lib/api/generated/schema.d.ts
