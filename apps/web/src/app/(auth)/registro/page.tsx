@@ -46,7 +46,7 @@ export default function RegistroPage() {
         <h1 className="mt-2 text-[2rem] font-bold tracking-tight">Crear cuenta</h1>
         <p className="text-text-muted">Únete al hogar y empieza a registrar aportes.</p>
       </div>
-      <form onSubmit={submit} className="flex flex-col gap-4.5">
+      <form onSubmit={submit} className="flex flex-col gap-5">
         <div className="flex flex-col gap-3">
           <Input
             label="Nombre"
