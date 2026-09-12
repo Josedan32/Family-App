@@ -1,0 +1,135 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #FAFAF9;
+  --surface: #FFFFFF;
+  --surface-sunken: #F5F5F4;
+  --border: #E7E5E4;
+  --text: #1C1917;
+  --text-muted: #78716C;
+
+  --brand: #0F766E;
+  --brand-contrast: #FFFFFF;
+
+  --income: #15803D;
+  --expense: #B91C1C;
+  --savings: #1D4ED8;
+  --debt: #C2410C;
+
+  /* The locked state. Deliberately grey: privacy is not an error. */
+  --private: #78716C;
+
+  --danger: #B91C1C;
+  --warning: #A16207;
+  --success: #15803D;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1C1917;
+    --surface: #292524;
+    --surface-sunken: #1C1917;
+    --border: #44403C;
+    --text: #FAFAF9;
+    --text-muted: #A8A29E;
+
+    --brand: #2DD4BF;
+    --brand-contrast: #1C1917;
+
+    --income: #4ADE80;
+    --expense: #F87171;
+    --savings: #60A5FA;
+    --debt: #FB923C;
+
+    --private: #A8A29E;
+
+    --danger: #F87171;
+    --warning: #FBBF24;
+    --success: #4ADE80;
+  }
+}
+
+/* Tailwind v4 reads design tokens from CSS rather than tailwind.config.ts. */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-border: var(--border);
+  --color-text: var(--text);
+  --color-text-muted: var(--text-muted);
+  --color-brand: var(--brand);
+  --color-brand-contrast: var(--brand-contrast);
+  --color-income: var(--income);
+  --color-expense: var(--expense);
+  --color-savings: var(--savings);
+  --color-debt: var(--debt);
+  --color-private: var(--private);
+  --color-danger: var(--danger);
+  --color-warning: var(--warning);
+  --color-success: var(--success);
+
+  --max-width-content: 72rem;
+}
+
+html {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  /* Removes the grey flash; every interactive element defines :active instead. */
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  /* iOS Safari's viewport-height unit excludes the toolbar; the dynamic unit tracks it. */
+  min-height: 100dvh;
+  margin: 0;
+}
+
+/* Anything smaller makes iOS Safari zoom on focus and never fully recover. */
+input,
+select,
+textarea {
+  font-size: 16px;
+}
+
+/* Columns of amounts visibly jitter without this. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* Removes the 300ms double-tap-zoom delay. */
+button,
+a[role="button"] {
+  touch-action: manipulation;
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Stops the whole page rubber-banding when a list hits its end. */
+.scroll-area {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
