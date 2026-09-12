@@ -15,6 +15,7 @@ import { MoneyInput } from "@/components/ui/MoneyInput";
 import { Sheet } from "@/components/ui/Sheet";
 import { Tabs } from "@/components/ui/Tabs";
 import { clientFetch } from "@/lib/api/client";
+import { pushToast } from "@/lib/toast";
 
 type TabId = "income" | "expense" | "savings" | "debts";
 
@@ -63,6 +64,7 @@ function SavingsGoalForm({ onDone }: { onDone: () => void }) {
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["savings-goals"] });
+      pushToast({ message: "Meta creada", type: "success" });
       onDone();
     },
   });
@@ -108,6 +110,7 @@ function DebtForm({ onDone }: { onDone: () => void }) {
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["debts"] });
+      pushToast({ message: "Deuda registrada", type: "success" });
       onDone();
     },
   });
@@ -188,6 +191,10 @@ export default function FinanzasPage() {
 
   async function refreshAndClose() {
     await queryClient.invalidateQueries({ queryKey: ["transactions"] });
+    pushToast({
+      message: tab === "income" ? "Ingreso registrado" : "Gasto registrado",
+      type: "success",
+    });
     closeSheet();
   }
 

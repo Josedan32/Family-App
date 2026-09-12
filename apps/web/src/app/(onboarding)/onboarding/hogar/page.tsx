@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/Input";
 import { Tabs } from "@/components/ui/Tabs";
 import { clientFetch } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/errors";
+import { pushToast } from "@/lib/toast";
 
 type Mode = "create" | "join";
 
@@ -42,6 +43,10 @@ export default function OnboardingPage() {
           body: JSON.stringify({ code }),
         });
       }
+      pushToast({
+        message: mode === "create" ? "Hogar creado" : "Te uniste al hogar",
+        type: "success",
+      });
       router.push("/");
       router.refresh();
     } catch (err) {

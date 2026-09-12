@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { clientFetch } from "@/lib/api/client";
+import { pushToast } from "@/lib/toast";
 
 interface Invite {
   id: string;
@@ -57,6 +58,7 @@ export function InvitesSection() {
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["invites"] });
+      pushToast({ message: "Invitación creada", type: "success" });
     },
   });
 
@@ -65,6 +67,7 @@ export function InvitesSection() {
       clientFetch(`/households/current/invites/${id}`, { method: "DELETE" }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["invites"] });
+      pushToast({ message: "Invitación revocada", type: "info" });
     },
   });
 

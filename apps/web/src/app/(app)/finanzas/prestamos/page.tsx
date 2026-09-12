@@ -12,6 +12,7 @@ import { MoneyInput } from "@/components/ui/MoneyInput";
 import { Sheet } from "@/components/ui/Sheet";
 import { Tabs } from "@/components/ui/Tabs";
 import { clientFetch } from "@/lib/api/client";
+import { pushToast } from "@/lib/toast";
 
 type Filter = "all" | "lender" | "borrower";
 
@@ -54,6 +55,7 @@ function LoanForm({ onDone }: { onDone: () => void }) {
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["loans"] });
+      pushToast({ message: "Préstamo registrado", type: "success" });
       onDone();
     },
   });

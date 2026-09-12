@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { clientFetch } from "@/lib/api/client";
+import { pushToast } from "@/lib/toast";
 
 import { VisibilityBadge, type Level } from "./VisibilityBadge";
 
@@ -43,6 +44,7 @@ export function VisibilitySettingsForm({ initial }: { initial: VisibilitySetting
           debts: next.debts,
         }),
       }),
+    onSuccess: () => pushToast({ message: "Configuración guardada", type: "success" }),
   });
 
   return (
@@ -74,11 +76,6 @@ export function VisibilitySettingsForm({ initial }: { initial: VisibilitySetting
       <Button onClick={() => save.mutate(levels)} disabled={save.isPending}>
         {save.isPending ? "Guardando…" : "Guardar"}
       </Button>
-      {save.isSuccess ? (
-        <p role="status" className="text-sm text-success">
-          Configuración guardada
-        </p>
-      ) : null}
 
       {/* Verbatim from the API so this copy cannot drift from the rules
           it describes (FR-M3-08). */}

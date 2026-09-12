@@ -178,3 +178,33 @@ export function IconDiamondFilled(props: IconProps) {
     </svg>
   );
 }
+
+export function IconInfo(props: IconProps) {
+  return (
+    <svg {...LINE_PROPS} {...props}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 11v5.5" />
+      <circle cx="12" cy="7.75" r="0.9" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+export function IconAlertTriangle(props: IconProps) {
+  return (
+    <svg {...LINE_PROPS} {...props}>
+      <path d="M12 4 21.5 20.5H2.5Z" />
+      <path d="M12 10v4" />
+      <circle cx="12" cy="17.2" r="0.9" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+export function IconAlertCircle(props: IconProps) {
+  return (
+    <svg {...LINE_PROPS} {...props}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7.5v6" />
+      <circle cx="12" cy="16.5" r="0.9" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}

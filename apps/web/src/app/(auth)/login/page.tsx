@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { pushToast } from "@/lib/toast";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -26,9 +27,12 @@ export default function LoginPage() {
     if (!response.ok) {
       // One message for both a wrong password and an unknown email — never
       // reveals which field was wrong, or whether the account exists at all.
-      setError("Correo o contraseña incorrectos");
+      const message = "Correo o contraseña incorrectos";
+      setError(message);
+      pushToast({ message, type: "danger" });
       return;
     }
+    pushToast({ message: "Sesión iniciada", type: "success" });
     router.push("/");
     router.refresh();
   }

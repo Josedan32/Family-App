@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
+import { ToastStack } from "@/components/ui/ToastStack";
+
 export const metadata: Metadata = {
   title: "Family Hub",
   manifest: "/manifest.webmanifest",
@@ -19,7 +21,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es-CO">
-      <body>{children}</body>
+      <body>
+        {children}
+        <ToastStack />
+      </body>
     </html>
   );
 }

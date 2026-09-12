@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/Input";
 import { MoneyInput } from "@/components/ui/MoneyInput";
 import { Sheet } from "@/components/ui/Sheet";
 import { clientFetch } from "@/lib/api/client";
+import { pushToast } from "@/lib/toast";
 
 export function ContributeButton({
   periodId,
@@ -33,6 +34,7 @@ export function ContributeButton({
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["transactions"] });
       setOpen(false);
+      pushToast({ message: "Aporte registrado", type: "success" });
       router.refresh();
     },
   });

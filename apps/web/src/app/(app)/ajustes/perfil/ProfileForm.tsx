@@ -7,6 +7,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { clientFetch } from "@/lib/api/client";
+import { pushToast } from "@/lib/toast";
 
 interface Profile {
   display_name: string;
@@ -28,6 +29,7 @@ export function ProfileForm({ initial }: { initial: Profile }) {
           birth_date: birthDate || null,
         }),
       }),
+    onSuccess: () => pushToast({ message: "Perfil actualizado", type: "success" }),
   });
 
   const logout = useMutation({
@@ -35,6 +37,7 @@ export function ProfileForm({ initial }: { initial: Profile }) {
       await fetch("/api/session", { method: "DELETE" });
     },
     onSuccess: () => {
+      pushToast({ message: "Sesión cerrada", type: "info" });
       router.push("/login");
       router.refresh();
     },
@@ -63,11 +66,6 @@ export function ProfileForm({ initial }: { initial: Profile }) {
       <Button onClick={() => save.mutate()} disabled={save.isPending}>
         {save.isPending ? "Guardando…" : "Guardar cambios"}
       </Button>
-      {save.isSuccess ? (
-        <p role="status" className="text-sm text-success">
-          Perfil actualizado
-        </p>
-      ) : null}
 
       <Button variant="secondary" onClick={() => logout.mutate()} disabled={logout.isPending}>
         {logout.isPending ? "Saliendo…" : "Cerrar sesión"}

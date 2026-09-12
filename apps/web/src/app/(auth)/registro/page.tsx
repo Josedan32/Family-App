@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { pushToast } from "@/lib/toast";
 
 const MIN_PASSWORD_LENGTH = 12;
 
@@ -30,9 +31,12 @@ export default function RegistroPage() {
     setBusy(false);
     if (!response.ok) {
       const problem = await response.json().catch(() => null);
-      setError(problem?.title ?? "No pudimos crear la cuenta");
+      const message = problem?.title ?? "No pudimos crear la cuenta";
+      setError(message);
+      pushToast({ message, type: "danger" });
       return;
     }
+    pushToast({ message: "Cuenta creada", type: "success" });
     router.push("/onboarding/hogar");
     router.refresh();
   }
