@@ -2,6 +2,7 @@ import { ContributionProgress } from "@/components/finance/ContributionProgress"
 import { MoneyDisplay } from "@/components/finance/MoneyDisplay";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { IconCheck, IconHandshake } from "@/components/ui/Icons";
 import { apiFetch } from "@/lib/api/server";
 import { ApiError } from "@/lib/api/errors";
 
@@ -43,7 +44,7 @@ export default async function AportesPage() {
     return (
       <div className="flex flex-col gap-4">
         <h1 className="text-[1.75rem] font-bold tracking-tight">Aportes</h1>
-        <EmptyState icon="🤝" message="No hay un periodo abierto" />
+        <EmptyState icon={<IconHandshake />} message="No hay un periodo abierto" />
       </div>
     );
   }
@@ -78,7 +79,10 @@ export default async function AportesPage() {
                 <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <span className="font-bold">{member.display_name}</span>
                   {complete ? (
-                    <span className="text-xs font-semibold text-income">✓ Completó su cuota</span>
+                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-income">
+                      <IconCheck />
+                      Completó su cuota
+                    </span>
                   ) : member.pledged_minor > 0 ? (
                     <span className="flex items-center gap-1 text-xs font-semibold text-debt">
                       Le faltan{" "}

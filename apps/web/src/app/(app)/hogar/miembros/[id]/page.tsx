@@ -2,6 +2,7 @@ import { MoneyDisplay } from "@/components/finance/MoneyDisplay";
 import { PrivateBlock } from "@/components/privacy/PrivateBlock";
 import { VisibilityBadge, type Level } from "@/components/privacy/VisibilityBadge";
 import { Card } from "@/components/ui/Card";
+import { IconArrowDown, IconArrowUp, IconCircleFilled, IconDiamondFilled } from "@/components/ui/Icons";
 import { ApiError } from "@/lib/api/errors";
 import { apiFetch } from "@/lib/api/server";
 
@@ -77,11 +78,11 @@ async function moduleData<T>(path: string): Promise<T | null> {
   }
 }
 
-const GLYPH: Record<string, string> = {
-  Ingresos: "↑",
-  Gastos: "↓",
-  Ahorros: "◆",
-  Deudas: "●",
+const GLYPH: Record<string, typeof IconArrowUp> = {
+  Ingresos: IconArrowUp,
+  Gastos: IconArrowDown,
+  Ahorros: IconDiamondFilled,
+  Deudas: IconCircleFilled,
 };
 
 type ModuleState = "private" | "summary" | "detail";
@@ -102,13 +103,14 @@ function SummaryOrDetail({
   renderDetail: () => React.ReactNode;
 }) {
   const level: Level = state === "private" ? "private" : state === "summary" ? "summary" : "public";
+  const Glyph = GLYPH[label];
 
   return (
     <Card className="flex flex-col gap-3.5">
       <div className="flex items-center gap-3">
         <h2 className="flex flex-1 items-center gap-2 text-lg font-semibold">
-          <span className={color} aria-hidden="true">
-            {GLYPH[label]}
+          <span className={color}>
+            <Glyph />
           </span>
           {label}
         </h2>

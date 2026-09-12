@@ -2,6 +2,8 @@
 
 import { useEffect, useRef } from "react";
 
+import { IconClose } from "@/components/ui/Icons";
+
 /** Full-screen on mobile, centred modal from md up (design-system.md §2). */
 export function Sheet({
   open,
@@ -41,7 +43,7 @@ export function Sheet({
         <div className="flex items-center justify-between px-5 pb-2 pt-4">
           <h2 className="text-[2rem] font-bold tracking-tight">{title}</h2>
           <button onClick={onClose} aria-label="Cerrar" className="text-text-muted">
-            ✕
+            <IconClose />
           </button>
         </div>
         <div className="scroll-area min-h-0 flex-1 px-5 pb-4">{children}</div>

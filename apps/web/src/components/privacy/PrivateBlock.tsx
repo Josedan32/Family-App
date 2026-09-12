@@ -1,3 +1,5 @@
+import { IconLock } from "@/components/ui/Icons";
+
 /**
  * What another member's private module looks like.
  *
@@ -15,7 +17,7 @@ export function PrivateBlock({ member }: { member?: string }) {
       role="note"
     >
       <div className="flex items-center gap-2">
-        <span aria-hidden="true">🔒</span>
+        <IconLock />
         <span className="text-sm">Privado</span>
       </div>
       {member ? (

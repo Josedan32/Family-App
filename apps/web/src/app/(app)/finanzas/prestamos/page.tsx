@@ -6,6 +6,7 @@ import { useState } from "react";
 import { LoanCard, type Loan } from "@/components/finance/LoanCard";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { IconHandshake } from "@/components/ui/Icons";
 import { Input } from "@/components/ui/Input";
 import { MoneyInput } from "@/components/ui/MoneyInput";
 import { Sheet } from "@/components/ui/Sheet";
@@ -158,7 +159,7 @@ export default function PrestamosPage() {
         </div>
       ) : loans.isLoading ? null : (
         <EmptyState
-          icon="🤝"
+          icon={<IconHandshake />}
           message="Aún no hay préstamos."
           action={<Button onClick={() => setSheetOpen(true)}>Registrar préstamo</Button>}
         />

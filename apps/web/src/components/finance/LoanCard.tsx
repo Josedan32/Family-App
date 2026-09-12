@@ -1,4 +1,5 @@
 import { Card } from "@/components/ui/Card";
+import { IconCheck, IconCircleFilled, IconClose, IconSquareFilled } from "@/components/ui/Icons";
 import { MoneyDisplay } from "./MoneyDisplay";
 
 export interface Loan {
@@ -20,11 +21,11 @@ export interface Loan {
 
 // Shape carries the state too, never color alone: filled circle, square,
 // checkmark, cross.
-const STATUS: Record<string, { label: string; glyph: string; color: string }> = {
-  pending: { label: "Pendiente", glyph: "●", color: "text-debt" },
-  partially_paid: { label: "Abonado", glyph: "■", color: "text-savings" },
-  paid: { label: "Pagado", glyph: "✓", color: "text-income" },
-  cancelled: { label: "Cancelado", glyph: "✕", color: "text-text-muted" },
+const STATUS: Record<string, { label: string; Glyph: typeof IconCircleFilled; color: string }> = {
+  pending: { label: "Pendiente", Glyph: IconCircleFilled, color: "text-debt" },
+  partially_paid: { label: "Abonado", Glyph: IconSquareFilled, color: "text-savings" },
+  paid: { label: "Pagado", Glyph: IconCheck, color: "text-income" },
+  cancelled: { label: "Cancelado", Glyph: IconClose, color: "text-text-muted" },
 };
 
 export function LoanCard({ loan }: { loan: Loan }) {
@@ -35,7 +36,11 @@ export function LoanCard({ loan }: { loan: Loan }) {
         ? `Me prestó ${loan.lender_name}`
         : `${loan.lender_name} → ${loan.borrower_name}`;
 
-  const status = STATUS[loan.status] ?? { label: loan.status, glyph: "●", color: "text-text-muted" };
+  const status = STATUS[loan.status] ?? {
+    label: loan.status,
+    Glyph: IconCircleFilled,
+    color: "text-text-muted",
+  };
   const cancelled = loan.status === "cancelled";
   const amountTone =
     loan.perspective === "observer"
@@ -51,7 +56,7 @@ export function LoanCard({ loan }: { loan: Loan }) {
         <span
           className={`inline-flex w-fit items-center gap-1.5 rounded-full border border-border bg-surface-sunken px-2 py-0.5 text-xs font-semibold ${status.color}`}
         >
-          <span aria-hidden="true">{status.glyph}</span>
+          <status.Glyph />
           {status.label}
         </span>
       </div>

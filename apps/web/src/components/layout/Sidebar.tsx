@@ -32,7 +32,7 @@ export function Sidebar() {
                   active ? "bg-surface-sunken text-brand" : "text-text-muted"
                 }`}
               >
-                <span aria-hidden="true">{tab.icon}</span>
+                <tab.Icon />
                 {tab.label}
               </Link>
             </li>

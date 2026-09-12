@@ -9,6 +9,7 @@ import { TransactionForm } from "@/components/finance/TransactionForm";
 import { TransactionRow, type Transaction } from "@/components/finance/TransactionRow";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { IconDiamondFilled, IconCircleFilled, IconFileText, IconPlus } from "@/components/ui/Icons";
 import { Input } from "@/components/ui/Input";
 import { MoneyInput } from "@/components/ui/MoneyInput";
 import { Sheet } from "@/components/ui/Sheet";
@@ -215,7 +216,7 @@ export default function FinanzasPage() {
               </ul>
             ) : transactions.isLoading ? null : (
               <EmptyState
-                icon="📄"
+                icon={<IconFileText />}
                 message={copy.message}
                 action={<Button onClick={() => setSheetOpen(true)}>{copy.action}</Button>}
               />
@@ -233,7 +234,7 @@ export default function FinanzasPage() {
               </div>
             ) : goals.isLoading ? null : (
               <EmptyState
-                icon="◆"
+                icon={<IconDiamondFilled />}
                 message={copy.message}
                 action={<Button onClick={() => setSheetOpen(true)}>{copy.action}</Button>}
               />
@@ -251,7 +252,7 @@ export default function FinanzasPage() {
               </div>
             ) : debts.isLoading ? null : (
               <EmptyState
-                icon="●"
+                icon={<IconCircleFilled />}
                 message={copy.message}
                 action={<Button onClick={() => setSheetOpen(true)}>{copy.action}</Button>}
               />
@@ -266,7 +267,7 @@ export default function FinanzasPage() {
         onClick={() => setSheetOpen(true)}
         className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 z-10 flex h-14 w-14 items-center justify-center rounded-full bg-brand text-2xl text-brand-contrast shadow-lg active:bg-brand-pressed md:bottom-6"
       >
-        +
+        <IconPlus />
       </button>
 
       <Sheet open={sheetOpen} onClose={closeSheet} title={copy.sheetTitle}>

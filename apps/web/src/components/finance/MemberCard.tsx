@@ -1,5 +1,12 @@
 import { PrivateBlock } from "@/components/privacy/PrivateBlock";
 import { Card } from "@/components/ui/Card";
+import {
+  IconArrowDown,
+  IconArrowUp,
+  IconCircleFilled,
+  IconDiamondFilled,
+  IconLock,
+} from "@/components/ui/Icons";
 import { MoneyDisplay } from "./MoneyDisplay";
 
 export interface ModuleCell {
@@ -27,10 +34,17 @@ export interface DashboardMember {
 const MODULES = ["income", "expenses", "savings", "debts"] as const;
 
 const LABELS: Record<(typeof MODULES)[number], string> = {
-  income: "↑ Ingresos",
-  expenses: "↓ Gastos",
-  savings: "◆ Ahorros",
-  debts: "● Deudas",
+  income: "Ingresos",
+  expenses: "Gastos",
+  savings: "Ahorros",
+  debts: "Deudas",
+};
+
+const GLYPHS: Record<(typeof MODULES)[number], typeof IconArrowUp> = {
+  income: IconArrowUp,
+  expenses: IconArrowDown,
+  savings: IconDiamondFilled,
+  debts: IconCircleFilled,
 };
 
 // Color never carries meaning alone: the glyph and the word also differ.
@@ -57,12 +71,16 @@ function Cell({
   currency: string;
 }) {
   const isPrivate = cell.level === "private" || cell.total_minor === undefined;
+  const Glyph = GLYPHS[name];
   return (
     <div
       data-testid={`cell-${name}`}
       className="flex flex-col gap-1 rounded-xl border border-border bg-surface-sunken p-2.5"
     >
-      <span className={`text-xs font-medium ${COLORS[name]}`}>{LABELS[name]}</span>
+      <span className={`inline-flex items-center gap-1 text-xs font-medium ${COLORS[name]}`}>
+        <Glyph />
+        {LABELS[name]}
+      </span>
       {isPrivate ? (
         <PrivateBlock />
       ) : (
@@ -106,7 +124,7 @@ export function MemberCard({
       {allPrivate ? (
         <div className="flex items-center gap-3 rounded-xl border border-border bg-surface-sunken p-4">
           <span aria-hidden="true" className="text-lg text-private">
-            🔒
+            <IconLock />
           </span>
           <div className="min-w-0">
             <p className="font-semibold text-private">Privado</p>

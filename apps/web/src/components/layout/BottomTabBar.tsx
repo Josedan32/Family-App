@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { IconHandshake, IconHome, IconSettings, IconUsers, IconWallet } from "@/components/ui/Icons";
+
 export const TABS = [
-  { href: "/", label: "Inicio", icon: "🏠" },
-  { href: "/finanzas", label: "Finanzas", icon: "💰" },
-  { href: "/aportes", label: "Aportes", icon: "🤝" },
-  { href: "/hogar", label: "Hogar", icon: "👨‍👩‍👦" },
-  { href: "/ajustes/privacidad", label: "Ajustes", icon: "⚙️" },
+  { href: "/", label: "Inicio", Icon: IconHome },
+  { href: "/finanzas", label: "Finanzas", Icon: IconWallet },
+  { href: "/aportes", label: "Aportes", Icon: IconHandshake },
+  { href: "/hogar", label: "Hogar", Icon: IconUsers },
+  { href: "/ajustes/privacidad", label: "Ajustes", Icon: IconSettings },
 ] as const;
 
 export function BottomTabBar() {
@@ -31,9 +33,7 @@ export function BottomTabBar() {
                   active ? "text-brand" : "text-text-muted"
                 }`}
               >
-                <span aria-hidden="true" className="text-lg">
-                  {tab.icon}
-                </span>
+                <tab.Icon className="text-lg" />
                 <span className="whitespace-nowrap" style={{ letterSpacing: "-0.01em" }}>
                   {tab.label}
                 </span>
