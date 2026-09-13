@@ -1,7 +1,9 @@
-import pytest
-
 from family_api.db.models.chore import (
-    Chore, ChoreAssignment, ChoreCycle, EffortAdjustment, MemberAbsence,
+    Chore,
+    ChoreAssignment,
+    ChoreCycle,
+    EffortAdjustment,
+    MemberAbsence,
 )
 
 

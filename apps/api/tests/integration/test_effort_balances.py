@@ -65,13 +65,16 @@ async def test_completing_a_chore_earns_its_frozen_weight(
     cycle = await client.get("/api/v1/chore-cycles/current", headers=admin)
     assignment = cycle.json()["assignments"][0]
 
-    await client.post(
+    completed = await client.post(
         f"/api/v1/chore-assignments/{assignment['id']}/complete", headers=admin
     )
+    # Credit follows whoever actually completed it (FR-M8-11), which is the
+    # caller here, not necessarily whoever the chore was originally assigned to.
+    completer_id = completed.json()["completed_by_member_id"]
 
     balances = await client.get("/api/v1/effort-balances", headers=admin)
     row = next(
-        r for r in balances.json()["members"] if r["member_id"] == assignment["member_id"]
+        r for r in balances.json()["members"] if r["member_id"] == completer_id
     )
     assert row["effort_points"] == assignment["effort_points"]
     assert row["completed_count"] == 1

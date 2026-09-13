@@ -184,7 +184,7 @@ async def test_a_guest_is_never_assigned(db_session: AsyncSession) -> None:
 @pytest.mark.asyncio
 async def test_a_new_member_starts_at_the_median(db_session: AsyncSession) -> None:
     """C-08 / FR-M8-09: joining must not be a punishment."""
-    from datetime import UTC, datetime, timedelta
+    from datetime import UTC, datetime
 
     household, members = await _household_of_four(db_session)
     await generate_cycle(

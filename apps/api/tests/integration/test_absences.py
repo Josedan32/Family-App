@@ -15,7 +15,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from family_api.db.models.chore import ChoreAssignment, MemberAbsence
 from family_api.ids import new_id
 from family_api.services.assignment import generate_cycle
-
 from tests.integration.test_fairness import _complete_everything, _household_of_four
 
 

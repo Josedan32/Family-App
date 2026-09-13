@@ -55,37 +55,32 @@ async def effort_balances(
 
     members = await eligible_members(session, household.id)
 
-    completed = dict(
-        (
-            await session.execute(
-                select(
-                    ChoreAssignment.completed_by_member_id,
-                    func.coalesce(func.sum(ChoreAssignment.effort_points), 0),
-                )
-                .where(
-                    ChoreAssignment.household_id == household.id,
-                    ChoreAssignment.status == "done",
-                    ChoreAssignment.completed_at >= start_ts,
-                )
-                .group_by(ChoreAssignment.completed_by_member_id)
-            )
-        ).all()
+    completed_result = await session.execute(
+        select(
+            ChoreAssignment.completed_by_member_id,
+            func.coalesce(func.sum(ChoreAssignment.effort_points), 0),
+        )
+        .where(
+            ChoreAssignment.household_id == household.id,
+            ChoreAssignment.status == "done",
+            ChoreAssignment.completed_at >= start_ts,
+        )
+        .group_by(ChoreAssignment.completed_by_member_id)
     )
-    adjusted = dict(
-        (
-            await session.execute(
-                select(
-                    EffortAdjustment.member_id,
-                    func.coalesce(func.sum(EffortAdjustment.points), 0),
-                )
-                .where(
-                    EffortAdjustment.household_id == household.id,
-                    EffortAdjustment.created_at >= start_ts,
-                )
-                .group_by(EffortAdjustment.member_id)
-            )
-        ).all()
+    completed: dict[UUID | None, int] = {row[0]: row[1] for row in completed_result}
+
+    adjusted_result = await session.execute(
+        select(
+            EffortAdjustment.member_id,
+            func.coalesce(func.sum(EffortAdjustment.points), 0),
+        )
+        .where(
+            EffortAdjustment.household_id == household.id,
+            EffortAdjustment.created_at >= start_ts,
+        )
+        .group_by(EffortAdjustment.member_id)
     )
+    adjusted: dict[UUID, int] = {row[0]: row[1] for row in adjusted_result}
 
     balances = {
         m.id: int(completed.get(m.id, 0)) + int(adjusted.get(m.id, 0)) for m in members
@@ -127,37 +122,42 @@ async def balance_rows(
     today = today or date.today()
     balances = await effort_balances(session, household, today)
 
-    names = dict(
-        (
-            await session.execute(
-                select(HouseholdMember.id, User.display_name).join(
-                    User, User.id == HouseholdMember.user_id
-                )
-            )
-        ).all()
+    names_result = await session.execute(
+        select(HouseholdMember.id, User.display_name).join(
+            User, User.id == HouseholdMember.user_id
+        )
     )
-    counts = {
-        row[0]: (row[1], row[2])
-        for row in (
-            await session.execute(
-                select(
-                    ChoreAssignment.member_id,
-                    func.count().filter(ChoreAssignment.status == "done"),
-                    func.count().filter(ChoreAssignment.status == "pending"),
-                )
-                .where(ChoreAssignment.household_id == household.id)
-                .group_by(ChoreAssignment.member_id)
-            )
-        ).all()
-    }
+    names: dict[UUID, str] = {row[0]: row[1] for row in names_result}
+
+    # Completed count follows the doer, same as effort_points (FR-M8-11).
+    # Pending count has no doer yet, so it stays with the assignee.
+    completed_result = await session.execute(
+        select(ChoreAssignment.completed_by_member_id, func.count())
+        .where(
+            ChoreAssignment.household_id == household.id,
+            ChoreAssignment.status == "done",
+        )
+        .group_by(ChoreAssignment.completed_by_member_id)
+    )
+    completed_counts: dict[UUID | None, int] = {row[0]: row[1] for row in completed_result}
+
+    pending_result = await session.execute(
+        select(ChoreAssignment.member_id, func.count())
+        .where(
+            ChoreAssignment.household_id == household.id,
+            ChoreAssignment.status == "pending",
+        )
+        .group_by(ChoreAssignment.member_id)
+    )
+    pending_counts: dict[UUID, int] = {row[0]: row[1] for row in pending_result}
 
     return [
         EffortBalanceRow(
             member_id=member_id,
             display_name=names.get(member_id, ""),
             effort_points=points,
-            completed_count=counts.get(member_id, (0, 0))[0],
-            pending_count=counts.get(member_id, (0, 0))[1],
+            completed_count=completed_counts.get(member_id, 0),
+            pending_count=pending_counts.get(member_id, 0),
         )
         for member_id, points in sorted(balances.items(), key=lambda kv: -kv[1])
     ]

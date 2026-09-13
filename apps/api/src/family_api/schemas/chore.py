@@ -2,7 +2,7 @@ from datetime import date, datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 Frequency = Literal["daily", "weekly", "biweekly", "monthly"]
 
@@ -75,10 +75,17 @@ class AbsenceResponse(BaseModel):
 
 class CreateAdjustmentRequest(BaseModel):
     member_id: UUID
-    points: int = Field(ne=0)
+    points: int
     # Required: an unexplained adjustment to a fairness ledger is
     # indistinguishable from favouritism.
     reason: str = Field(min_length=1, max_length=500)
+
+    @field_validator("points")
+    @classmethod
+    def _points_nonzero(cls, value: int) -> int:
+        if value == 0:
+            raise ValueError("points must not be zero")
+        return value
 
 
 class EffortBalanceRow(BaseModel):

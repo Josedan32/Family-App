@@ -119,7 +119,7 @@ async def current_cycle(
     session: AsyncSession, household_id: UUID, on: date | None = None
 ) -> ChoreCycle | None:
     on = on or date.today()
-    return await session.scalar(
+    cycle = await session.scalar(
         select(ChoreCycle)
         .where(
             ChoreCycle.household_id == household_id,
@@ -128,6 +128,7 @@ async def current_cycle(
         )
         .order_by(ChoreCycle.starts_on.desc())
     )
+    return cycle
 
 
 async def _load_assignment(
@@ -199,22 +200,17 @@ async def to_assignment_responses(
 
     chore_ids = {a.chore_id for a in assignments}
     member_ids = {a.member_id for a in assignments}
-    chore_names = dict(
-        (
-            await session.execute(
-                select(Chore.id, Chore.name).where(Chore.id.in_(chore_ids))
-            )
-        ).all()
+    chore_names_result = await session.execute(
+        select(Chore.id, Chore.name).where(Chore.id.in_(chore_ids))
     )
-    member_names = dict(
-        (
-            await session.execute(
-                select(HouseholdMember.id, User.display_name)
-                .join(User, User.id == HouseholdMember.user_id)
-                .where(HouseholdMember.id.in_(member_ids))
-            )
-        ).all()
+    chore_names: dict[UUID, str] = {row[0]: row[1] for row in chore_names_result}
+
+    member_names_result = await session.execute(
+        select(HouseholdMember.id, User.display_name)
+        .join(User, User.id == HouseholdMember.user_id)
+        .where(HouseholdMember.id.in_(member_ids))
     )
+    member_names: dict[UUID, str] = {row[0]: row[1] for row in member_names_result}
 
     return [
         AssignmentResponse(
