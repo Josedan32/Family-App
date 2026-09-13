@@ -1,6 +1,9 @@
+import Link from "next/link";
+
 import type { Assignment } from "@/components/chores/AssignmentRow";
 import { EffortBalanceBar, type BalanceRow } from "@/components/chores/EffortBalanceBar";
-import { IconClock } from "@/components/ui/Icons";
+import { Card } from "@/components/ui/Card";
+import { IconClock, IconSettings } from "@/components/ui/Icons";
 import { ApiError } from "@/lib/api/errors";
 import { pageFetch } from "@/lib/api/server";
 
@@ -60,6 +63,20 @@ export default async function TareasPage() {
           </span>
         ) : null}
       </div>
+
+      {isAdmin ? (
+        <Link href="/tareas/admin">
+          <Card className="flex items-center gap-3">
+            <span aria-hidden="true" className="flex-none text-brand">
+              <IconSettings />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold">Administrar tareas</p>
+              <p className="text-xs text-text-muted">Catálogo y puntos de esfuerzo</p>
+            </div>
+          </Card>
+        </Link>
+      ) : null}
 
       {cycle ? (
         <>
