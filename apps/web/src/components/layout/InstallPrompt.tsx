@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 
+const BODY_CLASS = "fh-install-banner-visible";
+
 /**
  * Registers the service worker and offers "Añadir a inicio" once.
  *
@@ -25,10 +27,20 @@ export function InstallPrompt() {
     setDismissed(standalone || seen);
   }, []);
 
+  useEffect(() => {
+    // A fixed banner over scrollable content will eventually sit right
+    // where a real page's own content — or a browser scrolling a focused
+    // element into view — ends up, silently eating the tap meant for it.
+    // Reserving extra space in <main> while the banner is up (globals.css)
+    // is what keeps content from ever landing underneath it.
+    document.body.classList.toggle(BODY_CLASS, !dismissed);
+    return () => document.body.classList.remove(BODY_CLASS);
+  }, [dismissed]);
+
   if (dismissed) return null;
 
   return (
-    <div className="safe-bottom fixed inset-x-2 bottom-20 z-20 flex items-center justify-between gap-2 rounded-xl border border-border bg-surface p-3 shadow-lg md:hidden">
+    <div className="fixed inset-x-2 bottom-[calc(9.5rem+env(safe-area-inset-bottom,0px))] z-20 flex items-center justify-between gap-2 rounded-xl border border-border bg-surface p-3 shadow-lg md:hidden">
       <p className="text-sm">Añade Family Hub a tu pantalla de inicio.</p>
       <button
         onClick={() => {

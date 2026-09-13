@@ -179,6 +179,22 @@ a[role="button"] {
   }
 }
 
+/*
+ * While the install banner is up (InstallPrompt.tsx toggles this class),
+ * scroll-padding-bottom tells the browser to leave that much clearance
+ * whenever it auto-scrolls a focused/tapped element into view inside
+ * <main> — without it, a mid-page button can land flush against the
+ * viewport's bottom edge, exactly where the fixed banner sits, and it
+ * silently eats the tap meant for that button. 767px matches Tailwind's
+ * md breakpoint, where the banner itself is md:hidden.
+ */
+@media (max-width: 767px) {
+  .fh-install-banner-visible .app-main {
+    padding-bottom: 19rem;
+    scroll-padding-bottom: 13rem;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
