@@ -179,32 +179,45 @@ export function IconDiamondFilled(props: IconProps) {
   );
 }
 
+/**
+ * These four are Heroicons outline paths (InformationCircle, CheckCircle,
+ * ExclamationTriangle, XCircle) traced in verbatim so the toast states match
+ * Heroicons' own semantics, while staying inline components per the rule above.
+ */
 export function IconInfo(props: IconProps) {
   return (
-    <svg {...LINE_PROPS} {...props}>
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 11v5.5" />
-      <circle cx="12" cy="7.75" r="0.9" fill="currentColor" stroke="none" />
+    <svg {...LINE_PROPS} strokeWidth={1.5} {...props}>
+      <path d="M11.25 11.25l.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021" />
+      <path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+      <path d="M11.992 8.25h.008v.008h-.008V8.25Z" />
+    </svg>
+  );
+}
+
+export function IconCheckCircle(props: IconProps) {
+  return (
+    <svg {...LINE_PROPS} strokeWidth={1.5} {...props}>
+      <path d="M9 12.75 11.25 15 15 9.75" />
+      <path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
     </svg>
   );
 }
 
 export function IconAlertTriangle(props: IconProps) {
   return (
-    <svg {...LINE_PROPS} {...props}>
-      <path d="M12 4 21.5 20.5H2.5Z" />
-      <path d="M12 10v4" />
-      <circle cx="12" cy="17.2" r="0.9" fill="currentColor" stroke="none" />
+    <svg {...LINE_PROPS} strokeWidth={1.5} {...props}>
+      <path d="M12 9v3.75" />
+      <path d="M12 15.75h.007v.008H12v-.008Z" />
+      <path d="M9.401 3.003c1.155-2.003 4.043-2.003 5.198 0l7.86 13.62c1.154 2-.29 4.5-2.6 4.5H4.14c-2.309 0-3.753-2.5-2.598-4.5l7.86-13.62Z" />
     </svg>
   );
 }
 
 export function IconAlertCircle(props: IconProps) {
   return (
-    <svg {...LINE_PROPS} {...props}>
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 7.5v6" />
-      <circle cx="12" cy="16.5" r="0.9" fill="currentColor" stroke="none" />
+    <svg {...LINE_PROPS} strokeWidth={1.5} {...props}>
+      <path d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5" />
+      <path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
     </svg>
   );
 }
