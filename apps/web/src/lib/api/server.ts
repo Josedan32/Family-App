@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation";
+
 import { ApiError, type Problem } from "./errors";
 import { getAccessToken, getRefreshToken, setSession } from "../session";
 
@@ -53,5 +55,21 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
     );
     await setSession(pair.access_token, pair.refresh_token);
     return await request<T>(path, pair.access_token, init);
+  }
+}
+
+/**
+ * For Server Component reads. A 401 here means the transparent refresh above
+ * already failed — the session is truly gone — so we leave for the login
+ * screen instead of letting the exception surface as an unhandled render
+ * error. Every other status rethrows for the caller (or the route's
+ * error.tsx boundary) to turn into a toast.
+ */
+export async function pageFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  try {
+    return await apiFetch<T>(path, init);
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) redirect("/login");
+    throw error;
   }
 }

@@ -1,5 +1,5 @@
 import { Card } from "@/components/ui/Card";
-import { apiFetch } from "@/lib/api/server";
+import { pageFetch } from "@/lib/api/server";
 
 import { InvitesSection } from "./InvitesSection";
 
@@ -30,7 +30,7 @@ const ROLE_LABEL: Record<string, string> = {
 };
 
 export default async function HogarPage() {
-  const household = await apiFetch<HouseholdDetail>("/households/current");
+  const household = await pageFetch<HouseholdDetail>("/households/current");
   const isAdmin = household.my_role === "admin";
 
   return (

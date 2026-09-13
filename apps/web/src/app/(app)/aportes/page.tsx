@@ -3,7 +3,7 @@ import { MoneyDisplay } from "@/components/finance/MoneyDisplay";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { IconCheck, IconHandshake } from "@/components/ui/Icons";
-import { apiFetch } from "@/lib/api/server";
+import { pageFetch } from "@/lib/api/server";
 import { ApiError } from "@/lib/api/errors";
 
 import { ContributeButton } from "./ContributeButton";
@@ -30,7 +30,7 @@ interface CurrentPeriod {
 
 async function currentPeriod(): Promise<CurrentPeriod | null> {
   try {
-    return await apiFetch<CurrentPeriod>("/contribution-periods/current");
+    return await pageFetch<CurrentPeriod>("/contribution-periods/current");
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) return null;
     throw error;

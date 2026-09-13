@@ -4,7 +4,7 @@ import { VisibilityBadge, type Level } from "@/components/privacy/VisibilityBadg
 import { Card } from "@/components/ui/Card";
 import { IconArrowDown, IconArrowUp, IconCircleFilled, IconDiamondFilled } from "@/components/ui/Icons";
 import { ApiError } from "@/lib/api/errors";
-import { apiFetch } from "@/lib/api/server";
+import { pageFetch } from "@/lib/api/server";
 
 interface Member {
   id: string;
@@ -70,7 +70,7 @@ interface CurrentPeriod {
 
 async function moduleData<T>(path: string): Promise<T | null> {
   try {
-    return await apiFetch<T>(path);
+    return await pageFetch<T>(path);
   } catch (error) {
     // A denial is expected and normal here — it is the privacy model working.
     if (error instanceof ApiError && error.type === "not_visible") return null;
@@ -147,7 +147,7 @@ export default async function MemberProfilePage({
   const { id } = await params;
 
   const [household, income, expenses, savings, debts, period] = await Promise.all([
-    apiFetch<HouseholdDetail>("/households/current"),
+    pageFetch<HouseholdDetail>("/households/current"),
     moduleData<MoneyTotal | TransactionList>(`/members/${id}/income`),
     moduleData<MoneyTotal | TransactionList>(`/members/${id}/expenses`),
     moduleData<SavingsSummary | SavingsGoal[]>(`/members/${id}/savings`),
