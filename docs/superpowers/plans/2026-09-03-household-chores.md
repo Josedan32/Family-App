@@ -2285,15 +2285,597 @@ git commit -m "feat(chores): add chores screen and seeding"
 
 ---
 
+### Task 8: Chore administration screen
+
+Task 7 wired 4 of the API's 12 module-8 endpoints into the web app. This task
+wires the remaining admin surface: `GET/POST /chores`, `PATCH/DELETE
+/chores/{id}`, `POST /effort-adjustments`. FR-M8-01, FR-M8-02, FR-M8-03,
+FR-M8-14. Mockup: "Administrar tareas" in `docs/design-index.md` Plan 6 —
+opened with the Artifact tool and unpacked per that doc's "Cómo lee esto un
+agente" section before writing any component.
+
+**Route is `/tareas/admin`, open to every household member — not gated at the
+page.** FR-M8-15 (chores carry no visibility rules) and the mockup's own
+"Catalogo miembro" / "Detalle miembro" screens both show a non-admin reading
+the same catalog, just without the chevron, the FAB, or the edit sheet, plus
+a neutral-gray, lock-icon banner reading "esto lo define el administrador" —
+never a red error state. "Admin screen" describes who can *mutate*, not who
+can *see*; a page-level redirect would contradict both FR-M8-15 and the
+mockup it ships with.
+
+**Files:**
+- Create: `apps/web/src/components/chores/EffortSlider.tsx`
+- Create: `apps/web/src/app/(app)/tareas/admin/page.tsx`,
+  `ChoreAdminClient.tsx`, `EffortAdjustmentForm.tsx`
+- Modify: `apps/web/src/app/(app)/tareas/page.tsx` (admin entry point)
+- Test: `apps/web/src/components/__tests__/chores-admin.test.tsx`,
+  `apps/web/src/app/__tests__/ChoreAdminClient.test.tsx`,
+  `apps/web/src/app/__tests__/EffortAdjustmentForm.test.tsx`
+
+**Interfaces:**
+- Consumes: `ChoreResponse` / `CreateChoreRequest` / `UpdateChoreRequest` /
+  `CreateAdjustmentRequest` (generated `schema.d.ts`, already current — Task 3
+  and Task 4 built the API), `pageFetch`, `clientFetch`, `ApiError`, `Sheet`,
+  `Button`, `Input`, `Card`, `IconLock`, `IconPlus`, `pushToast`.
+- Produces: `<EffortSlider value onChange? disabled?>`; `<ChoreAdminClient
+  chores isAdmin>`; `<EffortAdjustmentForm members>`; the `/tareas/admin`
+  route.
+
+- [ ] **Step 1: Write the failing tests**
+
+Create `apps/web/src/components/__tests__/chores-admin.test.tsx`:
+
+```tsx
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+
+import { EffortSlider } from "../chores/EffortSlider";
+
+describe("EffortSlider", () => {
+  it("shows the current value out of ten", () => {
+    render(<EffortSlider value={5} />);
+    expect(screen.getByText("5")).toBeInTheDocument();
+    expect(screen.getByText("de 10")).toBeInTheDocument();
+  });
+
+  it("exposes the value on the slider role for assistive tech", () => {
+    render(<EffortSlider value={3} />);
+    expect(screen.getByRole("slider")).toHaveAttribute("aria-valuenow", "3");
+  });
+
+  it("calls onChange with the points of the clicked bar", () => {
+    const onChange = vi.fn();
+    render(<EffortSlider value={1} onChange={onChange} />);
+    fireEvent.click(screen.getByLabelText("7 puntos de esfuerzo"));
+    expect(onChange).toHaveBeenCalledWith(7);
+  });
+
+  it("uses the singular for one point", () => {
+    render(<EffortSlider value={1} onChange={vi.fn()} />);
+    expect(screen.getByLabelText("1 punto de esfuerzo")).toBeInTheDocument();
+  });
+
+  it("moves by one with the arrow keys", () => {
+    const onChange = vi.fn();
+    render(<EffortSlider value={5} onChange={onChange} />);
+    fireEvent.keyDown(screen.getByRole("slider"), { key: "ArrowRight" });
+    expect(onChange).toHaveBeenCalledWith(6);
+  });
+
+  it("never calls onChange when disabled", () => {
+    const onChange = vi.fn();
+    render(<EffortSlider value={5} onChange={onChange} disabled />);
+    fireEvent.click(screen.getByLabelText("7 puntos de esfuerzo"));
+    expect(onChange).not.toHaveBeenCalled();
+  });
+});
+```
+
+Create `apps/web/src/app/__tests__/ChoreAdminClient.test.tsx`:
+
+```tsx
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { ChoreAdminClient, type Chore } from "../(app)/tareas/admin/ChoreAdminClient";
+
+const chores: Chore[] = [
+  {
+    id: "1", name: "Sacar la basura", description: null,
+    frequency: "daily", effort_points: 1, archived_at: null,
+  },
+  {
+    id: "2", name: "Limpiar baño", description: null,
+    frequency: "weekly", effort_points: 7, archived_at: null,
+  },
+];
+
+function jsonResponse(body: unknown, status = 200) {
+  return { ok: status < 400, status, json: async () => body };
+}
+
+function renderClient(isAdmin: boolean) {
+  const client = new QueryClient();
+  render(
+    <QueryClientProvider client={client}>
+      <ChoreAdminClient chores={chores} isAdmin={isAdmin} />
+    </QueryClientProvider>,
+  );
+}
+
+describe("ChoreAdminClient", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("shows every chore with its effort points", () => {
+    renderClient(true);
+    expect(screen.getByText("Sacar la basura")).toBeInTheDocument();
+    expect(screen.getByText("7")).toBeInTheDocument();
+  });
+
+  it("lets a non-admin see the list but never edit it", () => {
+    renderClient(false);
+    expect(screen.getByText("Sacar la basura")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Los puntos de esfuerzo los define el administrador del hogar. Puedes consultarlos, no cambiarlos.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText("Nueva tarea")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Sacar la basura/ })).not.toBeInTheDocument();
+  });
+
+  it("opens the edit sheet prefilled when an admin taps a chore", () => {
+    renderClient(true);
+    fireEvent.click(screen.getByRole("button", { name: /Sacar la basura/ }));
+    expect(screen.getByLabelText("Nombre")).toHaveValue("Sacar la basura");
+    expect(screen.getByRole("slider")).toHaveAttribute("aria-valuenow", "1");
+  });
+
+  it("creates a chore with the exact shape the API expects", async () => {
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      const body = init?.body ? JSON.parse(init.body as string) : null;
+      expect(body).toEqual({
+        name: "Pasear al perro", description: "",
+        frequency: "weekly", effort_points: 5,
+      });
+      return jsonResponse({ id: "3", ...body });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderClient(true);
+    fireEvent.click(screen.getByLabelText("Nueva tarea"));
+    fireEvent.change(screen.getByLabelText("Nombre"), { target: { value: "Pasear al perro" } });
+    fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+  });
+
+  it("shows the duplicate name error inline, not a generic message", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        jsonResponse(
+          { type: "duplicate_chore", title: "Ya existe una tarea con ese nombre", status: 409 },
+          409,
+        ),
+      ),
+    );
+    renderClient(true);
+    fireEvent.click(screen.getByLabelText("Nueva tarea"));
+    fireEvent.change(screen.getByLabelText("Nombre"), { target: { value: "Trapear" } });
+    fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Ya existe una tarea con ese nombre.",
+    );
+  });
+
+  it("archives a chore through delete from the edit sheet", async () => {
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      expect(url).toContain("/chores/2");
+      expect(init?.method).toBe("DELETE");
+      return { ok: true, status: 204, json: async () => null };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderClient(true);
+    fireEvent.click(screen.getByRole("button", { name: /Limpiar baño/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Eliminar tarea" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+  });
+});
+```
+
+Create `apps/web/src/app/__tests__/EffortAdjustmentForm.test.tsx`:
+
+```tsx
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { EffortAdjustmentForm } from "../(app)/tareas/admin/EffortAdjustmentForm";
+
+const members = [
+  { id: "m1", display_name: "Papá" },
+  { id: "m2", display_name: "Mamá" },
+];
+
+function jsonResponse(body: unknown, status = 200) {
+  return { ok: status < 400, status, json: async () => body };
+}
+
+function renderForm() {
+  const client = new QueryClient();
+  render(
+    <QueryClientProvider client={client}>
+      <EffortAdjustmentForm members={members} />
+    </QueryClientProvider>,
+  );
+}
+
+describe("EffortAdjustmentForm", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("requires the reason in the DOM, not only in the API", () => {
+    // C-12 / FR-M8-14: an adjustment without a reason is indistinguishable
+    // from favouritism, so this is not merely a server-side rule.
+    renderForm();
+    expect(screen.getByLabelText("Motivo")).toBeRequired();
+  });
+
+  it("keeps the submit button disabled without a reason", () => {
+    renderForm();
+    fireEvent.change(screen.getByLabelText("Puntos"), { target: { value: "12" } });
+    expect(screen.getByRole("button", { name: "Registrar ajuste" })).toBeDisabled();
+  });
+
+  it("sends member, points and reason exactly as the API expects", async () => {
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      const body = init?.body ? JSON.parse(init.body as string) : null;
+      expect(body).toEqual({ member_id: "m2", points: 12, reason: "Pintó la sala" });
+      return jsonResponse({ id: "a1", ...body });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderForm();
+    fireEvent.change(screen.getByLabelText("Miembro"), { target: { value: "m2" } });
+    fireEvent.change(screen.getByLabelText("Puntos"), { target: { value: "12" } });
+    fireEvent.change(screen.getByLabelText("Motivo"), { target: { value: "Pintó la sala" } });
+    fireEvent.click(screen.getByRole("button", { name: "Registrar ajuste" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+  });
+});
+```
+
+- [ ] **Step 2: Run the tests to verify they fail**
+
+Run: `cd apps/web && npx vitest run chores-admin ChoreAdminClient EffortAdjustmentForm`
+Expected: FAIL — the imported modules do not exist yet
+
+- [ ] **Step 3: Write the effort selector**
+
+Create `apps/web/src/components/chores/EffortSlider.tsx` — ten bars of
+increasing height, filled up to the current value, `role="slider"` with
+`aria-valuenow/min/max` and arrow-key support. **Not a numeric field**: the
+control that decides who a chore falls to communicates weight by height, and
+a typed number invites second-guessing the scale instead of feeling it.
+
+- [ ] **Step 4: Run the selector tests**
+
+Run: `cd apps/web && npx vitest run chores-admin`
+Expected: PASS — 6 tests
+
+- [ ] **Step 5: Write the admin client and adjustment form**
+
+Create `apps/web/src/app/(app)/tareas/admin/ChoreAdminClient.tsx` — the list
+(admin: tappable row opens a `Sheet` with name / description / frequency
+segmented control / `EffortSlider`, "Guardar" doing `POST /chores` or `PATCH
+/chores/{id}`, "Eliminar tarea" doing `DELETE /chores/{id}` when editing an
+existing chore; non-admin: same rows, no chevron, no FAB, the lock-icon
+banner from the mockup instead). Branch mutation errors on `error.type ===
+"duplicate_chore"`, never on `error.title` (`docs/api-contract.md`).
+
+Create `apps/web/src/app/(app)/tareas/admin/EffortAdjustmentForm.tsx` — member
+select, points, and a **required** reason (`required` in the DOM *and*
+`points === 0 || !reason.trim()` disables submit) posting to
+`POST /effort-adjustments`; on success, invalidate the `effort-balances`
+query so `/tareas` reflects the change immediately.
+
+- [ ] **Step 6: Write the page and add the entry point**
+
+Create `apps/web/src/app/(app)/tareas/admin/page.tsx` — a Server Component
+fetching `/chores` and `/households/current`, rendering `ChoreAdminClient`
+and, for an admin, `EffortAdjustmentForm` with the household's eligible
+members (`admin`/`adult`/`teen`, active — guests are never assigned chores,
+FR-M8-06, so they take no adjustment either).
+
+In `apps/web/src/app/(app)/tareas/page.tsx`, add a `Card` link to
+`/tareas/admin` labelled "Administrar tareas", visible only when
+`isAdmin`, placed under the page header the same way `/hogar` links to
+`/hogar/gastos`.
+
+- [ ] **Step 7: Run the full test suite**
+
+Run: `cd apps/web && npx vitest run chores-admin ChoreAdminClient EffortAdjustmentForm chores`
+Expected: PASS — selector, admin client, adjustment form and the existing
+Task 7 chores tests all green (the last confirms the new `/tareas` link
+didn't break `TareasPage`).
+
+- [ ] **Step 8: Run the full verification**
+
+```bash
+cd apps/web && npx vitest run && npx tsc --noEmit && npm run lint && npm run build
+```
+
+Expected: everything PASS. No `make api-types` run — this task adds no
+endpoints, only consumers of ones Task 3 and Task 4 already generated types
+for. **Paste real output.**
+
+- [ ] **Step 9: Commit**
+
+```bash
+git add apps/web
+git commit -m "feat(chores): add task administration screen"
+```
+
+---
+
+### Task 9: Absences UI and reassignment
+
+Tasks 7 and 8 wired 9 of the module's 12 endpoints. Three remain unconsumed:
+`GET/POST /me/absences`, `DELETE /me/absences/{id}` (FR-M8-12), and
+`POST /chore-assignments/{id}/reassign` (FR-M8-11). This task builds both.
+
+**Files:**
+- Modify: `apps/api/src/family_api/schemas/chore.py`,
+  `apps/api/src/family_api/services/effort.py`
+- Test: `apps/api/tests/integration/test_effort_balances.py`
+- Create: `apps/web/src/app/(app)/ajustes/ausencias/page.tsx`,
+  `AbsenceForm.tsx`
+- Modify: `apps/web/src/components/chores/EffortBalanceBar.tsx`,
+  `AssignmentRow.tsx`, `apps/web/src/app/(app)/tareas/{page.tsx,TareasClient.tsx}`
+- Test: `apps/web/src/components/__tests__/chores.test.tsx`,
+  `apps/web/src/app/__tests__/AbsenceForm.test.tsx`
+
+**Mockup:** "Ausencias" in `docs/design-index.md` Plan 6 — opened with the
+Artifact tool before writing the page.
+
+**Interfaces:**
+- Consumes: `MemberAbsence`, `absent_member_ids`-style query, `pageFetch`,
+  `clientFetch`, `Card`, `Input`, `Button`, `EmptyState`.
+- Produces: `EffortBalanceRow.absent_until`; `<AbsenceForm absences>`; the
+  `/ajustes/ausencias` route; `AssignmentRow`'s `onReassign` prop; `Assignment
+  Row`'s member picker.
+
+The effort card cannot show "Ausente hasta el `<fecha>`" for members other
+than the caller unless the derived balance row itself carries that fact — a
+new debt-style table would violate the module's own rule, so the absence
+window is folded into the existing derived row instead of a new endpoint.
+
+- [ ] **Step 1: Write the failing API test**
+
+Add to `apps/api/tests/integration/test_effort_balances.py`:
+
+```python
+@pytest.mark.asyncio
+async def test_an_absent_member_shows_their_return_date(client: AsyncClient) -> None:
+    """FR-M8-12: the effort card must explain, not just omit."""
+    admin, _ = await _household(client)
+    members = await client.get("/api/v1/households/current", headers=admin)
+    papa_id = next(
+        m["id"] for m in members.json()["members"] if m["display_name"] == "Papá"
+    )
+    today = date.today()
+    await client.post(
+        "/api/v1/me/absences",
+        json={
+            "starts_on": today.isoformat(),
+            "ends_on": (today + timedelta(days=5)).isoformat(),
+        },
+        headers={"Authorization": f"Bearer {(await client.post('/api/v1/auth/login', json={'email': 'papa@example.com', 'password': 'correct-horse-battery'}).json())['access_token']}"} if False else admin,
+    )
+```
+
+(The implementer writes this against `papa`'s own token, registered inline as
+in the other tests in this file — `admin` cannot declare `papa`'s absence.)
+Simpler: reuse the existing `_household` helper's `papa` credentials directly
+to `POST /me/absences`, then assert the balances response:
+
+```python
+    balances = await client.get("/api/v1/effort-balances", headers=admin)
+    row = next(r for r in balances.json()["members"] if r["member_id"] == papa_id)
+    assert row["absent_until"] == (today + timedelta(days=5)).isoformat()
+
+    others = [r for r in balances.json()["members"] if r["member_id"] != papa_id]
+    assert all(r["absent_until"] is None for r in others)
+```
+
+- [ ] **Step 2: Run the test to verify it fails**
+
+Run: `cd apps/api && pytest tests/integration/test_effort_balances.py -v -k absent`
+Expected: FAIL — `KeyError: 'absent_until'`
+
+- [ ] **Step 3: Add the field**
+
+In `apps/api/src/family_api/schemas/chore.py`, add to `EffortBalanceRow`:
+
+```python
+    absent_until: date | None
+```
+
+- [ ] **Step 4: Compute it in the service**
+
+In `apps/api/src/family_api/services/effort.py`, in `balance_rows`, add a
+query over `MemberAbsence` for the household covering `today`, grouped by
+member with `max(ends_on)`, and thread it into each `EffortBalanceRow`:
+
+```python
+from family_api.db.models.chore import MemberAbsence
+
+    absences_result = await session.execute(
+        select(MemberAbsence.member_id, func.max(MemberAbsence.ends_on))
+        .where(
+            MemberAbsence.household_id == household.id,
+            MemberAbsence.starts_on <= today,
+            MemberAbsence.ends_on >= today,
+        )
+        .group_by(MemberAbsence.member_id)
+    )
+    absent_until: dict[UUID, date] = {row[0]: row[1] for row in absences_result}
+```
+
+then pass `absent_until=absent_until.get(member_id)` into each
+`EffortBalanceRow`.
+
+- [ ] **Step 5: Run the tests and regenerate types**
+
+```bash
+cd apps/api && pytest tests/integration/test_effort_balances.py -v
+cd .. && make api-types && git diff --exit-code apps/web/src/lib/api/generated
+```
+
+Expected: PASS — 7 tests. Client diff picks up `absent_until`.
+
+- [ ] **Step 6: Write the failing web tests**
+
+Add to `apps/web/src/components/__tests__/chores.test.tsx`:
+
+```tsx
+it("shows an absent member's return date instead of the counts", () => {
+  render(
+    <EffortBalanceBar
+      rows={[
+        { ...rows[1], absent_until: "2026-09-20" },
+      ]}
+    />,
+  );
+  expect(screen.getByText("Ausente hasta el 20 sep")).toBeInTheDocument();
+  expect(screen.queryByText(/pendientes/)).not.toBeInTheDocument();
+});
+
+it("greys out an absent member's bar instead of colouring it", () => {
+  const { container } = render(
+    <EffortBalanceBar rows={[{ ...rows[0], absent_until: "2026-09-20" }]} />,
+  );
+  expect(container.querySelector(".bg-brand")).not.toBeInTheDocument();
+});
+```
+
+Add reassignment coverage to `AssignmentRow`:
+
+```tsx
+it("lets any member hand the chore to someone else", () => {
+  const onReassign = vi.fn();
+  render(
+    <AssignmentRow
+      assignment={assignment}
+      members={[{ id: "m1", display_name: "Daniel" }, { id: "m2", display_name: "Papá" }]}
+      onReassign={onReassign}
+    />,
+  );
+  fireEvent.click(screen.getByRole("button", { name: /Reasignar/ }));
+  fireEvent.change(screen.getByLabelText("Reasignar a"), { target: { value: "m2" } });
+  fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
+  expect(onReassign).toHaveBeenCalledWith("1", "m2");
+});
+```
+
+- [ ] **Step 7: Run the tests to verify they fail**
+
+Run: `cd apps/web && npx vitest run chores`
+Expected: FAIL — new markup does not exist yet
+
+- [ ] **Step 8: Update EffortBalanceBar and AssignmentRow**
+
+`EffortBalanceBar`: accept `absent_until: string | null` on `BalanceRow`. When
+set, render the bar in `bg-surface-sunken`/muted text instead of `bg-brand`,
+and swap the "N hechas · N pendientes" line for "Ausente hasta el
+`<formatted date>`" — never a struck-through or red treatment, so it never
+reads as non-compliance.
+
+`AssignmentRow`: accept optional `members: {id, display_name}[]` and
+`onReassign?: (assignmentId: string, newMemberId: string) => void`. A
+"Reasignar" button (shown whenever `onReassign` and `members.length > 1`,
+regardless of status — credit already follows the doer, not the assignee)
+toggles an inline `<select aria-label="Reasignar a">` plus a "Confirmar"
+button, matching the row's existing inline-disclosure style rather than
+opening a `Sheet`, since the choice is one field.
+
+- [ ] **Step 9: Run the component tests**
+
+Run: `cd apps/web && npx vitest run chores`
+Expected: PASS
+
+- [ ] **Step 10: Wire reassignment into the tareas page**
+
+In `TareasClient.tsx`, accept a `members` prop, add a `reassign` mutation
+posting to `/chore-assignments/{id}/reassign` with optimistic
+`member_id`/`member_name` update and rollback on error (same shape as
+`complete`), and pass `members` + `onReassign` through to every
+`AssignmentRow`. In `tareas/page.tsx`, pass `household.members` (filtered to
+`role !== "guest"`, FR-M8-06) down to `TareasClient`, and add a `Card` link to
+`/ajustes/ausencias` labelled "Marcar ausencia" — visible to every member,
+not just admins, placed under the existing "Administrar tareas" link.
+
+- [ ] **Step 11: Write the absences page and form**
+
+Create `apps/web/src/app/(app)/ajustes/ausencias/AbsenceForm.tsx` — list of
+the member's own absences (date range + optional reason) each with a
+"Quitar" button doing `DELETE /me/absences/{id}`, and a form (`starts_on`,
+`ends_on`, optional `reason` with the caption "Opcional. Tu familia ve que no
+estás; el porqué es cosa tuya.") posting `POST /me/absences`; invalidate
+nothing client-side beyond a `router.refresh()` since this is a Server
+Component page.
+
+Create `apps/web/src/app/(app)/ajustes/ausencias/page.tsx` fetching
+`/me/absences`, rendering the page header, the one-line mechanism explainer —
+"Mientras estás ausente no se te asignan tareas; al volver, el sistema te
+asigna más hasta emparejarte con el resto." — and `AbsenceForm`.
+
+- [ ] **Step 12: Write the failing test, then the page test**
+
+Create `apps/web/src/app/__tests__/AbsenceForm.test.tsx` covering: renders
+existing absences, the reason field's caption text is present, submitting
+posts `starts_on`/`ends_on`/`reason` exactly, and "Quitar" calls `DELETE
+/me/absences/{id}`.
+
+Run: `cd apps/web && npx vitest run AbsenceForm`
+Expected: FAIL, then PASS after Step 11.
+
+- [ ] **Step 13: Run the full verification**
+
+```bash
+cd apps/api && pytest -v && ruff check . && mypy src
+cd ../web && npx vitest run && npx tsc --noEmit && npm run lint && npm run build
+```
+
+Expected: everything PASS. **Paste real output.**
+
+- [ ] **Step 14: Commit**
+
+```bash
+git add apps/api apps/web
+git commit -m "feat(chores): add absences and reassignment ui"
+```
+
+---
+
 ## Plan Self-Review
 
 **1. Spec coverage.**
 
 | Requirement | Task |
 | ----------- | ---- |
-| FR-M8-01 chores with frequency and effort weight | 2, 3 |
-| FR-M8-02 seeded defaults with deliberate weights | 3 |
-| FR-M8-03 only admins create or reprice | 3 |
+| FR-M8-01 chores with frequency and effort weight | 2, 3, 8 |
+| FR-M8-02 seeded defaults with deliberate weights | 3, 8 |
+| FR-M8-03 only admins create or reprice | 3, 8 |
 | FR-M8-04 assignments freeze the weight | 2, 6 |
 | FR-M8-05 cycles generate occurrences | 1, 5 |
 | FR-M8-06 lowest balance, eligible members only, no guests | 4, 5, 6 |
@@ -2304,8 +2886,8 @@ git commit -m "feat(chores): add chores screen and seeding"
 | FR-M8-11 credit follows the doer | 5, 6 |
 | FR-M8-12 absences | 5, 6 |
 | FR-M8-13 emergent compensation, no debt table | 6 |
-| FR-M8-14 attributed manual adjustments | 4 |
-| FR-M8-15 no visibility rules | 3, 7 |
+| FR-M8-14 attributed manual adjustments | 4, 8 |
+| FR-M8-15 no visibility rules | 3, 7, 8 |
 | C-01 … C-12 | 6, 4, 3 |
 | INV-D-10 · INV-D-11 · INV-D-12 | 6 · 6 · 6 |
 

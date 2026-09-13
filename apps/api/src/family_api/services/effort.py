@@ -11,7 +11,7 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from family_api.db.models.chore import ChoreAssignment, EffortAdjustment
+from family_api.db.models.chore import ChoreAssignment, EffortAdjustment, MemberAbsence
 from family_api.db.models.household import Household, HouseholdMember
 from family_api.db.models.user import User
 from family_api.ids import new_id
@@ -151,6 +151,19 @@ async def balance_rows(
     )
     pending_counts: dict[UUID, int] = {row[0]: row[1] for row in pending_result}
 
+    # Household-visible (FR-M8-15): everyone sees who is away and when they
+    # are due back, not just the absent member's own record.
+    absences_result = await session.execute(
+        select(MemberAbsence.member_id, func.max(MemberAbsence.ends_on))
+        .where(
+            MemberAbsence.household_id == household.id,
+            MemberAbsence.starts_on <= today,
+            MemberAbsence.ends_on >= today,
+        )
+        .group_by(MemberAbsence.member_id)
+    )
+    absent_until: dict[UUID, date] = {row[0]: row[1] for row in absences_result}
+
     return [
         EffortBalanceRow(
             member_id=member_id,
@@ -158,6 +171,7 @@ async def balance_rows(
             effort_points=points,
             completed_count=completed_counts.get(member_id, 0),
             pending_count=pending_counts.get(member_id, 0),
+            absent_until=absent_until.get(member_id),
         )
         for member_id, points in sorted(balances.items(), key=lambda kv: -kv[1])
     ]

@@ -1,5 +1,5 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 
 import { AssignmentRow, type Assignment } from "../chores/AssignmentRow";
 import { EffortBalanceBar } from "../chores/EffortBalanceBar";
@@ -42,14 +42,43 @@ describe("AssignmentRow", () => {
     render(<AssignmentRow assignment={{ ...assignment, status: "done" }} />);
     expect(screen.getByText("Hecha")).toBeInTheDocument();
   });
+
+  it("lets any member hand the chore to someone else", () => {
+    const onReassign = vi.fn();
+    render(
+      <AssignmentRow
+        assignment={assignment}
+        members={[
+          { id: "m1", display_name: "Daniel" },
+          { id: "m2", display_name: "Papá" },
+        ]}
+        onReassign={onReassign}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Reasignar/ }));
+    fireEvent.change(screen.getByLabelText("Reasignar a"), { target: { value: "m2" } });
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
+    expect(onReassign).toHaveBeenCalledWith("1", "m2");
+  });
+
+  it("does not offer to reassign with fewer than two members", () => {
+    render(
+      <AssignmentRow
+        assignment={assignment}
+        members={[{ id: "m1", display_name: "Daniel" }]}
+        onReassign={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: /Reasignar/ })).not.toBeInTheDocument();
+  });
 });
 
 describe("EffortBalanceBar", () => {
   const rows = [
     { member_id: "1", display_name: "Daniel", effort_points: 34,
-      completed_count: 11, pending_count: 2 },
+      completed_count: 11, pending_count: 2, absent_until: null },
     { member_id: "2", display_name: "Papá", effort_points: 31,
-      completed_count: 7, pending_count: 1 },
+      completed_count: 7, pending_count: 1, absent_until: null },
   ];
 
   it("lists every member with their points", () => {
@@ -68,5 +97,20 @@ describe("EffortBalanceBar", () => {
     render(<EffortBalanceBar rows={rows} />);
     const bars = screen.getAllByRole("progressbar");
     expect(bars[0]).toHaveAttribute("aria-valuemax", "34");
+  });
+
+  it("shows an absent member's return date instead of the counts", () => {
+    render(
+      <EffortBalanceBar rows={[{ ...rows[1], absent_until: "2026-09-20" }]} />,
+    );
+    expect(screen.getByText("Ausente hasta el 20 sep")).toBeInTheDocument();
+    expect(screen.queryByText(/pendientes/)).not.toBeInTheDocument();
+  });
+
+  it("greys out an absent member's bar instead of colouring it", () => {
+    const { container } = render(
+      <EffortBalanceBar rows={[{ ...rows[0], absent_until: "2026-09-20" }]} />,
+    );
+    expect(container.querySelector(".bg-brand")).not.toBeInTheDocument();
   });
 });
