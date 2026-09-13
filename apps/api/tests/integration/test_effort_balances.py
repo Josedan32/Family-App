@@ -1,3 +1,5 @@
+from datetime import date, timedelta
+
 import pytest
 from httpx import AsyncClient
 
@@ -49,9 +51,15 @@ async def test_completing_a_chore_earns_its_frozen_weight(
     client: AsyncClient,
 ) -> None:
     admin, _ = await _household(client)
+    # "current" cycle lookup is anchored on the real clock, so the window must
+    # contain today rather than a date hardcoded when this test was written.
+    today = date.today()
     await client.post(
         "/api/v1/chore-cycles",
-        json={"starts_on": "2026-09-01", "ends_on": "2026-09-07"},
+        json={
+            "starts_on": (today - timedelta(days=1)).isoformat(),
+            "ends_on": (today + timedelta(days=5)).isoformat(),
+        },
         headers=admin,
     )
     cycle = await client.get("/api/v1/chore-cycles/current", headers=admin)
