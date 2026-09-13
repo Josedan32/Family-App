@@ -1402,6 +1402,8 @@ export interface components {
             completed_count: number;
             /** Pending Count */
             pending_count: number;
+            /** Absent Until */
+            absent_until: string | null;
         };
         /** EffortBalancesResponse */
         EffortBalancesResponse: {

@@ -3,7 +3,11 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
-import { AssignmentRow, type Assignment } from "@/components/chores/AssignmentRow";
+import {
+  AssignmentRow,
+  type Assignment,
+  type AssignmentMember,
+} from "@/components/chores/AssignmentRow";
 import { clientFetch } from "@/lib/api/client";
 
 interface Cycle {
@@ -13,7 +17,13 @@ interface Cycle {
   assignments: Assignment[];
 }
 
-export function TareasClient({ cycle }: { cycle: Cycle }) {
+export function TareasClient({
+  cycle,
+  members,
+}: {
+  cycle: Cycle;
+  members: AssignmentMember[];
+}) {
   const [assignments, setAssignments] = useState(cycle.assignments);
   const [showDone, setShowDone] = useState(false);
   const queryClient = useQueryClient();
@@ -43,6 +53,32 @@ export function TareasClient({ cycle }: { cycle: Cycle }) {
     },
   });
 
+  const reassign = useMutation({
+    mutationFn: ({ id, memberId }: { id: string; memberId: string }) =>
+      clientFetch<Assignment>(`/chore-assignments/${id}/reassign`, {
+        method: "POST",
+        body: JSON.stringify({ member_id: memberId }),
+      }),
+    onMutate: ({ id, memberId }) => {
+      const previous = assignments;
+      const newMember = members.find((m) => m.id === memberId);
+      setAssignments((current) =>
+        current.map((a) =>
+          a.id === id
+            ? { ...a, member_id: memberId, member_name: newMember?.display_name ?? a.member_name }
+            : a,
+        ),
+      );
+      return { previous };
+    },
+    onError: (_error, _vars, context) => {
+      if (context) setAssignments(context.previous);
+    },
+    onSuccess: (updated) => {
+      setAssignments((current) => current.map((a) => (a.id === updated.id ? updated : a)));
+    },
+  });
+
   return (
     <>
       <div className="flex flex-col gap-2.5">
@@ -59,7 +95,9 @@ export function TareasClient({ cycle }: { cycle: Cycle }) {
             <AssignmentRow
               key={assignment.id}
               assignment={assignment}
+              members={members}
               onComplete={(id) => complete.mutate(id)}
+              onReassign={(id, memberId) => reassign.mutate({ id, memberId })}
             />
           ))}
         </ul>

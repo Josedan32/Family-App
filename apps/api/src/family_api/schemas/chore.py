@@ -94,6 +94,9 @@ class EffortBalanceRow(BaseModel):
     effort_points: int
     completed_count: int
     pending_count: int
+    # Household-visible (FR-M8-15): whoever is away, everyone sees when they
+    # are due back, not just the absent member themselves.
+    absent_until: date | None
 
 
 class EffortBalancesResponse(BaseModel):
