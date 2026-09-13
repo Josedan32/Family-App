@@ -122,3 +122,30 @@ async def test_a_member_with_no_records_returns_zero_not_a_denial(
 
     assert response.status_code == 200
     assert response.json()["total_minor"] == 0
+
+
+@pytest.mark.asyncio
+async def test_debt_detail_carries_installment_figures(client: AsyncClient) -> None:
+    """The member-profile debt list needs the same derived figures as /me/debts."""
+    daniel, papa, papa_id = await _household_with_papa(client)
+    await _set_visibility(client, papa, "debts", "public")
+    await client.post(
+        "/api/v1/me/debts",
+        json={
+            "creditor_type": "addi",
+            "creditor_label": "Addi - Celular",
+            "principal_minor": 1_200_000,
+            "installments_total": 12,
+            "installment_amount_minor": 100_000,
+            "first_installment_on": "2026-09-15",
+        },
+        headers=papa,
+    )
+
+    response = await client.get(f"/api/v1/members/{papa_id}/debts", headers=daniel)
+
+    assert response.status_code == 200
+    debt = response.json()[0]
+    assert debt["installments_total"] == 12
+    assert debt["installments_paid"] == 0
+    assert debt["next_installment_on"] == "2026-09-15"

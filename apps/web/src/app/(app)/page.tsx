@@ -3,7 +3,7 @@ import { MemberCard, type DashboardMember } from "@/components/finance/MemberCar
 import { MoneyDisplay } from "@/components/finance/MoneyDisplay";
 import { Card } from "@/components/ui/Card";
 import { IconArrowDown, IconArrowUp, IconDiamondFilled } from "@/components/ui/Icons";
-import { apiFetch } from "@/lib/api/server";
+import { pageFetch } from "@/lib/api/server";
 
 interface Dashboard {
   period: string;
@@ -27,7 +27,7 @@ const HOUSEHOLD_TOTALS = [
 
 export default async function DashboardPage() {
   // Server Component: figures the viewer may not see never reach the browser.
-  const data = await apiFetch<Dashboard>("/dashboard");
+  const data = await pageFetch<Dashboard>("/dashboard");
 
   return (
     <div className="flex flex-col gap-5">

@@ -23,6 +23,11 @@ EXEMPT_PREFIXES = (
     "/api/v1/loans",         # FR-M2-16: both parties always see their own loans
     "/api/v1/contribution-periods",  # FR-M4-07: always household-visible
     "/api/v1/household-expenses",  # FR-M4-15: shared money, always household-visible
+    "/api/v1/chores",             # FR-M8-15: housework is not private
+    "/api/v1/chore-cycles",       # FR-M8-15
+    "/api/v1/chore-assignments",  # FR-M8-15
+    "/api/v1/effort-balances",    # FR-M8-15
+    "/api/v1/effort-adjustments", # FR-M8-15
     "/docs",
     "/openapi.json",
     "/redoc",

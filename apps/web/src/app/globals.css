@@ -142,10 +142,17 @@ a[role="button"] {
   min-width: 44px;
 }
 
-/* Stops the whole page rubber-banding when a list hits its end. */
+/* Stops the whole page rubber-banding when a list hits its end. Scrolling
+   still works — only the browser's own scrollbar chrome is hidden, which
+   this mobile-first design never shows anywhere else. */
 .scroll-area {
   overflow-y: auto;
   overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+
+.scroll-area::-webkit-scrollbar {
+  display: none;
 }
 
 :focus-visible {

@@ -7,6 +7,7 @@ from family_api.db.models.seeded import Category, VisibilitySetting
 from family_api.db.models.user import User
 from family_api.errors import AlreadyInHouseholdError
 from family_api.ids import new_id
+from family_api.services.chores import seed_chores
 
 # FR-M2-01. Seeded data stays in the user's language (docs/glossary.md §6).
 SEEDED_CATEGORIES: dict[str, tuple[str, ...]] = {
@@ -90,6 +91,7 @@ async def create_household(
     await session.flush()
 
     seed_categories(session, household)
+    seed_chores(session, household)
     seed_visibility(session, member)
     await session.flush()
     return household, member

@@ -1,0 +1,85 @@
+import type { Assignment } from "@/components/chores/AssignmentRow";
+import { EffortBalanceBar, type BalanceRow } from "@/components/chores/EffortBalanceBar";
+import { IconClock } from "@/components/ui/Icons";
+import { ApiError } from "@/lib/api/errors";
+import { pageFetch } from "@/lib/api/server";
+
+import { GenerateCycleButton } from "./GenerateCycleButton";
+import { TareasClient } from "./TareasClient";
+
+interface Cycle {
+  id: string;
+  starts_on: string;
+  ends_on: string;
+  assignments: Assignment[];
+}
+
+interface EffortBalances {
+  window_days: number;
+  window_start: string;
+  members: BalanceRow[];
+}
+
+interface HouseholdDetail {
+  my_role: string;
+}
+
+async function fetchCurrentCycle(): Promise<Cycle | null> {
+  try {
+    return await pageFetch<Cycle>("/chore-cycles/current");
+  } catch (error) {
+    if (error instanceof ApiError && error.type === "not_found") return null;
+    throw error;
+  }
+}
+
+const MONTHS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+
+function formatDay(isoDate: string): string {
+  const [, month, day] = isoDate.split("-");
+  return `${day} ${MONTHS[Number(month) - 1]}`;
+}
+
+export default async function TareasPage() {
+  // FR-M8-15: chores carry no visibility rules at all, so nothing here is
+  // wrapped in PrivateBlock — everyone in the household sees the same data.
+  const [cycle, balances, household] = await Promise.all([
+    fetchCurrentCycle(),
+    pageFetch<EffortBalances>("/effort-balances"),
+    pageFetch<HouseholdDetail>("/households/current"),
+  ]);
+  const isAdmin = household.my_role === "admin";
+
+  return (
+    <div className="flex flex-col gap-5">
+      <div className="flex items-baseline justify-between gap-3">
+        <h1 className="text-[1.75rem] font-bold tracking-tight">Tareas</h1>
+        {cycle ? (
+          <span className="whitespace-nowrap text-xs text-text-muted">
+            {formatDay(cycle.starts_on)} – {formatDay(cycle.ends_on)}
+          </span>
+        ) : null}
+      </div>
+
+      {cycle ? (
+        <>
+          <EffortBalanceBar rows={balances.members} />
+          <TareasClient cycle={cycle} />
+        </>
+      ) : (
+        <div className="flex flex-col items-center gap-3 py-12 text-center">
+          <span className="text-4xl text-text-muted" aria-hidden="true">
+            <IconClock />
+          </span>
+          <p className="text-lg font-bold">No hay un ciclo activo</p>
+          <p className="max-w-xs text-sm text-text-muted">
+            {isAdmin
+              ? "Sin ciclo no se reparten tareas ni se acumulan puntos de esfuerzo. El administrador del hogar abre el siguiente."
+              : "Sin ciclo no se reparten tareas ni se acumulan puntos de esfuerzo. Cuando el administrador abra el siguiente, aparecerá aquí."}
+          </p>
+          {isAdmin ? <GenerateCycleButton /> : null}
+        </div>
+      )}
+    </div>
+  );
+}

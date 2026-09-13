@@ -1,9 +1,9 @@
-import { IconAlertCircle, IconAlertTriangle, IconCheck, IconClose, IconInfo } from "@/components/ui/Icons";
+import { IconAlertCircle, IconAlertTriangle, IconCheckCircle, IconClose, IconInfo } from "@/components/ui/Icons";
 import type { ToastType } from "@/lib/toast";
 
 const CONFIG: Record<ToastType, { Icon: typeof IconInfo; className: string }> = {
   info: { Icon: IconInfo, className: "border-brand text-brand" },
-  success: { Icon: IconCheck, className: "border-success text-success" },
+  success: { Icon: IconCheckCircle, className: "border-success text-success" },
   warning: { Icon: IconAlertTriangle, className: "border-warning text-warning" },
   danger: { Icon: IconAlertCircle, className: "border-danger text-danger" },
 };

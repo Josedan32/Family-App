@@ -242,3 +242,23 @@ async def test_deleting_a_member_funded_expense_removes_both_rows(
             select(Transaction).where(Transaction.source == "household_expense")
         )
     ).all() == []
+
+
+@pytest.mark.asyncio
+async def test_member_funded_without_a_payer_defaults_to_the_caller(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """The web sheet has no payer picker — "Lo pagué yo" means the caller."""
+    _, papa, _, category_id, papa_id = await _setup(client)
+
+    response = await client.post(
+        "/api/v1/household-expenses",
+        json={
+            "category_id": category_id, "amount_minor": 250_000,
+            "occurred_on": "2026-09-07", "funding": "member",
+        },
+        headers=papa,
+    )
+
+    assert response.status_code == 201
+    assert response.json()["paid_by_member_id"] == papa_id
