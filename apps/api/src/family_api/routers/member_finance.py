@@ -124,7 +124,7 @@ async def member_debts(
             currency=household.currency,
         )
 
-    rows = await debt_service.list_debts_with_outstanding(session, scope.owner.id)
+    rows = await debt_service.list_debts_with_figures(session, scope.owner.id)
     return [
         DebtResponse(
             id=d.id, creditor_type=d.creditor_type, creditor_label=d.creditor_label,
@@ -132,6 +132,12 @@ async def member_debts(
             annual_interest_rate=float(d.annual_interest_rate)
             if d.annual_interest_rate is not None else None,
             due_day=d.due_day, status=d.status, currency=household.currency,
+            installments_total=figures.total if figures else None,
+            installments_paid=figures.paid if figures else None,
+            installments_remaining=figures.remaining if figures else None,
+            next_installment_on=figures.next_on if figures else None,
+            next_installment_amount_minor=figures.next_amount_minor if figures else None,
+            is_overdue=figures.is_overdue if figures else None,
         )
-        for d, out in rows
+        for d, out, figures in rows
     ]
