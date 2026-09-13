@@ -1,10 +1,11 @@
+import { InstallmentLine } from "@/components/finance/InstallmentLine";
 import { MoneyDisplay } from "@/components/finance/MoneyDisplay";
 import { PrivateBlock } from "@/components/privacy/PrivateBlock";
 import { VisibilityBadge, type Level } from "@/components/privacy/VisibilityBadge";
 import { Card } from "@/components/ui/Card";
 import { IconArrowDown, IconArrowUp, IconCircleFilled, IconDiamondFilled } from "@/components/ui/Icons";
 import { ApiError } from "@/lib/api/errors";
-import { apiFetch } from "@/lib/api/server";
+import { pageFetch } from "@/lib/api/server";
 
 interface Member {
   id: string;
@@ -61,6 +62,9 @@ interface DebtItem {
   creditor_label: string;
   outstanding_minor: number;
   currency: string;
+  installments_total: number | null;
+  installments_paid: number | null;
+  next_installment_on: string | null;
 }
 
 interface CurrentPeriod {
@@ -70,7 +74,7 @@ interface CurrentPeriod {
 
 async function moduleData<T>(path: string): Promise<T | null> {
   try {
-    return await apiFetch<T>(path);
+    return await pageFetch<T>(path);
   } catch (error) {
     // A denial is expected and normal here — it is the privacy model working.
     if (error instanceof ApiError && error.type === "not_visible") return null;
@@ -147,7 +151,7 @@ export default async function MemberProfilePage({
   const { id } = await params;
 
   const [household, income, expenses, savings, debts, period] = await Promise.all([
-    apiFetch<HouseholdDetail>("/households/current"),
+    pageFetch<HouseholdDetail>("/households/current"),
     moduleData<MoneyTotal | TransactionList>(`/members/${id}/income`),
     moduleData<MoneyTotal | TransactionList>(`/members/${id}/expenses`),
     moduleData<SavingsSummary | SavingsGoal[]>(`/members/${id}/savings`),
@@ -302,12 +306,19 @@ export default async function MemberProfilePage({
           return (
             <ul className="flex flex-col divide-y divide-border">
               {rows.map((debt) => (
-                <li key={debt.id} className="flex items-center justify-between gap-3 py-2.5">
-                  <span className="font-semibold">{debt.creditor_label}</span>
-                  <MoneyDisplay
-                    amountMinor={debt.outstanding_minor}
-                    currency={debt.currency}
-                    className="font-semibold text-debt"
+                <li key={debt.id} className="flex flex-col gap-0.5 py-2.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-semibold">{debt.creditor_label}</span>
+                    <MoneyDisplay
+                      amountMinor={debt.outstanding_minor}
+                      currency={debt.currency}
+                      className="font-semibold text-debt"
+                    />
+                  </div>
+                  <InstallmentLine
+                    installments_paid={debt.installments_paid}
+                    installments_total={debt.installments_total}
+                    next_installment_on={debt.next_installment_on}
                   />
                 </li>
               ))}

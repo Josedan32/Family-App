@@ -1,4 +1,4 @@
-import { apiFetch } from "@/lib/api/server";
+import { pageFetch } from "@/lib/api/server";
 
 import { ProfileForm } from "./ProfileForm";
 
@@ -12,7 +12,7 @@ interface Me {
 }
 
 export default async function ProfilePage() {
-  const me = await apiFetch<Me>("/auth/me");
+  const me = await pageFetch<Me>("/auth/me");
 
   return (
     <div className="flex flex-col gap-5">

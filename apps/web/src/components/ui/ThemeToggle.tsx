@@ -31,7 +31,7 @@ export function ThemeToggle() {
       type="button"
       onClick={toggleTheme}
       aria-label="Cambiar entre modo claro y oscuro"
-      className="fixed left-3 top-[calc(0.75rem+env(safe-area-inset-top,0px))] z-40 flex h-11 w-11 items-center justify-center rounded-full border border-border bg-surface text-text shadow-sm active:bg-surface-sunken"
+      className="fixed right-3 top-[calc(0.75rem+env(safe-area-inset-top,0px))] z-40 flex h-11 w-11 items-center justify-center rounded-full border border-border bg-surface text-text shadow-sm active:bg-surface-sunken"
     >
       <IconSun className="theme-toggle-sun" />
       <IconMoon className="theme-toggle-moon" />

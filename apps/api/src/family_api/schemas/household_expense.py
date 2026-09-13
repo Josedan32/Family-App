@@ -21,9 +21,8 @@ class CreateHouseholdExpenseRequest(BaseModel):
                 raise ValueError("A pot-funded expense has no payer")
             if self.counts_as_contribution:
                 raise ValueError("Pot money is already a contribution")
-        else:
-            if self.paid_by_member_id is None:
-                raise ValueError("A member-funded expense needs paid_by_member_id")
+        # A member-funded expense with no paid_by_member_id defaults to the
+        # caller (the web sheet has no payer picker — see create_expense).
         return self
 
 

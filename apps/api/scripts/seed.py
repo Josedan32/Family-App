@@ -5,11 +5,13 @@ does nothing if the household exists.
 """
 
 import asyncio
-from datetime import date
+import random
+from datetime import UTC, date, datetime, timedelta
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from family_api.db.models.chore import ChoreAssignment
 from family_api.db.models.contribution import ContributionPeriod, ContributionPledge
 from family_api.db.models.household import Household, HouseholdMember
 from family_api.db.models.seeded import Category, VisibilitySetting
@@ -17,6 +19,7 @@ from family_api.db.models.user import User
 from family_api.db.session import get_session_factory
 from family_api.ids import new_id
 from family_api.security.passwords import hash_password
+from family_api.services.assignment import generate_cycle
 from family_api.services.contributions import record_contribution
 from family_api.services.household_expenses import create_expense
 from family_api.services.households import create_household, seed_visibility
@@ -165,6 +168,22 @@ async def seed_demo_household(session: AsyncSession) -> None:
         "Mercado de la semana", "member", mama_member.id, False,
     )
 
+    today = date.today()
+    cycle = await generate_cycle(
+        session, admin_member,
+        today.replace(day=1), today.replace(day=1) + timedelta(days=27),
+        rng=random.Random(42),
+    )
+
+    assignments = (
+        await session.scalars(
+            select(ChoreAssignment).where(ChoreAssignment.cycle_id == cycle.id)
+        )
+    ).all()
+    for assignment in assignments[: len(assignments) // 2]:
+        assignment.status = "done"
+        assignment.completed_at = datetime.now(UTC)
+        assignment.completed_by_member_id = assignment.member_id
     await session.flush()
 
 

@@ -2,10 +2,10 @@ import {
   VisibilitySettingsForm,
   type VisibilitySettings,
 } from "@/components/privacy/VisibilitySettingsForm";
-import { apiFetch } from "@/lib/api/server";
+import { pageFetch } from "@/lib/api/server";
 
 export default async function PrivacyPage() {
-  const settings = await apiFetch<VisibilitySettings>("/me/visibility");
+  const settings = await pageFetch<VisibilitySettings>("/me/visibility");
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-2xl font-bold">Privacidad</h1>

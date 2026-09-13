@@ -6,9 +6,9 @@ vi.mock("next/navigation", () => ({ usePathname: () => "/" }));
 import { BottomTabBar, TABS } from "../layout/BottomTabBar";
 
 describe("BottomTabBar", () => {
-  it("renders the five Spanish destinations", () => {
+  it("renders the six Spanish destinations", () => {
     render(<BottomTabBar />);
-    for (const label of ["Inicio", "Finanzas", "Aportes", "Hogar", "Ajustes"]) {
+    for (const label of ["Inicio", "Finanzas", "Aportes", "Tareas", "Hogar", "Ajustes"]) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
   });
@@ -27,7 +27,7 @@ describe("BottomTabBar", () => {
     );
   });
 
-  it("exports exactly five tabs", () => {
-    expect(TABS).toHaveLength(5);
+  it("exports exactly six tabs", () => {
+    expect(TABS).toHaveLength(6);
   });
 });

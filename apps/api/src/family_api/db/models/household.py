@@ -6,6 +6,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Integer,
+    SmallInteger,
     String,
     Text,
     UniqueConstraint,
@@ -23,6 +24,11 @@ member_status = PgEnum("active", "invited", "inactive", name="member_status", cr
 
 class Household(Base, TimestampMixin):
     __tablename__ = "households"
+    __table_args__ = (
+        CheckConstraint(
+            "effort_window_days BETWEEN 7 AND 365", name="ck_household_effort_window"
+        ),
+    )
 
     id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True)
     name: Mapped[str] = mapped_column(String(120), nullable=False)
@@ -33,6 +39,10 @@ class Household(Base, TimestampMixin):
     )
     created_by: Mapped[UUID] = mapped_column(
         PgUUID(as_uuid=True), ForeignKey("users.id"), nullable=False
+    )
+    # Rolling window (days) over which chore effort balances are computed.
+    effort_window_days: Mapped[int] = mapped_column(
+        SmallInteger, nullable=False, server_default="60"
     )
 
 

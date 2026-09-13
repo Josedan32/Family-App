@@ -3,12 +3,20 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { IconHandshake, IconHome, IconSettings, IconUsers, IconWallet } from "@/components/ui/Icons";
+import {
+  IconClock,
+  IconHandshake,
+  IconHome,
+  IconSettings,
+  IconUsers,
+  IconWallet,
+} from "@/components/ui/Icons";
 
 export const TABS = [
   { href: "/", label: "Inicio", Icon: IconHome },
   { href: "/finanzas", label: "Finanzas", Icon: IconWallet },
   { href: "/aportes", label: "Aportes", Icon: IconHandshake },
+  { href: "/tareas", label: "Tareas", Icon: IconClock },
   { href: "/hogar", label: "Hogar", Icon: IconUsers },
   { href: "/ajustes/privacidad", label: "Ajustes", Icon: IconSettings },
 ] as const;

@@ -109,6 +109,10 @@ async def create_expense(
         if amount_minor > figures.balance_minor:
             raise InsufficientPotError
     else:
+        # No payer picker in the sheet: omitting it means "I paid it".
+        if paid_by_member_id is None:
+            paid_by_member_id = member.id
+
         # You may only record what you yourself paid, unless you are an admin.
         if paid_by_member_id != member.id and member.role != "admin":
             raise ForbiddenRoleError
