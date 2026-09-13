@@ -1,4 +1,7 @@
+import Link from "next/link";
+
 import { Card } from "@/components/ui/Card";
+import { IconWallet } from "@/components/ui/Icons";
 import { pageFetch } from "@/lib/api/server";
 
 import { InvitesSection } from "./InvitesSection";
@@ -36,6 +39,18 @@ export default async function HogarPage() {
   return (
     <div className="flex flex-col gap-6">
       <h1 className="text-[1.75rem] font-bold tracking-tight">{household.name}</h1>
+
+      <Link href="/hogar/gastos">
+        <Card className="flex items-center gap-3">
+          <span aria-hidden="true" className="flex-none text-brand">
+            <IconWallet />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold">Gastos del hogar</p>
+            <p className="text-xs text-text-muted">El libro contable del pozo común</p>
+          </div>
+        </Card>
+      </Link>
 
       <div className="flex flex-col gap-2.5">
         <h2 className="text-xs font-semibold uppercase tracking-wide text-text-muted">
