@@ -134,6 +134,30 @@ async def test_a_non_admin_cannot_adjust_effort(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
+async def test_an_absent_member_shows_their_return_date(client: AsyncClient) -> None:
+    """FR-M8-12: the effort card must explain absence, not just omit work."""
+    admin, papa = await _household(client)
+    members = await client.get("/api/v1/households/current", headers=admin)
+    papa_id = next(
+        m["id"] for m in members.json()["members"] if m["display_name"] == "Papá"
+    )
+    today = date.today()
+    return_date = today + timedelta(days=5)
+    await client.post(
+        "/api/v1/me/absences",
+        json={"starts_on": today.isoformat(), "ends_on": return_date.isoformat()},
+        headers=papa,
+    )
+
+    balances = await client.get("/api/v1/effort-balances", headers=admin)
+    row = next(r for r in balances.json()["members"] if r["member_id"] == papa_id)
+    assert row["absent_until"] == return_date.isoformat()
+
+    others = [r for r in balances.json()["members"] if r["member_id"] != papa_id]
+    assert all(r["absent_until"] is None for r in others)
+
+
+@pytest.mark.asyncio
 async def test_a_guest_has_no_balance_row(client: AsyncClient) -> None:
     """C-07: guests are outside the fairness system entirely."""
     admin, _ = await _household(client)

@@ -25,6 +25,7 @@ interface EffortBalances {
 
 interface HouseholdDetail {
   my_role: string;
+  members: { id: string; display_name: string; role: string }[];
 }
 
 async function fetchCurrentCycle(): Promise<Cycle | null> {
@@ -52,6 +53,9 @@ export default async function TareasPage() {
     pageFetch<HouseholdDetail>("/households/current"),
   ]);
   const isAdmin = household.my_role === "admin";
+  // Guests are never assigned chores (FR-M8-06), so they are never a
+  // reassignment target either.
+  const assignableMembers = household.members.filter((m) => m.role !== "guest");
 
   return (
     <div className="flex flex-col gap-5">
@@ -78,10 +82,24 @@ export default async function TareasPage() {
         </Link>
       ) : null}
 
+      <Link href="/ajustes/ausencias">
+        <Card className="flex items-center gap-3">
+          <span aria-hidden="true" className="flex-none text-brand">
+            <IconClock />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold">Marcar ausencia</p>
+            <p className="text-xs text-text-muted">
+              Mientras estés ausente no se te asignan tareas
+            </p>
+          </div>
+        </Card>
+      </Link>
+
       {cycle ? (
         <>
           <EffortBalanceBar rows={balances.members} />
-          <TareasClient cycle={cycle} />
+          <TareasClient cycle={cycle} members={assignableMembers} />
         </>
       ) : (
         <div className="flex flex-col items-center gap-3 py-12 text-center">
