@@ -121,7 +121,7 @@ export function InvitesSection() {
         </Button>
         {create.isSuccess ? (
           <div className="rounded-xl border border-brand bg-surface-sunken p-3 text-center">
-            <p className="tabular text-2xl font-bold tracking-[0.14em]">
+            <p data-testid="invite-code" className="tabular text-2xl font-bold tracking-[0.14em]">
               {(create.data as Invite).code}
             </p>
             <p className="mt-1 text-xs text-text-muted">
