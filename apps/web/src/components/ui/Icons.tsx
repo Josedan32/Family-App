@@ -222,6 +222,15 @@ export function IconAlertCircle(props: IconProps) {
   );
 }
 
+export function IconClock(props: IconProps) {
+  return (
+    <svg {...LINE_PROPS} {...props}>
+      <circle cx="12" cy="12" r="8" />
+      <path d="M12 8v4l3 2" />
+    </svg>
+  );
+}
+
 export function IconSun(props: IconProps) {
   return (
     <svg {...LINE_PROPS} {...props}>
