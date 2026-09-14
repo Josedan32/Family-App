@@ -973,6 +973,12 @@ export interface components {
             chore_id: string;
             /** Chore Name */
             chore_name: string;
+            /** Chore Activities */
+            chore_activities: string[];
+            /** Chore Requirements */
+            chore_requirements: string[];
+            /** Chore Expectation */
+            chore_expectation: string | null;
             /**
              * Member Id
              * Format: uuid
@@ -1027,6 +1033,12 @@ export interface components {
             frequency: string;
             /** Effort Points */
             effort_points: number;
+            /** Activities */
+            activities: string[];
+            /** Requirements */
+            requirements: string[];
+            /** Expectation */
+            expectation: string | null;
             /** Archived At */
             archived_at: string | null;
         };
@@ -1111,6 +1123,12 @@ export interface components {
             frequency: "daily" | "weekly" | "biweekly" | "monthly";
             /** Effort Points */
             effort_points: number;
+            /** Activities */
+            activities?: string[];
+            /** Requirements */
+            requirements?: string[];
+            /** Expectation */
+            expectation?: string | null;
         };
         /** CreateContributionRequest */
         CreateContributionRequest: {
@@ -1336,6 +1354,8 @@ export interface components {
              * Format: date
              */
             ends_on: string;
+            /** Seed */
+            seed: number;
             /** Assignments */
             assignments: components["schemas"]["AssignmentResponse"][];
         };
@@ -1818,6 +1838,12 @@ export interface components {
             frequency?: ("daily" | "weekly" | "biweekly" | "monthly") | null;
             /** Effort Points */
             effort_points?: number | null;
+            /** Activities */
+            activities?: string[] | null;
+            /** Requirements */
+            requirements?: string[] | null;
+            /** Expectation */
+            expectation?: string | null;
         };
         /**
          * UpdateHouseholdExpenseRequest

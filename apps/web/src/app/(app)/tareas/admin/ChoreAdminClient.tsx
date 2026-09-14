@@ -1,8 +1,10 @@
 "use client";
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { CatalogueEditor } from "@/components/chores/CatalogueEditor";
 import { EffortSlider } from "@/components/chores/EffortSlider";
 import { Button } from "@/components/ui/Button";
 import { IconLock, IconPlus } from "@/components/ui/Icons";
@@ -18,6 +20,9 @@ export interface Chore {
   description: string | null;
   frequency: string;
   effort_points: number;
+  activities: string[];
+  requirements: string[];
+  expectation: string | null;
   archived_at: string | null;
 }
 
@@ -36,6 +41,9 @@ interface FormState {
   description: string;
   frequency: Frequency;
   effort_points: number;
+  activities: string[];
+  requirements: string[];
+  expectation: string;
 }
 
 const BLANK_FORM: FormState = {
@@ -43,6 +51,9 @@ const BLANK_FORM: FormState = {
   description: "",
   frequency: "weekly",
   effort_points: 5,
+  activities: [],
+  requirements: [],
+  expectation: "",
 };
 
 function formFor(target: Chore | "new"): FormState {
@@ -52,6 +63,9 @@ function formFor(target: Chore | "new"): FormState {
     description: target.description ?? "",
     frequency: target.frequency as Frequency,
     effort_points: target.effort_points,
+    activities: target.activities,
+    requirements: target.requirements,
+    expectation: target.expectation ?? "",
   };
 }
 
@@ -64,7 +78,7 @@ function ChoreForm({
   choreId: string | null;
   onDone: () => void;
 }) {
-  const queryClient = useQueryClient();
+  const router = useRouter();
   const [form, setForm] = useState(initial);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -85,7 +99,7 @@ function ChoreForm({
       }
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["chores"] });
+      router.refresh();
       pushToast({ message: choreId ? "Tarea actualizada" : "Tarea creada", type: "success" });
       onDone();
     },
@@ -94,7 +108,7 @@ function ChoreForm({
   const remove = useMutation({
     mutationFn: () => clientFetch(`/chores/${choreId}`, { method: "DELETE" }),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["chores"] });
+      router.refresh();
       pushToast({ message: "Tarea eliminada", type: "info" });
       onDone();
     },
@@ -157,6 +171,34 @@ function ChoreForm({
       <p className="-mt-3 text-xs text-text-muted">
         Este número decide a quién le toca la tarea al repartir el ciclo.
       </p>
+
+      <CatalogueEditor
+        label="Pasos"
+        addLabel="Añadir paso"
+        hint="El orden importa: así aparecerán en la checklist de quien la haga."
+        items={form.activities}
+        onChange={(activities) => setForm({ ...form, activities })}
+      />
+
+      <CatalogueEditor
+        label="Necesitas"
+        addLabel="Añadir insumo"
+        items={form.requirements}
+        onChange={(requirements) => setForm({ ...form, requirements })}
+      />
+
+      <label className="flex flex-col gap-1">
+        <span className="text-sm font-medium text-text-muted">
+          Se considera hecha cuando (opcional)
+        </span>
+        <textarea
+          rows={2}
+          maxLength={500}
+          value={form.expectation}
+          onChange={(event) => setForm({ ...form, expectation: event.target.value })}
+          className="rounded-xl border border-border bg-surface px-3.5 py-2.5 text-base"
+        />
+      </label>
 
       {formError ? (
         <p role="alert" className="text-sm text-danger">
