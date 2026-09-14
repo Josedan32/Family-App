@@ -293,6 +293,92 @@ Dos efectos esperados en otros planes:
 
 ---
 
+## P8 — Completar el módulo 8 en la web: administrar tareas
+
+Auditoría del 13 de septiembre: la API del módulo 8 está completa, pero ocho de
+sus doce endpoints no tienen interfaz. Esto es culpa del plan, no de quien lo
+ejecutó: la sección *File Structure* del Plan 6 promete cuatro componentes
+—`ChoreCard`, `AssignmentRow`, `EffortBalanceBar`, `AbsenceForm`— y su tarea 7
+solo pide dos. Se siguió la tarea al pie de la letra.
+
+```
+La API del módulo 8 está completa pero la web solo consume cuatro de sus doce
+endpoints. Falta la pantalla de administración de tareas.
+
+Agrega esto como tarea 8 al plan
+docs/superpowers/plans/2026-09-03-household-chores.md, siguiendo el formato de
+las demás tareas —archivos, interfaces, pasos con test primero— y luego
+ejecútala. Detente al terminar para que la revise.
+
+Pantalla: /tareas/admin, solo para administrador.
+
+Mockup: abre el de "Administrar tareas" en docs/design-index.md, sección Plan 6.
+Léelo con la herramienta Artifact y desempaca el template, como explica el
+prompt auxiliar "Leer un mockup".
+
+Endpoints que hoy no tiene consumidor y que esta pantalla debe usar:
+  GET    /chores
+  POST   /chores
+  PATCH  /chores/{id}
+  DELETE /chores/{id}
+  POST   /effort-adjustments
+
+Requisitos del spec que esto cubre: FR-M8-01, FR-M8-02, FR-M8-03, FR-M8-14.
+
+Tres cosas que el diseño decidió y que importan:
+- El selector de esfuerzo no es un campo numérico. Es un control que comunica
+  peso relativo —diez puntos, o un deslizador de "Rápida" a "Pesada"— porque
+  ese número decide a quién le toca todo.
+- Un miembro que no es administrador ve la lista y los puntos, pero no puede
+  editarlos. Debe leerse como "esto lo define el administrador", no como algo
+  roto.
+- El ajuste manual de esfuerzo exige motivo. Un ajuste sin explicación en un
+  registro de equidad es indistinguible del favoritismo. El campo es
+  obligatorio en la API; que también lo sea en el formulario.
+```
+
+---
+
+## P9 — Completar el módulo 8 en la web: ausencias y reasignación
+
+```
+Siguen sin interfaz las ausencias y la reasignación de tareas. Agrega ambas
+como tarea 9 al plan docs/superpowers/plans/2026-09-03-household-chores.md, con
+el mismo formato, y ejecútala. Detente al terminar.
+
+Parte A — Ausencias, en /ajustes/ausencias.
+
+Mockup: "Ausencias" en docs/design-index.md, sección Plan 6.
+
+Endpoints sin consumidor:
+  GET    /me/absences
+  POST   /me/absences
+  DELETE /me/absences/{id}
+
+Cubre FR-M8-12. La bajada de la pantalla debe explicar el mecanismo en una
+línea: mientras estás ausente no se te asignan tareas, y al volver el sistema
+te asigna más hasta emparejar. Eso no es letra chica: es la razón por la que
+nadie sale premiado por viajar ni castigado por cubrir.
+
+El motivo de la ausencia es opcional a propósito. Bajo el campo, en caption:
+"Opcional. Tu familia ve que no estás; el porqué es cosa tuya."
+
+En la tarjeta de esfuerzo de /tareas, un miembro ausente se dibuja con su barra
+en gris apagado y la etiqueta "Ausente hasta el <fecha>" en lugar de los
+conteos. No debe parecer que está incumpliendo.
+
+Parte B — Reasignar, dentro de /tareas.
+
+Endpoint sin consumidor:
+  POST /chore-assignments/{id}/reassign
+
+Cubre FR-M8-11. Cualquier miembro puede pasarle su tarea a otro. El crédito de
+esfuerzo sigue a quien la hace, no a quien la tenía asignada — eso ya está
+resuelto en la API, la interfaz solo debe dejarlo claro al usuario.
+```
+
+---
+
 ## Prompts auxiliares
 
 ### Revisar entre tareas
