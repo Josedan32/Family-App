@@ -1,6 +1,7 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/Button";
@@ -30,7 +31,7 @@ function NewExpenseForm({
   potBalanceMinor: number;
   onDone: () => void;
 }) {
-  const queryClient = useQueryClient();
+  const router = useRouter();
   const [amount, setAmount] = useState(0);
   const [categoryId, setCategoryId] = useState("");
   const [occurredOn, setOccurredOn] = useState(new Date().toISOString().slice(0, 10));
@@ -72,7 +73,7 @@ function NewExpenseForm({
       }
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["household-expenses"] });
+      router.refresh();
       pushToast({ message: "Gasto registrado", type: "success" });
       onDone();
     },
