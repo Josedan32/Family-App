@@ -5,7 +5,6 @@ does nothing if the household exists.
 """
 
 import asyncio
-import random
 from datetime import UTC, date, datetime, timedelta
 
 from sqlalchemy import select, update
@@ -172,7 +171,7 @@ async def seed_demo_household(session: AsyncSession) -> None:
     cycle = await generate_cycle(
         session, admin_member,
         today.replace(day=1), today.replace(day=1) + timedelta(days=27),
-        rng=random.Random(42),
+        seed=42,
     )
 
     assignments = (

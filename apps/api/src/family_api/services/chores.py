@@ -55,11 +55,16 @@ async def create_chore(
     description: str | None,
     frequency: str,
     effort_points: int,
+    activities: list[str] | None = None,
+    requirements: list[str] | None = None,
+    expectation: str | None = None,
 ) -> Chore:
     require_admin(member)
     chore = Chore(
         id=new_id(), household_id=member.household_id, name=name,
         description=description, frequency=frequency, effort_points=effort_points,
+        activities=activities or [], requirements=requirements or [],
+        expectation=expectation,
     )
     session.add(chore)
     try:
@@ -89,6 +94,9 @@ async def update_chore(
     description: str | None,
     frequency: str | None,
     effort_points: int | None,
+    activities: list[str] | None = None,
+    requirements: list[str] | None = None,
+    expectation: str | None = None,
 ) -> Chore:
     """Changing effort_points never rewrites existing assignments (FR-M8-04)."""
     require_admin(member)
@@ -101,6 +109,14 @@ async def update_chore(
         chore.frequency = frequency
     if effort_points is not None:
         chore.effort_points = effort_points
+    # An empty list is a real edit — "clear the steps" — so only None means
+    # "leave it alone", matching how the other fields behave.
+    if activities is not None:
+        chore.activities = activities
+    if requirements is not None:
+        chore.requirements = requirements
+    if expectation is not None:
+        chore.expectation = expectation
     await session.flush()
     return chore
 
