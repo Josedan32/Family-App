@@ -97,3 +97,83 @@ async def test_due_day_must_be_a_valid_day(client: AsyncClient) -> None:
     )
 
     assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_debt_detail_lists_its_payments(client: AsyncClient) -> None:
+    headers = await _member(client)
+    created = await client.post("/api/v1/me/debts", json=ADDI_DEBT, headers=headers)
+    debt_id = created.json()["id"]
+    await client.post(
+        f"/api/v1/me/debts/{debt_id}/payments",
+        json={"amount_minor": 200000, "paid_on": "2026-09-15", "note": "Primera cuota"},
+        headers=headers,
+    )
+
+    response = await client.get(f"/api/v1/me/debts/{debt_id}", headers=headers)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["outstanding_minor"] == 1000000
+    assert len(body["payments"]) == 1
+    assert body["payments"][0]["amount_minor"] == 200000
+    assert body["payments"][0]["note"] == "Primera cuota"
+
+
+@pytest.mark.asyncio
+async def test_cannot_view_another_members_debt(client: AsyncClient) -> None:
+    daniel = await _member(client)
+    created = await client.post("/api/v1/me/debts", json=ADDI_DEBT, headers=daniel)
+    debt_id = created.json()["id"]
+
+    invite = await client.post(
+        "/api/v1/households/current/invites",
+        json={"role_granted": "adult"},
+        headers=daniel,
+    )
+    registered = await client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "papa@example.com",
+            "password": "correct-horse-battery",
+            "display_name": "Papá",
+        },
+    )
+    papa = {"Authorization": f"Bearer {registered.json()['access_token']}"}
+    await client.post(
+        "/api/v1/households/join", json={"code": invite.json()["code"]}, headers=papa
+    )
+
+    response = await client.get(f"/api/v1/me/debts/{debt_id}", headers=papa)
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_can_delete_a_debt_with_no_payments(client: AsyncClient) -> None:
+    headers = await _member(client)
+    created = await client.post("/api/v1/me/debts", json=ADDI_DEBT, headers=headers)
+    debt_id = created.json()["id"]
+
+    response = await client.delete(f"/api/v1/me/debts/{debt_id}", headers=headers)
+
+    assert response.status_code == 204
+    listed = await client.get("/api/v1/me/debts", headers=headers)
+    assert listed.json() == []
+
+
+@pytest.mark.asyncio
+async def test_cannot_delete_a_debt_with_payments(client: AsyncClient) -> None:
+    """Deleting would silently erase a ledger trail — revert the payments first."""
+    headers = await _member(client)
+    created = await client.post("/api/v1/me/debts", json=ADDI_DEBT, headers=headers)
+    debt_id = created.json()["id"]
+    await client.post(
+        f"/api/v1/me/debts/{debt_id}/payments",
+        json={"amount_minor": 200000, "paid_on": "2026-09-15"},
+        headers=headers,
+    )
+
+    response = await client.delete(f"/api/v1/me/debts/{debt_id}", headers=headers)
+
+    assert response.status_code == 409
+    assert response.json()["type"] == "debt_has_payments"

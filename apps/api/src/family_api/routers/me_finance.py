@@ -1,3 +1,4 @@
+from datetime import date
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -11,6 +12,8 @@ from family_api.periods import parse_period
 from family_api.schemas.debt import (
     CreateDebtPaymentRequest,
     CreateDebtRequest,
+    DebtDetailResponse,
+    DebtPaymentResponse,
     DebtResponse,
 )
 from family_api.schemas.savings import (
@@ -28,7 +31,7 @@ from family_api.schemas.transaction import (
 from family_api.services import debts as debt_service
 from family_api.services import savings as savings_service
 from family_api.services import transactions as transaction_service
-from family_api.services.installments import InstallmentFigures
+from family_api.services.installments import InstallmentFigures, compute_installments
 from family_api.services.members import CurrentMember
 from family_api.services.transactions import CategoryKindMismatchError
 
@@ -243,6 +246,34 @@ async def create_debt(
     rows = await debt_service.list_debts_with_figures(session, member.id)
     d, outstanding, figures = next(row for row in rows if row[0].id == debt.id)
     return _debt_response(d, outstanding, figures, currency)
+
+
+@router.get("/debts/{debt_id}")
+async def get_debt(
+    debt_id: UUID, member: CurrentMember, session: SessionDep
+) -> DebtDetailResponse:
+    debt, outstanding, payments = await debt_service.get_debt_detail(session, member, debt_id)
+    figures = compute_installments(
+        debt.installments_total, debt.installment_amount_minor,
+        debt.first_installment_on, debt.principal_minor - outstanding, date.today(),
+    )
+    currency = await _currency(session, member.household_id)
+    base = _debt_response(debt, outstanding, figures, currency)
+    return DebtDetailResponse(
+        **base.model_dump(),
+        payments=[
+            DebtPaymentResponse(
+                id=p.id, amount_minor=p.amount_minor, paid_on=p.paid_on, note=p.note
+            )
+            for p in payments
+        ],
+    )
+
+
+@router.delete("/debts/{debt_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_debt(debt_id: UUID, member: CurrentMember, session: SessionDep) -> None:
+    await debt_service.delete_debt(session, member, debt_id)
+    await session.commit()
 
 
 @router.post("/debts/{debt_id}/payments", status_code=status.HTTP_201_CREATED)
