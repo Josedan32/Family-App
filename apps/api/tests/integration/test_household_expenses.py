@@ -82,6 +82,33 @@ async def test_a_pot_funded_expense_touches_no_personal_ledger(
 
 
 @pytest.mark.asyncio
+async def test_household_expense_name_is_optional_and_persisted(client: AsyncClient) -> None:
+    daniel, _, period_id, category_id, _ = await _setup(client)
+    await client.post(
+        f"/api/v1/contribution-periods/{period_id}/contributions",
+        json={"amount_minor": 1_000_000, "paid_on": "2026-09-05"},
+        headers=daniel,
+    )
+
+    response = await client.post(
+        "/api/v1/household-expenses",
+        json={
+            "category_id": category_id, "amount_minor": 400_000,
+            "occurred_on": "2026-09-06", "name": "Factura de luz", "funding": "pot",
+        },
+        headers=daniel,
+    )
+
+    assert response.status_code == 201
+    assert response.json()["name"] == "Factura de luz"
+
+    listed = await client.get(
+        "/api/v1/household-expenses?period=2026-09", headers=daniel
+    )
+    assert listed.json()[0]["name"] == "Factura de luz"
+
+
+@pytest.mark.asyncio
 async def test_a_pot_expense_cannot_overdraw_the_pot(client: AsyncClient) -> None:
     """FR-M4-14 / INV-D-09."""
     daniel, _, period_id, category_id, _ = await _setup(client)

@@ -1,3 +1,4 @@
+from datetime import date
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -11,10 +12,18 @@ from family_api.periods import parse_period
 from family_api.schemas.debt import (
     CreateDebtPaymentRequest,
     CreateDebtRequest,
+    DebtDetailResponse,
+    DebtPaymentResponse,
     DebtResponse,
 )
-from family_api.schemas.savings import CreateEntryRequest, CreateGoalRequest, SavingsGoalResponse
+from family_api.schemas.savings import (
+    CreateEntryRequest,
+    CreateGoalRequest,
+    SavingsEntryResponse,
+    SavingsGoalResponse,
+)
 from family_api.schemas.transaction import (
+    CategoryRef,
     CreateTransactionRequest,
     TransactionListResponse,
     TransactionResponse,
@@ -23,7 +32,7 @@ from family_api.schemas.transaction import (
 from family_api.services import debts as debt_service
 from family_api.services import savings as savings_service
 from family_api.services import transactions as transaction_service
-from family_api.services.installments import InstallmentFigures
+from family_api.services.installments import InstallmentFigures, compute_installments
 from family_api.services.members import CurrentMember
 from family_api.services.transactions import CategoryKindMismatchError
 
@@ -60,11 +69,12 @@ async def list_transactions(
     return TransactionListResponse(
         items=[
             TransactionResponse(
-                id=t.id, kind=t.kind, category_id=t.category_id, category_name=name,
+                id=t.id, kind=t.kind,
+                categories=[CategoryRef(id=cid, name=cname) for cid, cname in categories],
                 amount_minor=t.amount_minor, currency=currency,
-                occurred_on=t.occurred_on, note=t.note, source=t.source,
+                occurred_on=t.occurred_on, name=t.name, note=t.note, source=t.source,
             )
-            for t, name in rows
+            for t, categories in rows
         ],
         next_cursor=None,
     )
@@ -76,8 +86,8 @@ async def create_transaction(
 ) -> TransactionResponse:
     try:
         transaction = await transaction_service.create_transaction(
-            session, member, body.kind, body.category_id,
-            body.amount_minor, body.occurred_on, body.note,
+            session, member, body.kind, body.category_ids,
+            body.amount_minor, body.occurred_on, body.name, body.note,
         )
     except CategoryKindMismatchError:
         raise HTTPException(
@@ -88,12 +98,13 @@ async def create_transaction(
         session, member.id, member.household_id, transaction.kind,
         transaction.occurred_on, transaction.occurred_on,
     )
-    name = next(n for t, n in rows if t.id == transaction.id)
+    categories = next(c for t, c in rows if t.id == transaction.id)
     return TransactionResponse(
-        id=transaction.id, kind=transaction.kind, category_id=transaction.category_id,
-        category_name=name, amount_minor=transaction.amount_minor,
+        id=transaction.id, kind=transaction.kind,
+        categories=[CategoryRef(id=cid, name=cname) for cid, cname in categories],
+        amount_minor=transaction.amount_minor,
         currency=await _currency(session, member.household_id),
-        occurred_on=transaction.occurred_on, note=transaction.note,
+        occurred_on=transaction.occurred_on, name=transaction.name, note=transaction.note,
         source=transaction.source,
     )
 
@@ -107,8 +118,8 @@ async def update_transaction(
 ) -> TransactionResponse:
     try:
         transaction = await transaction_service.update_transaction(
-            session, member, transaction_id, body.category_id,
-            body.amount_minor, body.occurred_on, body.note,
+            session, member, transaction_id, body.category_ids,
+            body.amount_minor, body.occurred_on, body.name, body.note,
         )
     except CategoryKindMismatchError:
         raise HTTPException(status_code=422, detail="Category kind mismatch") from None
@@ -117,12 +128,13 @@ async def update_transaction(
         session, member.id, member.household_id, transaction.kind,
         transaction.occurred_on, transaction.occurred_on,
     )
-    name = next(n for t, n in rows if t.id == transaction.id)
+    categories = next(c for t, c in rows if t.id == transaction.id)
     return TransactionResponse(
-        id=transaction.id, kind=transaction.kind, category_id=transaction.category_id,
-        category_name=name, amount_minor=transaction.amount_minor,
+        id=transaction.id, kind=transaction.kind,
+        categories=[CategoryRef(id=cid, name=cname) for cid, cname in categories],
+        amount_minor=transaction.amount_minor,
         currency=await _currency(session, member.household_id),
-        occurred_on=transaction.occurred_on, note=transaction.note,
+        occurred_on=transaction.occurred_on, name=transaction.name, note=transaction.note,
         source=transaction.source,
     )
 
@@ -163,6 +175,21 @@ async def create_goal(
         target_date=goal.target_date, balance_minor=0, progress=0.0,
         currency=await _currency(session, member.household_id),
     )
+
+
+@router.get("/savings-goals/{goal_id}/entries")
+async def list_entries(
+    goal_id: UUID, member: CurrentMember, session: SessionDep
+) -> list[SavingsEntryResponse]:
+    entries = await savings_service.list_entries(session, member, goal_id)
+    currency = await _currency(session, member.household_id)
+    return [
+        SavingsEntryResponse(
+            id=e.id, kind=e.kind, amount_minor=e.amount_minor,
+            occurred_on=e.occurred_on, note=e.note, currency=currency,
+        )
+        for e in entries
+    ]
 
 
 @router.post("/savings-goals/{goal_id}/entries", status_code=status.HTTP_201_CREATED)
@@ -223,6 +250,34 @@ async def create_debt(
     rows = await debt_service.list_debts_with_figures(session, member.id)
     d, outstanding, figures = next(row for row in rows if row[0].id == debt.id)
     return _debt_response(d, outstanding, figures, currency)
+
+
+@router.get("/debts/{debt_id}")
+async def get_debt(
+    debt_id: UUID, member: CurrentMember, session: SessionDep
+) -> DebtDetailResponse:
+    debt, outstanding, payments = await debt_service.get_debt_detail(session, member, debt_id)
+    figures = compute_installments(
+        debt.installments_total, debt.installment_amount_minor,
+        debt.first_installment_on, debt.principal_minor - outstanding, date.today(),
+    )
+    currency = await _currency(session, member.household_id)
+    base = _debt_response(debt, outstanding, figures, currency)
+    return DebtDetailResponse(
+        **base.model_dump(),
+        payments=[
+            DebtPaymentResponse(
+                id=p.id, amount_minor=p.amount_minor, paid_on=p.paid_on, note=p.note
+            )
+            for p in payments
+        ],
+    )
+
+
+@router.delete("/debts/{debt_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_debt(debt_id: UUID, member: CurrentMember, session: SessionDep) -> None:
+    await debt_service.delete_debt(session, member, debt_id)
+    await session.commit()
 
 
 @router.post("/debts/{debt_id}/payments", status_code=status.HTTP_201_CREATED)

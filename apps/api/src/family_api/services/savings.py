@@ -68,6 +68,18 @@ async def _own_goal(
     return goal
 
 
+async def list_entries(
+    session: AsyncSession, member: HouseholdMember, goal_id: UUID
+) -> list[SavingsEntry]:
+    await _own_goal(session, member, goal_id)
+    stmt = (
+        select(SavingsEntry)
+        .where(SavingsEntry.goal_id == goal_id)
+        .order_by(SavingsEntry.occurred_on.desc(), SavingsEntry.id.desc())
+    )
+    return list(await session.scalars(stmt))
+
+
 async def add_entry(
     session: AsyncSession,
     member: HouseholdMember,

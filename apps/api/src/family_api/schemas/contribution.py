@@ -28,6 +28,12 @@ class CreateContributionRequest(BaseModel):
     note: str | None = None
 
 
+class UpdateContributionRequest(BaseModel):
+    amount_minor: int | None = Field(default=None, gt=0)
+    paid_on: date | None = None
+    note: str | None = None
+
+
 class PeriodResponse(BaseModel):
     id: UUID
     period_month: date

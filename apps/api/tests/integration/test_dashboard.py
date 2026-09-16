@@ -45,7 +45,7 @@ async def _earn(client: AsyncClient, headers: dict, amount: int) -> None:
     await client.post(
         "/api/v1/me/transactions",
         json={
-            "kind": "income", "category_id": salario,
+            "kind": "income", "category_ids": [salario],
             "amount_minor": amount, "occurred_on": "2026-09-05",
         },
         headers=headers,

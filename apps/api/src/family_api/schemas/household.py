@@ -20,6 +20,7 @@ class HouseholdResponse(BaseModel):
 
 
 class HouseholdDetailResponse(HouseholdResponse):
+    my_member_id: UUID
     members: list[MemberResponse]
 
 

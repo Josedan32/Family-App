@@ -7,6 +7,7 @@ import { pageFetch } from "@/lib/api/server";
 import { ApiError } from "@/lib/api/errors";
 
 import { ContributeButton } from "./ContributeButton";
+import { MyContributions } from "./MyContributions";
 
 interface ContributionMember {
   member_id: string;
@@ -116,6 +117,8 @@ export default async function AportesPage() {
           })}
         </Card>
       </div>
+
+      <MyContributions periodId={period.id} />
 
       <ContributeButton periodId={period.id} currency={period.currency} />
     </div>

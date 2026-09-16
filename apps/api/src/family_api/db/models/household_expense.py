@@ -1,7 +1,7 @@
 from datetime import date
 from uuid import UUID
 
-from sqlalchemy import BigInteger, CheckConstraint, Date, ForeignKey, Index, Text
+from sqlalchemy import BigInteger, CheckConstraint, Date, ForeignKey, Index, String, Text
 from sqlalchemy.dialects.postgresql import ENUM as PgEnum
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -42,6 +42,7 @@ class HouseholdExpense(Base, TimestampMixin):
     )
     amount_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
     occurred_on: Mapped[date] = mapped_column(Date, nullable=False)
+    name: Mapped[str | None] = mapped_column(String(120), nullable=True)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
     funding: Mapped[str] = mapped_column(expense_funding, nullable=False)
     paid_by_member_id: Mapped[UUID | None] = mapped_column(

@@ -29,7 +29,7 @@ interface MoneyTotal {
 
 interface TransactionListItem {
   id: string;
-  category_name: string;
+  categories: { id: string; name: string }[];
   amount_minor: number;
   occurred_on: string;
   note: string | null;
@@ -326,11 +326,6 @@ export default async function MemberProfilePage({
           );
         }}
       />
-
-      <p className="text-xs text-text-muted">
-        {member?.display_name} decide qué comparte. Su aporte al hogar siempre es visible para
-        toda la familia.
-      </p>
 
       {contribution ? (
         <div className="flex items-baseline justify-between gap-3 rounded-2xl border border-border bg-surface-sunken px-4 py-3.5">

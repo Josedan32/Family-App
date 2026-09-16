@@ -59,7 +59,7 @@ async def current(member: CurrentMember, session: SessionDep) -> HouseholdDetail
 
     return HouseholdDetailResponse(
         id=household.id, name=household.name, currency=household.currency,
-        timezone=household.timezone, my_role=member.role,
+        timezone=household.timezone, my_role=member.role, my_member_id=member.id,
         members=[
             MemberResponse(
                 id=m.id, display_name=u.display_name, photo_url=u.photo_url,

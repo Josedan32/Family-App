@@ -115,6 +115,72 @@ async def test_either_party_may_record_a_payment(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
+async def test_loan_detail_lists_its_payments(client: AsyncClient) -> None:
+    daniel, papa, daniel_id, papa_id = await _two_members(client)
+    created = await client.post(
+        "/api/v1/loans",
+        json={
+            "lender_member_id": daniel_id, "borrower_member_id": papa_id,
+            "amount_minor": 300000, "lent_on": "2026-09-01",
+        },
+        headers=daniel,
+    )
+    loan_id = created.json()["id"]
+    await client.post(
+        f"/api/v1/loans/{loan_id}/payments",
+        json={"amount_minor": 100000, "paid_on": "2026-09-20"},
+        headers=papa,
+    )
+
+    response = await client.get(f"/api/v1/loans/{loan_id}", headers=daniel)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["outstanding_minor"] == 200000
+    assert len(body["payments"]) == 1
+    assert body["payments"][0]["amount_minor"] == 100000
+    assert body["payments"][0]["paid_on"] == "2026-09-20"
+
+
+@pytest.mark.asyncio
+async def test_a_third_party_cannot_view_a_loan_detail_when_debts_are_private(
+    client: AsyncClient,
+) -> None:
+    daniel, papa, daniel_id, papa_id = await _two_members(client)
+    created = await client.post(
+        "/api/v1/loans",
+        json={
+            "lender_member_id": daniel_id, "borrower_member_id": papa_id,
+            "amount_minor": 300000, "lent_on": "2026-09-01",
+        },
+        headers=daniel,
+    )
+    loan_id = created.json()["id"]
+
+    invite = await client.post(
+        "/api/v1/households/current/invites",
+        json={"role_granted": "adult"},
+        headers=daniel,
+    )
+    registered = await client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "mama@example.com",
+            "password": "correct-horse-battery",
+            "display_name": "Mamá",
+        },
+    )
+    mama = {"Authorization": f"Bearer {registered.json()['access_token']}"}
+    await client.post(
+        "/api/v1/households/join", json={"code": invite.json()["code"]}, headers=mama
+    )
+
+    # Debts start private by default (FR-M3-03) — a third party sees nothing.
+    response = await client.get(f"/api/v1/loans/{loan_id}", headers=mama)
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
 async def test_full_payment_marks_the_loan_paid_for_both(client: AsyncClient) -> None:
     """L-06."""
     daniel, papa, daniel_id, papa_id = await _two_members(client)

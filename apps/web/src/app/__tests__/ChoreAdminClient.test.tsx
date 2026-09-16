@@ -11,6 +11,7 @@ const chores: Chore[] = [
     id: "1", name: "Sacar la basura", description: null,
     frequency: "daily", effort_points: 1,
     activities: [], requirements: [], expectation: null,
+    applies_to_all: false,
     archived_at: null,
   },
   {
@@ -19,6 +20,14 @@ const chores: Chore[] = [
     activities: ["Sanitario", "Lavamanos"],
     requirements: ["Guantes"],
     expectation: "Sin manchas.",
+    applies_to_all: false,
+    archived_at: null,
+  },
+  {
+    id: "3", name: "Tender la cama", description: null,
+    frequency: "daily", effort_points: 1,
+    activities: [], requirements: [], expectation: null,
+    applies_to_all: true,
     archived_at: null,
   },
 ];
@@ -91,7 +100,32 @@ describe("ChoreAdminClient", () => {
       activities: [],
       requirements: [],
       expectation: "",
+      applies_to_all: false,
     });
+  });
+
+  it("shows a badge for a chore that applies to everyone", () => {
+    renderClient(true);
+    expect(screen.getByText(/Para todos/)).toBeInTheDocument();
+  });
+
+  it("sends applies_to_all when the admin checks the toggle", async () => {
+    let sent: Record<string, unknown> = {};
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init?: RequestInit) => {
+        sent = init?.body ? JSON.parse(init.body as string) : {};
+        return jsonResponse({ id: "4", ...sent });
+      }),
+    );
+
+    renderClient(true);
+    fireEvent.click(screen.getByLabelText("Nueva tarea"));
+    fireEvent.change(screen.getByLabelText("Nombre"), { target: { value: "Lavar su plato" } });
+    fireEvent.click(screen.getByRole("checkbox", { name: /Aplica para todos/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+
+    await waitFor(() => expect(sent.applies_to_all).toBe(true));
   });
 
   it("sends the catalogue the admin typed", async () => {

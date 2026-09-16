@@ -107,3 +107,95 @@ async def test_current_household_returns_members_with_derived_age(
     assert member["display_name"] == "Daniel"
     assert member["role"] == "admin"
     assert "age" in member
+
+
+@pytest.mark.asyncio
+async def test_current_household_reports_the_callers_own_member_id(
+    client: AsyncClient,
+) -> None:
+    token = await _register(client)
+    await client.post("/api/v1/households", json={"name": "Hogar"}, headers=_auth(token))
+
+    response = await client.get("/api/v1/households/current", headers=_auth(token))
+
+    body = response.json()
+    assert body["my_member_id"] == body["members"][0]["id"]
+
+
+async def _household_with_member(client: AsyncClient, role: str = "adult") -> tuple[str, str]:
+    """Returns (admin_token, member_id) for a second, non-admin member."""
+    admin = await _register(client, "daniel@example.com")
+    await client.post(
+        "/api/v1/households", json={"name": "Familia Hernandez"}, headers=_auth(admin)
+    )
+    invite = await client.post(
+        "/api/v1/households/current/invites",
+        json={"role_granted": role},
+        headers=_auth(admin),
+    )
+    second = await _register(client, "papa@example.com")
+    await client.post(
+        "/api/v1/households/join", json={"code": invite.json()["code"]}, headers=_auth(second)
+    )
+    listed = await client.get("/api/v1/households/current", headers=_auth(admin))
+    member_id = next(m["id"] for m in listed.json()["members"] if m["role"] != "admin")
+    return admin, member_id
+
+
+@pytest.mark.asyncio
+async def test_admin_can_update_a_members_role_and_relationship(client: AsyncClient) -> None:
+    admin, member_id = await _household_with_member(client)
+
+    response = await client.patch(
+        f"/api/v1/households/current/members/{member_id}",
+        json={"role": "teen", "relationship": "Hijo"},
+        headers=_auth(admin),
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["role"] == "teen"
+    assert body["relationship"] == "Hijo"
+
+
+@pytest.mark.asyncio
+async def test_non_admin_cannot_update_a_member(client: AsyncClient) -> None:
+    admin, member_id = await _household_with_member(client)
+    listed = await client.get("/api/v1/households/current", headers=_auth(admin))
+    papa_token_response = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "papa@example.com", "password": "correct-horse-battery"},
+    )
+    papa = papa_token_response.json()["access_token"]
+    admin_id = next(m["id"] for m in listed.json()["members"] if m["role"] == "admin")
+
+    response = await client.patch(
+        f"/api/v1/households/current/members/{admin_id}",
+        json={"relationship": "Papá"},
+        headers=_auth(papa),
+    )
+
+    assert response.status_code == 403
+    assert response.json()["type"] == "forbidden_role"
+
+
+@pytest.mark.asyncio
+async def test_demoting_the_last_admin_is_rejected(client: AsyncClient) -> None:
+    """INV-R-01: a household must always keep at least one admin."""
+    admin = await _register(client, "daniel@example.com")
+    listed = await client.post(
+        "/api/v1/households", json={"name": "Hogar"}, headers=_auth(admin)
+    )
+    assert listed.status_code == 201
+    self_id = (
+        await client.get("/api/v1/households/current", headers=_auth(admin))
+    ).json()["members"][0]["id"]
+
+    response = await client.patch(
+        f"/api/v1/households/current/members/{self_id}",
+        json={"role": "adult"},
+        headers=_auth(admin),
+    )
+
+    assert response.status_code == 409
+    assert response.json()["type"] == "last_admin"

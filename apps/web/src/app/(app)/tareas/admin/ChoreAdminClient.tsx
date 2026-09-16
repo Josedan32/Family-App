@@ -23,6 +23,7 @@ export interface Chore {
   activities: string[];
   requirements: string[];
   expectation: string | null;
+  applies_to_all: boolean;
   archived_at: string | null;
 }
 
@@ -44,6 +45,7 @@ interface FormState {
   activities: string[];
   requirements: string[];
   expectation: string;
+  applies_to_all: boolean;
 }
 
 const BLANK_FORM: FormState = {
@@ -54,6 +56,7 @@ const BLANK_FORM: FormState = {
   activities: [],
   requirements: [],
   expectation: "",
+  applies_to_all: false,
 };
 
 function formFor(target: Chore | "new"): FormState {
@@ -66,6 +69,7 @@ function formFor(target: Chore | "new"): FormState {
     activities: target.activities,
     requirements: target.requirements,
     expectation: target.expectation ?? "",
+    applies_to_all: target.applies_to_all,
   };
 }
 
@@ -164,18 +168,30 @@ function ChoreForm({
         </div>
       </div>
 
+      <label className="flex items-center gap-2.5 rounded-xl border border-border p-3.5 text-sm font-medium">
+        <input
+          type="checkbox"
+          checked={form.applies_to_all}
+          onChange={(event) => setForm({ ...form, applies_to_all: event.target.checked })}
+          className="h-5 w-5"
+        />
+        <span className="flex flex-col gap-0.5">
+          <span>Aplica para todos</span>
+          <span className="text-xs font-normal text-text-muted">
+            Cada quien recibe su propia tarea (tender la cama, lavar su plato) en vez de que se
+            reparta entre uno solo.
+          </span>
+        </span>
+      </label>
+
       <EffortSlider
         value={form.effort_points}
         onChange={(effort_points) => setForm({ ...form, effort_points })}
       />
-      <p className="-mt-3 text-xs text-text-muted">
-        Este número decide a quién le toca la tarea al repartir el ciclo.
-      </p>
 
       <CatalogueEditor
         label="Pasos"
         addLabel="Añadir paso"
-        hint="El orden importa: así aparecerán en la checklist de quien la haga."
         items={form.activities}
         onChange={(activities) => setForm({ ...form, activities })}
       />
@@ -250,6 +266,7 @@ export function ChoreAdminClient({ chores, isAdmin }: { chores: Chore[]; isAdmin
                 <span className="font-semibold">{chore.name}</span>
                 <span className="text-xs text-text-muted">
                   {FREQUENCY_LABEL[chore.frequency as Frequency] ?? chore.frequency}
+                  {chore.applies_to_all ? " · Para todos" : ""}
                 </span>
               </div>
               <div className="flex flex-none flex-col items-center gap-px">
@@ -287,11 +304,6 @@ export function ChoreAdminClient({ chores, isAdmin }: { chores: Chore[]; isAdmin
             </li>
           );
         })}
-
-        <span className="px-0.5 py-1 text-[0.6875rem] text-text-muted">
-          Los puntos de esfuerzo se usan al repartir el ciclo y al comparar el aporte de cada
-          quien.
-        </span>
       </ul>
 
       {isAdmin ? (

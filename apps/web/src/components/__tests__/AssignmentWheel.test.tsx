@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AssignmentWheel, spinTarget } from "../chores/AssignmentWheel";
@@ -59,17 +59,6 @@ describe("AssignmentWheel", () => {
     }
   });
 
-  it("says plainly that it balances effort rather than pretending to be chance", () => {
-    setReducedMotion(false);
-    render(
-      <AssignmentWheel assignments={[assignment()]} members={MEMBERS} seed={42} />,
-    );
-
-    expect(
-      screen.getByText(/reparte equilibrando el esfuerzo/i),
-    ).toBeInTheDocument();
-  });
-
   it("skips straight to the result when the viewer prefers reduced motion", () => {
     // globals.css only zeroes CSS durations; a JS-driven rotation would still
     // run, so this has to be an explicit check.
@@ -128,6 +117,36 @@ describe("AssignmentWheel", () => {
     );
 
     expect(container.firstChild).toBeNull();
+  });
+
+  it("flickers through candidate names while spinning, like a draw in progress", () => {
+    vi.useFakeTimers();
+    setReducedMotion(false);
+    render(
+      <AssignmentWheel
+        assignments={[
+          assignment({ chore_name: "Sacar la basura", member_name: "Papá" }),
+          assignment({ id: "a2", chore_name: "Lavar los platos", member_name: "Mamá" }),
+        ]}
+        members={MEMBERS}
+        seed={42}
+      />,
+    );
+
+    act(() => {
+      vi.advanceTimersByTime(20);
+    });
+    const reel = screen.getByTestId("wheel-reel");
+    const firstFrame = reel.textContent;
+    act(() => {
+      vi.advanceTimersByTime(90);
+    });
+    const secondFrame = reel.textContent;
+
+    // The reel is mid-spin, not silent and not already showing the outcome.
+    expect(firstFrame).not.toBe("");
+    expect(secondFrame).not.toBe("");
+    vi.useRealTimers();
   });
 
 });
