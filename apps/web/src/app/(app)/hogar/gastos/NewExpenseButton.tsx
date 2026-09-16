@@ -4,6 +4,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { CategoryPicker } from "@/components/finance/CategoryPicker";
 import { Button } from "@/components/ui/Button";
 import { IconPlus } from "@/components/ui/Icons";
 import { Input } from "@/components/ui/Input";
@@ -103,32 +104,7 @@ function NewExpenseForm({
         </span>
       ) : null}
 
-      <div className="flex flex-col gap-2">
-        <span className="text-xs font-semibold uppercase tracking-wide text-text-muted">
-          Categoría
-        </span>
-        <div role="radiogroup" aria-label="Categoría" className="grid grid-cols-3 gap-2">
-          {categories.data?.map((category) => {
-            const selected = category.id === categoryId;
-            return (
-              <button
-                key={category.id}
-                type="button"
-                role="radio"
-                aria-checked={selected}
-                onClick={() => setCategoryId(category.id)}
-                className={`min-h-[48px] rounded-xl border px-1 text-sm font-medium ${
-                  selected
-                    ? "border-brand bg-brand font-bold text-brand-contrast"
-                    : "border-border bg-surface text-text active:bg-surface-sunken"
-                }`}
-              >
-                {category.name}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      <CategoryPicker categories={categories.data} value={categoryId} onChange={setCategoryId} />
 
       <Input
         label="Fecha"
