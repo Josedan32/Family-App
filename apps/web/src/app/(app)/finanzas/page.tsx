@@ -6,6 +6,7 @@ import { useState } from "react";
 
 import { DebtCard, type Debt } from "@/components/finance/DebtCard";
 import { GoalCard, type Goal } from "@/components/finance/GoalCard";
+import { GoalDetail } from "@/components/finance/GoalDetail";
 import { TransactionForm } from "@/components/finance/TransactionForm";
 import { TransactionRow, type Transaction } from "@/components/finance/TransactionRow";
 import { Button } from "@/components/ui/Button";
@@ -175,6 +176,7 @@ function DebtForm({ onDone }: { onDone: () => void }) {
 export default function FinanzasPage() {
   const [tab, setTab] = useState<TabId>("expense");
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [expandedGoalId, setExpandedGoalId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   const transactions = useQuery({
@@ -264,7 +266,18 @@ export default function FinanzasPage() {
             {goals.data?.length ? (
               <div className="flex flex-col gap-2.5">
                 {goals.data.map((goal) => (
-                  <GoalCard key={goal.id} goal={goal} />
+                  <div key={goal.id} className="flex flex-col gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setExpandedGoalId(expandedGoalId === goal.id ? null : goal.id)
+                      }
+                      className="w-full text-left"
+                    >
+                      <GoalCard goal={goal} />
+                    </button>
+                    {expandedGoalId === goal.id ? <GoalDetail goal={goal} /> : null}
+                  </div>
                 ))}
               </div>
             ) : goals.isLoading ? null : (
