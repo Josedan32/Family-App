@@ -39,12 +39,20 @@ export function TransactionForm({
 }) {
   const queryClient = useQueryClient();
   const [amount, setAmount] = useState(transaction?.amount_minor ?? 0);
+  const [amountTouched, setAmountTouched] = useState(false);
   const [categoryId, setCategoryId] = useState(transaction?.category_id ?? "");
+  const [categoryTouched, setCategoryTouched] = useState(false);
   const [occurredOn, setOccurredOn] = useState(
     transaction?.occurred_on ?? new Date().toISOString().slice(0, 10),
   );
   const [name, setName] = useState(transaction?.name ?? "");
   const [note, setNote] = useState(transaction?.note ?? "");
+
+  const amountError =
+    amountTouched && amount <= 0 ? "Ingresa un monto mayor a cero" : undefined;
+  const categoryError =
+    categoryTouched && !categoryId ? "Elige una categoría" : undefined;
+  const canSubmit = amount > 0 && !!categoryId;
 
   const categories = useQuery({
     queryKey: ["categories", kind],
@@ -86,19 +94,28 @@ export function TransactionForm({
       className="flex flex-col gap-5"
       onSubmit={(event) => {
         event.preventDefault();
-        save.mutate();
+        setAmountTouched(true);
+        setCategoryTouched(true);
+        if (canSubmit) save.mutate();
       }}
     >
       <MoneyInput
         label="Monto"
         value={amount}
         onChange={setAmount}
+        onBlur={() => setAmountTouched(true)}
         currency={currency}
         kind={kind}
+        error={amountError}
         required
       />
 
       <CategoryPicker categories={categories.data} value={categoryId} onChange={setCategoryId} />
+      {categoryError ? (
+        <p role="alert" className="-mt-3 text-xs font-medium text-danger">
+          {categoryError}
+        </p>
+      ) : null}
 
       {/* Native date input: iOS's own picker beats anything custom. */}
       <Input
@@ -125,7 +142,7 @@ export function TransactionForm({
         </p>
       ) : null}
 
-      <Button type="submit" disabled={save.isPending || amount <= 0 || !categoryId}>
+      <Button type="submit" disabled={save.isPending || !canSubmit}>
         {save.isPending ? "Guardando…" : transaction ? "Guardar cambios" : "Guardar"}
       </Button>
     </form>
