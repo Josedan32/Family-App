@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { ContributionProgress } from "@/components/finance/ContributionProgress";
 import { MemberCard, type DashboardMember } from "@/components/finance/MemberCard";
 import { MoneyDisplay } from "@/components/finance/MoneyDisplay";
@@ -86,7 +88,9 @@ export default async function DashboardPage() {
         </div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {data.members.map((member) => (
-            <MemberCard key={member.member_id} member={member} currency={data.currency} />
+            <Link key={member.member_id} href={`/hogar/miembros/${member.member_id}`}>
+              <MemberCard member={member} currency={data.currency} />
+            </Link>
           ))}
         </div>
       </section>
