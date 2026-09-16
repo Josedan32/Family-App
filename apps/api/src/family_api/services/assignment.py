@@ -14,7 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from family_api.db.models.chore import Chore, ChoreAssignment, ChoreCycle
+from family_api.db.models.chore import Chore, ChoreAssignment, ChoreCycle, ChoreCycleView
 from family_api.db.models.household import Household, HouseholdMember
 from family_api.db.models.user import User
 from family_api.errors import DomainError, ForbiddenRoleError, NotFoundError
@@ -159,6 +159,36 @@ async def current_cycle(
         .order_by(ChoreCycle.starts_on.desc())
     )
     return cycle
+
+
+async def is_cycle_seen(session: AsyncSession, member: HouseholdMember, cycle_id: UUID) -> bool:
+    view = await session.scalar(
+        select(ChoreCycleView).where(
+            ChoreCycleView.cycle_id == cycle_id, ChoreCycleView.member_id == member.id
+        )
+    )
+    return view is not None
+
+
+async def mark_cycle_seen(
+    session: AsyncSession, member: HouseholdMember, cycle_id: UUID
+) -> None:
+    cycle = await session.get(ChoreCycle, cycle_id)
+    if cycle is None or cycle.household_id != member.household_id:
+        raise NotFoundError
+    if await is_cycle_seen(session, member, cycle_id):
+        return
+    session.add(
+        ChoreCycleView(
+            id=new_id(), household_id=member.household_id,
+            cycle_id=cycle_id, member_id=member.id,
+        )
+    )
+    try:
+        await session.flush()
+    except IntegrityError:
+        # Two taps racing each other both tried to insert the same row.
+        await session.rollback()
 
 
 async def _load_assignment(

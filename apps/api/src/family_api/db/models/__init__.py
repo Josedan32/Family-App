@@ -2,6 +2,7 @@ from family_api.db.models.chore import (
     Chore,
     ChoreAssignment,
     ChoreCycle,
+    ChoreCycleView,
     EffortAdjustment,
     MemberAbsence,
 )
@@ -21,7 +22,7 @@ from family_api.db.models.transaction_category import TransactionCategory
 from family_api.db.models.user import RefreshToken, User
 
 __all__ = [
-    "Category", "Chore", "ChoreAssignment", "ChoreCycle", "Contribution",
+    "Category", "Chore", "ChoreAssignment", "ChoreCycle", "ChoreCycleView", "Contribution",
     "ContributionPeriod", "ContributionPledge", "Debt", "DebtPayment",
     "EffortAdjustment", "Household", "HouseholdExpense", "HouseholdMember",
     "InviteCode", "MemberAbsence", "MemberLoan", "MemberLoanPayment",

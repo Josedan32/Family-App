@@ -98,6 +98,9 @@ class CycleResponse(BaseModel):
     ends_on: date
     # Drives the wheel's animation so every viewer sees the identical spin.
     seed: int
+    # Per the CALLER, not the household — one member marking it seen never
+    # hides it from anyone else.
+    seen: bool
     assignments: list[AssignmentResponse]
 
 

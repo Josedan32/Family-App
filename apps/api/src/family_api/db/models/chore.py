@@ -91,6 +91,33 @@ class ChoreCycle(Base):
     )
 
 
+class ChoreCycleView(Base, TimestampMixin):
+    """One row per member who has seen a cycle's draw.
+
+    Per-member, not per-cycle: each person must see their own draw, so one
+    member marking it seen cannot hide the dashboard card from anyone else.
+    """
+
+    __tablename__ = "chore_cycle_views"
+    __table_args__ = (
+        UniqueConstraint("cycle_id", "member_id", name="uq_chore_cycle_view"),
+    )
+
+    id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True)
+    household_id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), nullable=False)
+    cycle_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("chore_cycles.id", ondelete="CASCADE"), nullable=False
+    )
+    member_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("household_members.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    seen_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
 class ChoreAssignment(Base, TimestampMixin):
     __tablename__ = "chore_assignments"
     __table_args__ = (
