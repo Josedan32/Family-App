@@ -109,6 +109,19 @@ async def test_current_household_returns_members_with_derived_age(
     assert "age" in member
 
 
+@pytest.mark.asyncio
+async def test_current_household_reports_the_callers_own_member_id(
+    client: AsyncClient,
+) -> None:
+    token = await _register(client)
+    await client.post("/api/v1/households", json={"name": "Hogar"}, headers=_auth(token))
+
+    response = await client.get("/api/v1/households/current", headers=_auth(token))
+
+    body = response.json()
+    assert body["my_member_id"] == body["members"][0]["id"]
+
+
 async def _household_with_member(client: AsyncClient, role: str = "adult") -> tuple[str, str]:
     """Returns (admin_token, member_id) for a second, non-admin member."""
     admin = await _register(client, "daniel@example.com")

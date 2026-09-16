@@ -13,6 +13,7 @@ interface HouseholdDetail {
   currency: string;
   timezone: string;
   my_role: string;
+  my_member_id: string;
   members: Member[];
 }
 
@@ -40,7 +41,11 @@ export default async function HogarPage() {
         <h2 className="text-xs font-semibold uppercase tracking-wide text-text-muted">
           Miembros
         </h2>
-        <MemberList members={household.members} isAdmin={isAdmin} />
+        <MemberList
+          members={household.members}
+          isAdmin={isAdmin}
+          myMemberId={household.my_member_id}
+        />
       </div>
 
       {isAdmin ? <InvitesSection /> : null}

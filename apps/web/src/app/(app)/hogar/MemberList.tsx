@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation } from "@tanstack/react-query";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -110,7 +111,15 @@ function MemberEditModal({
   );
 }
 
-export function MemberList({ members, isAdmin }: { members: Member[]; isAdmin: boolean }) {
+export function MemberList({
+  members,
+  isAdmin,
+  myMemberId,
+}: {
+  members: Member[];
+  isAdmin: boolean;
+  myMemberId: string;
+}) {
   const [editing, setEditing] = useState<Member | null>(null);
 
   return (
@@ -130,6 +139,11 @@ export function MemberList({ members, isAdmin }: { members: Member[]; isAdmin: b
                 {member.relationship}
                 {member.age !== null ? ` · ${member.age} años` : ""}
               </p>
+              {member.id === myMemberId && member.age === null ? (
+                <Link href="/ajustes/perfil" className="text-xs font-semibold text-brand">
+                  Agrega tu fecha de nacimiento
+                </Link>
+              ) : null}
             </div>
             <span className="flex-none rounded-lg border border-brand bg-surface-sunken px-2 py-1 text-xs font-semibold text-brand">
               {ROLE_LABEL[member.role] ?? member.role}
