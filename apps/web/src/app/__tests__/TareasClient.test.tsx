@@ -1,0 +1,80 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { render, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import type { Assignment, AssignmentMember } from "@/components/chores/AssignmentRow";
+
+import { TareasClient } from "../(app)/tareas/TareasClient";
+
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
+
+const MEMBERS: AssignmentMember[] = [
+  { id: "m1", display_name: "Daniel" },
+  { id: "m2", display_name: "Papá" },
+];
+
+function assignment(over: Partial<Assignment> = {}): Assignment {
+  return {
+    id: "a1",
+    chore_id: "c1",
+    chore_name: "Sacar la basura",
+    chore_activities: [],
+    chore_requirements: [],
+    chore_expectation: null,
+    member_id: "m1",
+    member_name: "Daniel",
+    due_on: "2026-09-03",
+    status: "pending",
+    effort_points: 1,
+    completed_at: null,
+    completed_by_member_id: null,
+    ...over,
+  };
+}
+
+function jsonResponse(body: unknown, status = 200) {
+  return { ok: status < 400, status, json: async () => body };
+}
+
+function renderClient(cycle: Parameters<typeof TareasClient>[0]["cycle"]) {
+  const client = new QueryClient();
+  return render(
+    <QueryClientProvider client={client}>
+      <TareasClient cycle={cycle} members={MEMBERS} myMemberId="m1" />
+    </QueryClientProvider>,
+  );
+}
+
+afterEach(() => vi.unstubAllGlobals());
+
+describe("TareasClient — sorteo visto", () => {
+  it("marks an unseen cycle as seen on mount", async () => {
+    const fetchMock = vi.fn(async () => jsonResponse(null, 204));
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderClient({
+      id: "cycle-1", starts_on: "2026-09-01", ends_on: "2026-09-28",
+      seed: 1, seen: false, assignments: [assignment()],
+    });
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/chore-cycles/cycle-1/seen"),
+        expect.objectContaining({ method: "POST" }),
+      ),
+    );
+  });
+
+  it("does not call seen again for a cycle already marked seen", async () => {
+    const fetchMock = vi.fn(async () => jsonResponse(null, 204));
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderClient({
+      id: "cycle-1", starts_on: "2026-09-01", ends_on: "2026-09-28",
+      seed: 1, seen: true, assignments: [assignment()],
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});

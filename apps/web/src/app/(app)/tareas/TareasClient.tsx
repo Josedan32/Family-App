@@ -2,7 +2,7 @@
 
 import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   AssignmentRow,
@@ -17,6 +17,7 @@ interface Cycle {
   starts_on: string;
   ends_on: string;
   seed: number;
+  seen: boolean;
   assignments: Assignment[];
 }
 
@@ -49,6 +50,14 @@ export function TareasClient({
   const [showWheel, setShowWheel] = useState(false);
   const [memberFilter, setMemberFilter] = useState<string>("all");
   const router = useRouter();
+
+  useEffect(() => {
+    // Visiting this page is what "seeing the draw" means — no separate
+    // button, and it never hides the card for anyone else's dashboard.
+    if (!cycle.seen) {
+      clientFetch(`/chore-cycles/${cycle.id}/seen`, { method: "POST" }).catch(() => {});
+    }
+  }, [cycle.id, cycle.seen]);
 
   const weeklyAll = thisWeek(cycle.assignments);
 

@@ -16,6 +16,7 @@ interface Cycle {
   ends_on: string;
   /** Drives the wheel, so every member replays the identical spin. */
   seed: number;
+  seen: boolean;
   assignments: Assignment[];
 }
 
