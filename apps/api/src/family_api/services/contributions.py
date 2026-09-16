@@ -224,6 +224,18 @@ async def record_contribution(
     return contribution
 
 
+async def list_own_contributions(
+    session: AsyncSession, member: HouseholdMember, period_id: UUID
+) -> list[Contribution]:
+    period = await _load_period(session, member, period_id)
+    stmt = (
+        select(Contribution)
+        .where(Contribution.period_id == period.id, Contribution.member_id == member.id)
+        .order_by(Contribution.paid_on.desc())
+    )
+    return list(await session.scalars(stmt))
+
+
 async def update_contribution(
     session: AsyncSession,
     actor: HouseholdMember,

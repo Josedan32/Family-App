@@ -158,6 +158,24 @@ async def set_pledges(
     return await _detail(session, member, period)
 
 
+@router.get("/{period_id}/contributions/mine")
+async def list_own_contributions(
+    period_id: UUID, member: CurrentMember, session: SessionDep
+) -> list[ContributionResponse]:
+    contributions = await contribution_service.list_own_contributions(
+        session, member, period_id
+    )
+    currency = await _currency(session, member.household_id)
+    return [
+        ContributionResponse(
+            id=c.id, member_id=c.member_id, amount_minor=c.amount_minor,
+            currency=currency, paid_on=c.paid_on, note=c.note,
+            expense_transaction_id=c.expense_transaction_id,
+        )
+        for c in contributions
+    ]
+
+
 @router.post("/{period_id}/contributions", status_code=status.HTTP_201_CREATED)
 async def record_contribution(
     period_id: UUID,

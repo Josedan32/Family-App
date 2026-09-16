@@ -152,6 +152,29 @@ async def test_deleting_a_contribution_removes_both_rows(
 
 
 @pytest.mark.asyncio
+async def test_member_can_list_their_own_contributions_for_a_period(client: AsyncClient) -> None:
+    _, papa, period_id = await _household_with_period(client)
+    await client.post(
+        f"/api/v1/contribution-periods/{period_id}/contributions",
+        json={"amount_minor": 500_000, "paid_on": "2026-09-05"},
+        headers=papa,
+    )
+    await client.post(
+        f"/api/v1/contribution-periods/{period_id}/contributions",
+        json={"amount_minor": 300_000, "paid_on": "2026-09-12"},
+        headers=papa,
+    )
+
+    response = await client.get(
+        f"/api/v1/contribution-periods/{period_id}/contributions/mine", headers=papa
+    )
+
+    assert response.status_code == 200
+    amounts = sorted(c["amount_minor"] for c in response.json())
+    assert amounts == [300_000, 500_000]
+
+
+@pytest.mark.asyncio
 async def test_editing_a_contribution_updates_the_mirrored_expense_atomically(
     client: AsyncClient, db_session: AsyncSession
 ) -> None:
