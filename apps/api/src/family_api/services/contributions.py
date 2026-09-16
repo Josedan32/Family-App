@@ -13,6 +13,7 @@ from family_api.db.models.contribution import (
 from family_api.db.models.household import HouseholdMember
 from family_api.db.models.seeded import Category
 from family_api.db.models.transaction import Transaction
+from family_api.db.models.transaction_category import TransactionCategory
 from family_api.errors import DomainError, ForbiddenRoleError, NotFoundError
 from family_api.ids import new_id
 from family_api.services.households import CONTRIBUTION_CATEGORY
@@ -213,6 +214,13 @@ async def record_contribution(
     )
     session.add(transaction)
     await session.flush()
+    session.add(
+        TransactionCategory(
+            id=new_id(), household_id=member.household_id,
+            transaction_id=transaction.id, category_id=category.id,
+        )
+    )
+    await session.flush()
 
     contribution = Contribution(
         id=contribution_id, household_id=member.household_id, period_id=period.id,
@@ -220,6 +228,61 @@ async def record_contribution(
         expense_transaction_id=transaction.id,
     )
     session.add(contribution)
+    await session.flush()
+    return contribution
+
+
+async def list_own_contributions(
+    session: AsyncSession, member: HouseholdMember, period_id: UUID
+) -> list[Contribution]:
+    period = await _load_period(session, member, period_id)
+    stmt = (
+        select(Contribution)
+        .where(Contribution.period_id == period.id, Contribution.member_id == member.id)
+        .order_by(Contribution.paid_on.desc())
+    )
+    return list(await session.scalars(stmt))
+
+
+async def update_contribution(
+    session: AsyncSession,
+    actor: HouseholdMember,
+    contribution_id: UUID,
+    amount_minor: int | None,
+    paid_on: date | None,
+    note: str | None,
+) -> Contribution:
+    """Updates the contribution AND its mirrored expense atomically — same
+    discipline as `record_contribution` (INV-D-01): one write, both rows."""
+    contribution = await session.scalar(
+        select(Contribution).where(
+            Contribution.id == contribution_id,
+            Contribution.household_id == actor.household_id,
+        )
+    )
+    if contribution is None:
+        raise NotFoundError
+    if contribution.member_id != actor.id and actor.role != "admin":
+        raise ForbiddenRoleError
+
+    period = await session.get(ContributionPeriod, contribution.period_id)
+    assert period is not None
+    if period.status == "closed":
+        raise PeriodClosedError
+
+    transaction = await session.get(Transaction, contribution.expense_transaction_id)
+    assert transaction is not None
+
+    if amount_minor is not None:
+        contribution.amount_minor = amount_minor
+        transaction.amount_minor = amount_minor
+    if paid_on is not None:
+        contribution.paid_on = paid_on
+        transaction.occurred_on = paid_on
+    if note is not None:
+        contribution.note = note
+        transaction.note = note
+
     await session.flush()
     return contribution
 

@@ -1,15 +1,25 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
 import { useState } from "react";
 
 import { DebtCard, type Debt } from "@/components/finance/DebtCard";
+import { DebtDetail } from "@/components/finance/DebtDetail";
 import { GoalCard, type Goal } from "@/components/finance/GoalCard";
+import { GoalDetail } from "@/components/finance/GoalDetail";
 import { TransactionForm } from "@/components/finance/TransactionForm";
 import { TransactionRow, type Transaction } from "@/components/finance/TransactionRow";
 import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { IconDiamondFilled, IconCircleFilled, IconFileText, IconPlus } from "@/components/ui/Icons";
+import {
+  IconDiamondFilled,
+  IconCircleFilled,
+  IconFileText,
+  IconHandshake,
+  IconPlus,
+} from "@/components/ui/Icons";
 import { Input } from "@/components/ui/Input";
 import { MoneyInput } from "@/components/ui/MoneyInput";
 import { Sheet } from "@/components/ui/Sheet";
@@ -54,7 +64,13 @@ const CURRENCY = "COP";
 function SavingsGoalForm({ onDone }: { onDone: () => void }) {
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
+  const [nameTouched, setNameTouched] = useState(false);
   const [target, setTarget] = useState(0);
+  const [targetTouched, setTargetTouched] = useState(false);
+
+  const nameError = nameTouched && !name ? "Ponle un nombre a la meta" : undefined;
+  const targetError = targetTouched && target <= 0 ? "Ingresa un monto mayor a cero" : undefined;
+  const canSubmit = !!name && target > 0;
 
   const create = useMutation({
     mutationFn: () =>
@@ -74,17 +90,35 @@ function SavingsGoalForm({ onDone }: { onDone: () => void }) {
       className="flex flex-col gap-5"
       onSubmit={(event) => {
         event.preventDefault();
-        create.mutate();
+        setNameTouched(true);
+        setTargetTouched(true);
+        if (canSubmit) create.mutate();
       }}
     >
-      <Input label="Nombre" required value={name} onChange={(e) => setName(e.target.value)} />
-      <MoneyInput label="Meta" value={target} onChange={setTarget} currency={CURRENCY} required />
+      <Input
+        label="Nombre"
+        required
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        onBlur={() => setNameTouched(true)}
+        error={nameError}
+      />
+      <MoneyInput
+        label="Meta"
+        value={target}
+        onChange={setTarget}
+        onBlur={() => setTargetTouched(true)}
+        currency={CURRENCY}
+        kind="savings"
+        error={targetError}
+        required
+      />
       {create.isError ? (
         <p role="alert" className="text-sm text-danger">
           {(create.error as Error).message}
         </p>
       ) : null}
-      <Button type="submit" disabled={create.isPending || !name || target <= 0}>
+      <Button type="submit" disabled={create.isPending || !canSubmit}>
         {create.isPending ? "Guardando…" : "Guardar"}
       </Button>
     </form>
@@ -94,8 +128,16 @@ function SavingsGoalForm({ onDone }: { onDone: () => void }) {
 function DebtForm({ onDone }: { onDone: () => void }) {
   const queryClient = useQueryClient();
   const [creditorLabel, setCreditorLabel] = useState("");
+  const [creditorTouched, setCreditorTouched] = useState(false);
   const [principal, setPrincipal] = useState(0);
+  const [principalTouched, setPrincipalTouched] = useState(false);
   const [dueDay, setDueDay] = useState("");
+  const [hasPlan, setHasPlan] = useState(false);
+  const [installmentsTotal, setInstallmentsTotal] = useState("");
+  const [installmentAmount, setInstallmentAmount] = useState(0);
+  const [firstInstallmentOn, setFirstInstallmentOn] = useState(
+    new Date().toISOString().slice(0, 10),
+  );
 
   const create = useMutation({
     mutationFn: () =>
@@ -106,6 +148,13 @@ function DebtForm({ onDone }: { onDone: () => void }) {
           creditor_label: creditorLabel,
           principal_minor: principal,
           due_day: dueDay ? Number(dueDay) : null,
+          ...(hasPlan
+            ? {
+                installments_total: Number(installmentsTotal),
+                installment_amount_minor: installmentAmount,
+                first_installment_on: firstInstallmentOn,
+              }
+            : {}),
         }),
       }),
     onSuccess: async () => {
@@ -115,12 +164,21 @@ function DebtForm({ onDone }: { onDone: () => void }) {
     },
   });
 
+  const planIncomplete =
+    hasPlan && (!installmentsTotal || Number(installmentsTotal) <= 0 || installmentAmount <= 0);
+  const creditorError = creditorTouched && !creditorLabel ? "Dinos a quién le debes" : undefined;
+  const principalError =
+    principalTouched && principal <= 0 ? "Ingresa un monto mayor a cero" : undefined;
+  const canSubmit = !!creditorLabel && principal > 0 && !planIncomplete;
+
   return (
     <form
       className="flex flex-col gap-5"
       onSubmit={(event) => {
         event.preventDefault();
-        create.mutate();
+        setCreditorTouched(true);
+        setPrincipalTouched(true);
+        if (canSubmit) create.mutate();
       }}
     >
       <Input
@@ -128,12 +186,17 @@ function DebtForm({ onDone }: { onDone: () => void }) {
         required
         value={creditorLabel}
         onChange={(e) => setCreditorLabel(e.target.value)}
+        onBlur={() => setCreditorTouched(true)}
+        error={creditorError}
       />
       <MoneyInput
         label="Monto"
         value={principal}
         onChange={setPrincipal}
+        onBlur={() => setPrincipalTouched(true)}
         currency={CURRENCY}
+        kind="debt"
+        error={principalError}
         required
       />
       <Input
@@ -144,12 +207,52 @@ function DebtForm({ onDone }: { onDone: () => void }) {
         value={dueDay}
         onChange={(e) => setDueDay(e.target.value)}
       />
+
+      <label className="flex items-center gap-2.5 text-sm font-medium">
+        <input
+          type="checkbox"
+          checked={hasPlan}
+          onChange={(e) => setHasPlan(e.target.checked)}
+          className="h-5 w-5"
+        />
+        Tiene un plan de cuotas
+      </label>
+
+      {hasPlan ? (
+        <div className="flex flex-col gap-5 rounded-xl border border-border p-3.5">
+          <Input
+            label="Número de cuotas"
+            type="number"
+            min={1}
+            max={360}
+            required
+            value={installmentsTotal}
+            onChange={(e) => setInstallmentsTotal(e.target.value)}
+          />
+          <MoneyInput
+            label="Valor de la cuota"
+            value={installmentAmount}
+            onChange={setInstallmentAmount}
+            currency={CURRENCY}
+            kind="debt"
+            required
+          />
+          <Input
+            label="Primera cuota"
+            type="date"
+            required
+            value={firstInstallmentOn}
+            onChange={(e) => setFirstInstallmentOn(e.target.value)}
+          />
+        </div>
+      ) : null}
+
       {create.isError ? (
         <p role="alert" className="text-sm text-danger">
           {(create.error as Error).message}
         </p>
       ) : null}
-      <Button type="submit" disabled={create.isPending || !creditorLabel || principal <= 0}>
+      <Button type="submit" disabled={create.isPending || !canSubmit}>
         {create.isPending ? "Guardando…" : "Guardar"}
       </Button>
     </form>
@@ -159,6 +262,8 @@ function DebtForm({ onDone }: { onDone: () => void }) {
 export default function FinanzasPage() {
   const [tab, setTab] = useState<TabId>("expense");
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [expandedGoalId, setExpandedGoalId] = useState<string | null>(null);
+  const [expandedDebtId, setExpandedDebtId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   const transactions = useQuery({
@@ -212,6 +317,18 @@ export default function FinanzasPage() {
 
       <Tabs tabs={TABS} active={tab} onChange={(id) => setTab(id as TabId)} />
 
+      <Link href="/finanzas/prestamos">
+        <Card className="flex items-center gap-3">
+          <span aria-hidden="true" className="flex-none text-brand">
+            <IconHandshake />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold">Préstamos</p>
+            <p className="text-xs text-text-muted">Lo que prestaste y lo que te prestaron</p>
+          </div>
+        </Card>
+      </Link>
+
       <div role="tabpanel" className="flex flex-col gap-2.5">
         {(tab === "income" || tab === "expense") && (
           <>
@@ -236,7 +353,18 @@ export default function FinanzasPage() {
             {goals.data?.length ? (
               <div className="flex flex-col gap-2.5">
                 {goals.data.map((goal) => (
-                  <GoalCard key={goal.id} goal={goal} />
+                  <div key={goal.id} className="flex flex-col gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setExpandedGoalId(expandedGoalId === goal.id ? null : goal.id)
+                      }
+                      className="w-full text-left"
+                    >
+                      <GoalCard goal={goal} />
+                    </button>
+                    {expandedGoalId === goal.id ? <GoalDetail goal={goal} /> : null}
+                  </div>
                 ))}
               </div>
             ) : goals.isLoading ? null : (
@@ -254,7 +382,23 @@ export default function FinanzasPage() {
             {debts.data?.length ? (
               <div className="flex flex-col gap-2.5">
                 {debts.data.map((debt) => (
-                  <DebtCard key={debt.id} debt={debt} />
+                  <div key={debt.id} className="flex flex-col gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setExpandedDebtId(expandedDebtId === debt.id ? null : debt.id)
+                      }
+                      className="w-full text-left"
+                    >
+                      <DebtCard debt={debt} />
+                    </button>
+                    {expandedDebtId === debt.id ? (
+                      <DebtDetail
+                        debt={debt}
+                        onDeleted={() => setExpandedDebtId(null)}
+                      />
+                    ) : null}
+                  </div>
                 ))}
               </div>
             ) : debts.isLoading ? null : (

@@ -124,9 +124,6 @@ export function InvitesSection() {
             <p data-testid="invite-code" className="tabular text-2xl font-bold tracking-[0.14em]">
               {(create.data as Invite).code}
             </p>
-            <p className="mt-1 text-xs text-text-muted">
-              8 caracteres. Nunca usamos 0, O, 1, I ni L.
-            </p>
           </div>
         ) : null}
       </div>

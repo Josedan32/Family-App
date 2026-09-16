@@ -55,6 +55,17 @@ class DebtResponse(BaseModel):
     last_payment_id: UUID | None = None
 
 
+class DebtPaymentResponse(BaseModel):
+    id: UUID
+    amount_minor: int
+    paid_on: date
+    note: str | None
+
+
+class DebtDetailResponse(DebtResponse):
+    payments: list[DebtPaymentResponse]
+
+
 class DebtSummaryResponse(BaseModel):
     """Total outstanding. No creditor names, no creditor types, no count."""
 

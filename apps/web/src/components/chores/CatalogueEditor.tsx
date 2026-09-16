@@ -50,7 +50,7 @@ export function CatalogueEditor({
       {items.length === 0 ? (
         <p className="text-sm text-text-muted">Todavía no hay nada.</p>
       ) : (
-        <ul className="flex flex-col gap-2">
+        <ul className="flex flex-col gap-2 rounded-xl border border-border p-2">
           {items.map((item, index) => (
             <li key={index} className="flex items-center gap-1.5">
               <input
@@ -101,7 +101,7 @@ export function CatalogueEditor({
           {addLabel}
         </button>
       ) : (
-        <p className="text-xs text-text-muted">
+        <p className="text-xs font-medium text-warning">
           Máximo {max}. Si necesitas más, probablemente son dos tareas.
         </p>
       )}

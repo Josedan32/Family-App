@@ -16,6 +16,7 @@ const potExpense: HouseholdExpense = {
   amount_minor: 1_200_000,
   currency: "COP",
   occurred_on: "2026-09-03",
+  name: null,
   note: "Arriendo septiembre",
   funding: "pot",
   paid_by_member_id: null,
@@ -55,6 +56,19 @@ describe("HouseholdExpenseRow", () => {
       <HouseholdExpenseRow expense={{ ...memberExpense, contribution_id: "c9" }} />,
     );
     expect(screen.getByText("Cuenta como aporte")).toBeInTheDocument();
+  });
+
+  it("shows the name as the title and the category as a pill when named", () => {
+    render(
+      <HouseholdExpenseRow expense={{ ...potExpense, name: "Factura de luz" }} />,
+    );
+    expect(screen.getByText("Factura de luz")).toBeInTheDocument();
+    expect(screen.getByText("Otros")).toBeInTheDocument();
+  });
+
+  it("falls back to the category as the title when there is no name", () => {
+    render(<HouseholdExpenseRow expense={potExpense} />);
+    expect(screen.getAllByText("Otros")).toHaveLength(1);
   });
 
   it("never renders a PrivateBlock", () => {

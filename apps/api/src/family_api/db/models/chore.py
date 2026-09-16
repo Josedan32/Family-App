@@ -3,6 +3,7 @@ from uuid import UUID
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     CheckConstraint,
     Date,
     DateTime,
@@ -60,6 +61,11 @@ class Chore(Base, TimestampMixin):
     )
     # The definition of done, in one sentence.
     expectation: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # One assignment per eligible member, every occurrence — never the
+    # balanced-by-effort draw (see `generate_cycle`).
+    applies_to_all: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default="false"
+    )
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
@@ -81,6 +87,33 @@ class ChoreCycle(Base):
     # viewer, and "why did I get the bathroom?" can be answered by re-running.
     seed: Mapped[int] = mapped_column(BigInteger, nullable=False, server_default="0")
     generated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class ChoreCycleView(Base, TimestampMixin):
+    """One row per member who has seen a cycle's draw.
+
+    Per-member, not per-cycle: each person must see their own draw, so one
+    member marking it seen cannot hide the dashboard card from anyone else.
+    """
+
+    __tablename__ = "chore_cycle_views"
+    __table_args__ = (
+        UniqueConstraint("cycle_id", "member_id", name="uq_chore_cycle_view"),
+    )
+
+    id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True)
+    household_id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), nullable=False)
+    cycle_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("chore_cycles.id", ondelete="CASCADE"), nullable=False
+    )
+    member_id: Mapped[UUID] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("household_members.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    seen_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 

@@ -1,8 +1,11 @@
+import Link from "next/link";
+
 import { ContributionProgress } from "@/components/finance/ContributionProgress";
 import { MemberCard, type DashboardMember } from "@/components/finance/MemberCard";
 import { MoneyDisplay } from "@/components/finance/MoneyDisplay";
 import { Card } from "@/components/ui/Card";
-import { IconArrowDown, IconArrowUp, IconDiamondFilled } from "@/components/ui/Icons";
+import { IconArrowDown, IconArrowUp, IconClock, IconDiamondFilled } from "@/components/ui/Icons";
+import { ApiError } from "@/lib/api/errors";
 import { pageFetch } from "@/lib/api/server";
 
 interface Dashboard {
@@ -25,9 +28,28 @@ const HOUSEHOLD_TOTALS = [
   { key: "savings_minor", label: "Ahorros", Icon: IconDiamondFilled, color: "text-savings" },
 ] as const;
 
+interface PendingCycle {
+  starts_on: string;
+  ends_on: string;
+  seen: boolean;
+}
+
+async function pendingCycle(): Promise<PendingCycle | null> {
+  try {
+    const cycle = await pageFetch<PendingCycle>("/chore-cycles/current");
+    return cycle.seen ? null : cycle;
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) return null;
+    throw error;
+  }
+}
+
 export default async function DashboardPage() {
   // Server Component: figures the viewer may not see never reach the browser.
-  const data = await pageFetch<Dashboard>("/dashboard");
+  const [data, cycle] = await Promise.all([
+    pageFetch<Dashboard>("/dashboard"),
+    pendingCycle(),
+  ]);
 
   return (
     <div className="flex flex-col gap-5">
@@ -35,6 +57,20 @@ export default async function DashboardPage() {
         <h1 className="text-[2rem] font-bold tracking-tight">Inicio</h1>
         <span className="text-xs text-text-muted">{data.period}</span>
       </div>
+
+      {cycle ? (
+        <Link href="/tareas">
+          <Card className="flex items-center gap-3">
+            <span aria-hidden="true" className="flex-none text-brand">
+              <IconClock />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold">Hay un sorteo nuevo</p>
+              <p className="text-xs text-text-muted">Mira qué tareas te tocaron esta vez</p>
+            </div>
+          </Card>
+        </Link>
+      ) : null}
 
       <Card>
         <p className="mb-3.5 text-sm font-medium text-text-muted">Totales del hogar</p>
@@ -86,7 +122,9 @@ export default async function DashboardPage() {
         </div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {data.members.map((member) => (
-            <MemberCard key={member.member_id} member={member} currency={data.currency} />
+            <Link key={member.member_id} href={`/hogar/miembros/${member.member_id}`}>
+              <MemberCard member={member} currency={data.currency} />
+            </Link>
           ))}
         </div>
       </section>

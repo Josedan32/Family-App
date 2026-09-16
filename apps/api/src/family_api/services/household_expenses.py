@@ -11,6 +11,7 @@ from family_api.db.models.household import Household, HouseholdMember
 from family_api.db.models.household_expense import HouseholdExpense
 from family_api.db.models.seeded import Category
 from family_api.db.models.transaction import Transaction
+from family_api.db.models.transaction_category import TransactionCategory
 from family_api.errors import DomainError, ForbiddenRoleError, NotFoundError
 from family_api.ids import new_id
 from family_api.services.contributions import get_open_period
@@ -66,6 +67,7 @@ async def create_expense(
     category_id: UUID,
     amount_minor: int,
     occurred_on: date,
+    name: str | None,
     note: str | None,
     funding: str,
     paid_by_member_id: UUID | None,
@@ -130,6 +132,13 @@ async def create_expense(
         session.add(transaction)
         await session.flush()
         transaction_id = transaction.id
+        session.add(
+            TransactionCategory(
+                id=new_id(), household_id=member.household_id,
+                transaction_id=transaction.id, category_id=category.id,
+            )
+        )
+        await session.flush()
 
         if counts_as_contribution:
             period = await get_open_period(session, member.household_id)
@@ -149,7 +158,7 @@ async def create_expense(
 
     expense = HouseholdExpense(
         id=expense_id, household_id=member.household_id, category_id=category.id,
-        amount_minor=amount_minor, occurred_on=occurred_on, note=note,
+        amount_minor=amount_minor, occurred_on=occurred_on, name=name, note=note,
         funding=funding, paid_by_member_id=paid_by_member_id,
         expense_transaction_id=transaction_id,
     )
@@ -199,6 +208,7 @@ async def update_expense(
     expense_id: UUID,
     category_id: UUID | None,
     occurred_on: date | None,
+    name: str | None,
     note: str | None,
 ) -> HouseholdExpense:
     """Amount and funding are never accepted here — see
@@ -232,6 +242,8 @@ async def update_expense(
         expense.category_id = category.id
     if occurred_on is not None:
         expense.occurred_on = occurred_on
+    if name is not None:
+        expense.name = name
     if note is not None:
         expense.note = note
 

@@ -62,7 +62,7 @@ async def list_expenses(
         HouseholdExpenseResponse(
             id=e.id, category_id=e.category_id, category_name=category_name,
             amount_minor=e.amount_minor, currency=currency, occurred_on=e.occurred_on,
-            note=e.note, funding=e.funding, paid_by_member_id=e.paid_by_member_id,
+            name=e.name, note=e.note, funding=e.funding, paid_by_member_id=e.paid_by_member_id,
             paid_by_name=payer_name, expense_transaction_id=e.expense_transaction_id,
             contribution_id=contribution_id,
         )
@@ -76,7 +76,8 @@ async def create_expense(
 ) -> HouseholdExpenseResponse:
     expense = await ledger_service.create_expense(
         session, member, body.category_id, body.amount_minor, body.occurred_on,
-        body.note, body.funding, body.paid_by_member_id, body.counts_as_contribution,
+        body.name, body.note, body.funding, body.paid_by_member_id,
+        body.counts_as_contribution,
     )
     await session.commit()
     rows = await ledger_service.list_expenses(
@@ -89,7 +90,7 @@ async def create_expense(
         id=e.id, category_id=e.category_id, category_name=category_name,
         amount_minor=e.amount_minor,
         currency=await _currency(session, member.household_id),
-        occurred_on=e.occurred_on, note=e.note, funding=e.funding,
+        occurred_on=e.occurred_on, name=e.name, note=e.note, funding=e.funding,
         paid_by_member_id=e.paid_by_member_id, paid_by_name=payer_name,
         expense_transaction_id=e.expense_transaction_id,
         contribution_id=contribution_id,
@@ -106,7 +107,8 @@ async def update_expense(
     """Amount and funding cannot be part of `body` — `UpdateHouseholdExpenseRequest`
     has no such fields, so they are silently dropped rather than applied."""
     await ledger_service.update_expense(
-        session, member, expense_id, body.category_id, body.occurred_on, body.note
+        session, member, expense_id, body.category_id, body.occurred_on,
+        body.name, body.note,
     )
     await session.commit()
     rows = await ledger_service.list_expenses(
@@ -119,7 +121,7 @@ async def update_expense(
         id=e.id, category_id=e.category_id, category_name=category_name,
         amount_minor=e.amount_minor,
         currency=await _currency(session, member.household_id),
-        occurred_on=e.occurred_on, note=e.note, funding=e.funding,
+        occurred_on=e.occurred_on, name=e.name, note=e.note, funding=e.funding,
         paid_by_member_id=e.paid_by_member_id, paid_by_name=payer_name,
         expense_transaction_id=e.expense_transaction_id,
         contribution_id=contribution_id,

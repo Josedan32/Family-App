@@ -14,7 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from family_api.db.models.chore import Chore, ChoreAssignment, ChoreCycle
+from family_api.db.models.chore import Chore, ChoreAssignment, ChoreCycle, ChoreCycleView
 from family_api.db.models.household import Household, HouseholdMember
 from family_api.db.models.user import User
 from family_api.errors import DomainError, ForbiddenRoleError, NotFoundError
@@ -87,9 +87,12 @@ async def generate_cycle(
     # Build every occurrence first, then walk them in date order, so a chore due
     # on the 1st is assigned before one due on the 5th and the provisional
     # balance updates spread work across the cycle instead of piling it on
-    # whoever started lowest.
+    # whoever started lowest. Chores marked `applies_to_all` never enter this
+    # pool — they are not divided by effort at all (see loop below).
     slots: list[tuple[Chore, date]] = []
     for chore in chores:
+        if chore.applies_to_all:
+            continue
         for due_on in occurrences(chore.frequency, starts_on, ends_on):
             slots.append((chore, due_on))
     slots.sort(key=lambda slot: slot[1])
@@ -121,6 +124,23 @@ async def generate_cycle(
         # Provisional: assume it gets done, so the next slot goes elsewhere.
         balances[chosen] = balances.get(chosen, 0) + chore.effort_points
 
+    # `applies_to_all` chores: one row per eligible member, every occurrence.
+    # No `choose_assignee`, no balance bookkeeping — everyone owes it equally,
+    # so it cannot skew who gets picked for the chores above.
+    for chore in chores:
+        if not chore.applies_to_all:
+            continue
+        for due_on in occurrences(chore.frequency, starts_on, ends_on):
+            absent = await absent_member_ids(session, household.id, due_on)
+            for member_id in (m.id for m in members if m.id not in absent):
+                session.add(
+                    ChoreAssignment(
+                        id=new_id(), household_id=household.id, cycle_id=cycle.id,
+                        chore_id=chore.id, member_id=member_id, due_on=due_on,
+                        status="pending", effort_points=chore.effort_points,
+                    )
+                )
+
     await session.flush()
     return cycle
 
@@ -139,6 +159,36 @@ async def current_cycle(
         .order_by(ChoreCycle.starts_on.desc())
     )
     return cycle
+
+
+async def is_cycle_seen(session: AsyncSession, member: HouseholdMember, cycle_id: UUID) -> bool:
+    view = await session.scalar(
+        select(ChoreCycleView).where(
+            ChoreCycleView.cycle_id == cycle_id, ChoreCycleView.member_id == member.id
+        )
+    )
+    return view is not None
+
+
+async def mark_cycle_seen(
+    session: AsyncSession, member: HouseholdMember, cycle_id: UUID
+) -> None:
+    cycle = await session.get(ChoreCycle, cycle_id)
+    if cycle is None or cycle.household_id != member.household_id:
+        raise NotFoundError
+    if await is_cycle_seen(session, member, cycle_id):
+        return
+    session.add(
+        ChoreCycleView(
+            id=new_id(), household_id=member.household_id,
+            cycle_id=cycle_id, member_id=member.id,
+        )
+    )
+    try:
+        await session.flush()
+    except IntegrityError:
+        # Two taps racing each other both tried to insert the same row.
+        await session.rollback()
 
 
 async def _load_assignment(
@@ -191,15 +241,12 @@ async def reassign_assignment(
 
 
 async def list_cycle_assignments(
-    session: AsyncSession, cycle_id: UUID
+    session: AsyncSession, cycle_id: UUID, member_id: UUID | None = None
 ) -> list[ChoreAssignment]:
-    return list(
-        await session.scalars(
-            select(ChoreAssignment)
-            .where(ChoreAssignment.cycle_id == cycle_id)
-            .order_by(ChoreAssignment.due_on)
-        )
-    )
+    stmt = select(ChoreAssignment).where(ChoreAssignment.cycle_id == cycle_id)
+    if member_id is not None:
+        stmt = stmt.where(ChoreAssignment.member_id == member_id)
+    return list(await session.scalars(stmt.order_by(ChoreAssignment.due_on)))
 
 
 async def to_assignment_responses(

@@ -4,6 +4,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { CategoryPicker } from "@/components/finance/CategoryPicker";
 import { Button } from "@/components/ui/Button";
 import { IconPlus } from "@/components/ui/Icons";
 import { Input } from "@/components/ui/Input";
@@ -18,6 +19,7 @@ interface Category {
   id: string;
   name: string;
   kind: string;
+  is_contribution_category: boolean;
 }
 
 type Funding = "pot" | "member";
@@ -33,8 +35,11 @@ function NewExpenseForm({
 }) {
   const router = useRouter();
   const [amount, setAmount] = useState(0);
+  const [amountTouched, setAmountTouched] = useState(false);
   const [categoryId, setCategoryId] = useState("");
+  const [categoryTouched, setCategoryTouched] = useState(false);
   const [occurredOn, setOccurredOn] = useState(new Date().toISOString().slice(0, 10));
+  const [name, setName] = useState("");
   const [note, setNote] = useState("");
   const [funding, setFunding] = useState<Funding>("pot");
   const [countsAsContribution, setCountsAsContribution] = useState(true);
@@ -53,6 +58,7 @@ function NewExpenseForm({
           category_id: categoryId,
           amount_minor: amount,
           occurred_on: occurredOn,
+          name: name || null,
           note: note || null,
           funding,
           ...(funding === "member" ? { counts_as_contribution: countsAsContribution } : {}),
@@ -79,16 +85,32 @@ function NewExpenseForm({
     },
   });
 
+  const amountError =
+    amountTouched && amount <= 0 ? "Ingresa un monto mayor a cero" : undefined;
+  const categoryError = categoryTouched && !categoryId ? "Elige una categoría" : undefined;
+  const canSubmit = amount > 0 && !!categoryId;
+
   return (
     <form
       className="flex flex-col gap-5"
       onSubmit={(event) => {
         event.preventDefault();
         setFormError(null);
-        create.mutate();
+        setAmountTouched(true);
+        setCategoryTouched(true);
+        if (canSubmit) create.mutate();
       }}
     >
-      <MoneyInput label="Monto" value={amount} onChange={setAmount} currency={currency} required />
+      <MoneyInput
+        label="Monto"
+        value={amount}
+        onChange={setAmount}
+        onBlur={() => setAmountTouched(true)}
+        currency={currency}
+        kind="expense"
+        error={amountError}
+        required
+      />
 
       {funding === "pot" ? (
         <span className="-mt-3 text-xs text-text-muted">
@@ -96,32 +118,12 @@ function NewExpenseForm({
         </span>
       ) : null}
 
-      <div className="flex flex-col gap-2">
-        <span className="text-xs font-semibold uppercase tracking-wide text-text-muted">
-          Categoría
-        </span>
-        <div role="radiogroup" aria-label="Categoría" className="grid grid-cols-3 gap-2">
-          {categories.data?.map((category) => {
-            const selected = category.id === categoryId;
-            return (
-              <button
-                key={category.id}
-                type="button"
-                role="radio"
-                aria-checked={selected}
-                onClick={() => setCategoryId(category.id)}
-                className={`min-h-[48px] rounded-xl border px-1 text-sm font-medium ${
-                  selected
-                    ? "border-brand bg-brand font-bold text-brand-contrast"
-                    : "border-border bg-surface text-text active:bg-surface-sunken"
-                }`}
-              >
-                {category.name}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      <CategoryPicker categories={categories.data} value={categoryId} onChange={setCategoryId} />
+      {categoryError ? (
+        <p role="alert" className="-mt-3 text-xs font-medium text-danger">
+          {categoryError}
+        </p>
+      ) : null}
 
       <Input
         label="Fecha"
@@ -129,6 +131,11 @@ function NewExpenseForm({
         required
         value={occurredOn}
         onChange={(event) => setOccurredOn(event.target.value)}
+      />
+      <Input
+        label="Nombre (opcional)"
+        value={name}
+        onChange={(event) => setName(event.target.value)}
       />
       <Input
         label="Nota (opcional)"
@@ -193,7 +200,7 @@ function NewExpenseForm({
         </p>
       ) : null}
 
-      <Button type="submit" disabled={create.isPending || amount <= 0 || !categoryId}>
+      <Button type="submit" disabled={create.isPending || !canSubmit}>
         {create.isPending ? "Guardando…" : "Guardar"}
       </Button>
     </form>

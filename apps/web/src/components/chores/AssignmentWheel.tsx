@@ -105,7 +105,9 @@ export function AssignmentWheel({
   );
   const [rotation, setRotation] = useState(0);
   const [animating, setAnimating] = useState(false);
+  const [reelName, setReelName] = useState<string | null>(null);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const reelInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const segment = members.length > 0 ? 360 / members.length : 360;
 
@@ -124,7 +126,9 @@ export function AssignmentWheel({
   const finish = useCallback(() => {
     timers.current.forEach(clearTimeout);
     timers.current = [];
+    if (reelInterval.current) clearInterval(reelInterval.current);
     setAnimating(false);
+    setReelName(null);
     setRevealed(assignments);
     setIndex(assignments.length);
   }, [assignments]);
@@ -140,7 +144,18 @@ export function AssignmentWheel({
       setAnimating(true);
       setRotation((from) => targetRotation(current.member_id, index, from));
 
+      // A rapidly-changing name feed under the wheel, like a slot machine —
+      // the rotation alone reads as "wheel moved," not "a draw is happening."
+      let tick = 0;
+      reelInterval.current = setInterval(() => {
+        const candidate = assignments[(index + tick) % assignments.length];
+        setReelName(`${candidate.chore_name} → ${candidate.member_name}`);
+        tick += 1;
+      }, 90);
+
       const settle = setTimeout(() => {
+        if (reelInterval.current) clearInterval(reelInterval.current);
+        setReelName(null);
         setRevealed((seen) => [...seen, current]);
         setAnimating(false);
         const advance = setTimeout(() => setIndex((i) => i + 1), PAUSE_MS);
@@ -158,7 +173,11 @@ export function AssignmentWheel({
 
   useEffect(() => {
     const pending = timers;
-    return () => pending.current.forEach(clearTimeout);
+    const pendingReel = reelInterval;
+    return () => {
+      pending.current.forEach(clearTimeout);
+      if (pendingReel.current) clearInterval(pendingReel.current);
+    };
   }, []);
 
   if (members.length === 0 || assignments.length === 0) return null;
@@ -234,18 +253,23 @@ export function AssignmentWheel({
         />
       </div>
 
-      <p className="min-h-6 text-center text-sm font-semibold">
-        {animating ? current.chore_name : settled ? `${settled.chore_name} → ${settled.member_name}` : ""}
+      <p
+        data-testid="wheel-reel"
+        className={`min-h-6 text-center text-sm font-semibold tabular-nums ${
+          animating ? "text-text-muted" : ""
+        }`}
+      >
+        {animating
+          ? (reelName ?? current.chore_name)
+          : settled
+            ? `${settled.chore_name} → ${settled.member_name}`
+            : ""}
       </p>
 
       {/* The result is announced, not only shown. Without this the wheel is
           useless with a screen reader. */}
       <p role="status" aria-live="polite" className="sr-only">
         {settled ? `${settled.chore_name} le tocó a ${settled.member_name}` : ""}
-      </p>
-
-      <p className="text-center text-xs text-text-muted">
-        La ruleta reparte equilibrando el esfuerzo de cada quien.
       </p>
     </section>
   );

@@ -7,6 +7,7 @@ from sqlalchemy import (
     Date,
     ForeignKey,
     Index,
+    String,
     Text,
 )
 from sqlalchemy.dialects.postgresql import ENUM as PgEnum
@@ -52,6 +53,7 @@ class Transaction(Base, TimestampMixin):
     )
     amount_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
     occurred_on: Mapped[date] = mapped_column(Date, nullable=False)
+    name: Mapped[str | None] = mapped_column(String(120), nullable=True)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Rows with source <> 'manual' are derived records: the transactions API
     # refuses to edit or delete them (FR-M2-05).

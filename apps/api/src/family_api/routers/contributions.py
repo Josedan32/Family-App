@@ -18,6 +18,7 @@ from family_api.schemas.contribution import (
     PeriodMemberRow,
     PeriodResponse,
     SetPledgesRequest,
+    UpdateContributionRequest,
     UpdatePeriodRequest,
 )
 from family_api.services import contributions as contribution_service
@@ -157,6 +158,24 @@ async def set_pledges(
     return await _detail(session, member, period)
 
 
+@router.get("/{period_id}/contributions/mine")
+async def list_own_contributions(
+    period_id: UUID, member: CurrentMember, session: SessionDep
+) -> list[ContributionResponse]:
+    contributions = await contribution_service.list_own_contributions(
+        session, member, period_id
+    )
+    currency = await _currency(session, member.household_id)
+    return [
+        ContributionResponse(
+            id=c.id, member_id=c.member_id, amount_minor=c.amount_minor,
+            currency=currency, paid_on=c.paid_on, note=c.note,
+            expense_transaction_id=c.expense_transaction_id,
+        )
+        for c in contributions
+    ]
+
+
 @router.post("/{period_id}/contributions", status_code=status.HTTP_201_CREATED)
 async def record_contribution(
     period_id: UUID,
@@ -166,6 +185,26 @@ async def record_contribution(
 ) -> ContributionResponse:
     contribution = await contribution_service.record_contribution(
         session, member, period_id, body.amount_minor, body.paid_on, body.note
+    )
+    await session.commit()
+    return ContributionResponse(
+        id=contribution.id, member_id=contribution.member_id,
+        amount_minor=contribution.amount_minor,
+        currency=await _currency(session, member.household_id),
+        paid_on=contribution.paid_on, note=contribution.note,
+        expense_transaction_id=contribution.expense_transaction_id,
+    )
+
+
+@contributions_router.patch("/{contribution_id}")
+async def update_contribution(
+    contribution_id: UUID,
+    body: UpdateContributionRequest,
+    member: CurrentMember,
+    session: SessionDep,
+) -> ContributionResponse:
+    contribution = await contribution_service.update_contribution(
+        session, member, contribution_id, body.amount_minor, body.paid_on, body.note
     )
     await session.commit()
     return ContributionResponse(

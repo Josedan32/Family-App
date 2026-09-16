@@ -287,6 +287,89 @@ objetivo entero del módulo.
 
 ---
 
+## 4.5 Lo que cambió en esta ronda
+
+Esto es nuevo o se arregló después de una ronda de pruebas manuales. No repite
+lo de arriba — solo lo que hay que confirmar ahora.
+
+**Hogar**
+
+- [ ] En `/hogar`, la edad de Daniel (admin) no aparece si nunca puso su fecha
+      de nacimiento. Debajo de su fila hay un enlace **"Agrega tu fecha de
+      nacimiento"** que lleva a `/ajustes/perfil`. No es un bug de privacidad:
+      simplemente nadie la pidió al crear el hogar.
+- [ ] Con Daniel, cada miembro tiene un botón **"Editar"** que abre un modal
+      para cambiar rol y parentesco. Guarda y confirma que persiste.
+- [ ] Ese modal **no muestra ninguna cifra financiera** del miembro editado.
+- [ ] Los textos de ayuda largos (sobre el formato del código, sobre qué puede
+      ver cada rol) ya no están — ni en `/hogar` ni en el onboarding.
+
+**Transparencia**
+
+- [ ] Las tarjetas de miembro en el Inicio son clicables y llevan a
+      `/hogar/miembros/[id]`.
+- [ ] Ya no aparece la frase "decide qué comparte. Su aporte al hogar siempre
+      es visible..." en el perfil de un miembro.
+
+**Finanzas personales**
+
+- [ ] Al registrar un ingreso o gasto, el selector de categoría permite marcar
+      **más de una**. La fila del movimiento muestra el nombre como título y
+      cada categoría como su propia pill.
+- [ ] La categoría de sistema **"Aporte al hogar" no aparece** en ese selector
+      — solo la usa el módulo de Aportes internamente.
+- [ ] El campo de monto siempre muestra el signo `$`; en ingreso es verde con
+      `+$`, en gasto rojo con `−$`.
+- [ ] Cada ingreso/gasto manual tiene **Editar** y **Eliminar** en su fila. Un
+      aporte reflejado (fondo gris, badge "Aporte") no los tiene.
+- [ ] En **Ahorros**, cada meta se puede expandir para **Abonar**, **Retirar**
+      y **Ver actividad** (lista con fecha, tipo y monto con signo).
+- [ ] En **Deudas**, al crear puedes marcar "Tiene un plan de cuotas" (número
+      de cuotas, valor, primera fecha). Cada deuda se expande para ver sus
+      pagos, registrar un abono y **eliminarla** — el borrado se rechaza con
+      un mensaje si ya tiene pagos.
+- [ ] **Préstamos** ya no es una URL secreta: hay un enlace desde `/finanzas`.
+      Cada préstamo se expande para ver fechas, nota, el historial de pagos,
+      registrar un abono, y cancelarlo (solo quien prestó).
+- [ ] Deja el monto en blanco y sal del campo (sin enviar el formulario): el
+      campo se marca en rojo con el mensaje de error **antes** de darle
+      guardar. Prueba esto en Aportes, Ingresos/Gastos, Ahorro, Deuda,
+      Préstamo y Gasto del hogar.
+
+**Aportes**
+
+- [ ] Debajo de la lista de "Quién aportó" hay una sección **"Mis aportes"**
+      con cada aporte propio del periodo, y botones Editar/Eliminar.
+- [ ] Edita un aporte: el monto en el libro del hogar (gasto espejo) cambia
+      igual.
+- [ ] En el teléfono, el botón "Registrar mi aporte" ya no choca con la barra
+      inferior ni con el contenido al hacer scroll.
+
+**Tareas del hogar**
+
+- [ ] Los textos "Los puntos de esfuerzo se usan para...", "Este número
+      decide...", "El orden importa..." y "La ruleta reparte
+      equilibrando..." ya no aparecen en ningún lado.
+- [ ] El aviso de "Máximo 20..." se ve en tono ámbar/advertencia, no gris.
+- [ ] Los pasos e insumos del catálogo se ven agrupados dentro de un borde,
+      no como controles sueltos.
+- [ ] Al pulsar "Ver el sorteo", bajo la ruleta aparece un texto que cambia
+      rápido entre distintas combinaciones tarea → persona (como una
+      tragamonedas) antes de asentarse en el resultado real.
+- [ ] En `/tareas` hay un selector **"Ver: Todos / Mis tareas / <nombre>"**
+      que filtra las tareas pendientes y hechas por miembro.
+- [ ] En `/tareas/admin`, al crear o editar una tarea hay un interruptor
+      **"Aplica para todos"**. Márcalo en una tarea (p. ej. "Tender la cama")
+      y genera un ciclo: cada miembro elegible recibe **su propia**
+      asignación de esa tarea, no se reparte entre uno solo.
+- [ ] La primera vez que entras a `/tareas` después de un sorteo nuevo, el
+      Inicio muestra una card **"Hay un sorteo nuevo"**. Al visitar Tareas,
+      la card desaparece — pero solo para ti; otro miembro que no haya
+      entrado todavía sigue viéndola. Un sorteo nuevo la trae de vuelta para
+      todos.
+
+---
+
 ## 5. Prueba en el teléfono
 
 Lo importante de esta sección es que Safari en iOS rompe cosas que en el

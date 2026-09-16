@@ -149,7 +149,7 @@ async def seed_demo_household(session: AsyncSession) -> None:
     # Pot-funded: rent, paid from the collected money.
     await create_expense(
         session, admin_member, otros.id, 1_200_000, date.today(),
-        "Arriendo", "pot", None, False,
+        "Arriendo", None, "pot", None, False,
     )
 
     # Member-funded and in kind: Mamá paid the groceries herself, and it counts
@@ -164,7 +164,7 @@ async def seed_demo_household(session: AsyncSession) -> None:
     )
     await create_expense(
         session, mama_member, comida.id, 250_000, date.today(),
-        "Mercado de la semana", "member", mama_member.id, False,
+        "Mercado de la semana", None, "member", mama_member.id, False,
     )
 
     today = date.today()

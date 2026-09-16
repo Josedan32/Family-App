@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from family_api.db.models.chore import ChoreCycle
-from family_api.db.models.household import Household
+from family_api.db.models.household import Household, HouseholdMember
 from family_api.db.session import get_session
 from family_api.errors import NotFoundError
 from family_api.schemas.chore import (
@@ -47,6 +47,7 @@ async def create_chore(
     chore = await chore_service.create_chore(
         session, member, body.name, body.description, body.frequency,
         body.effort_points, body.activities, body.requirements, body.expectation,
+        body.applies_to_all,
     )
     await session.commit()
     return ChoreResponse.model_validate(chore, from_attributes=True)
@@ -59,7 +60,7 @@ async def update_chore(
     chore = await chore_service.update_chore(
         session, member, chore_id, body.name, body.description,
         body.frequency, body.effort_points, body.activities,
-        body.requirements, body.expectation,
+        body.requirements, body.expectation, body.applies_to_all,
     )
     await session.commit()
     return ChoreResponse.model_validate(chore, from_attributes=True)
@@ -98,11 +99,14 @@ async def create_effort_adjustment(
     await session.commit()
 
 
-async def _cycle_response(session: AsyncSession, cycle: ChoreCycle) -> CycleResponse:
+async def _cycle_response(
+    session: AsyncSession, member: HouseholdMember, cycle: ChoreCycle
+) -> CycleResponse:
     assignments = await assignment_service.list_cycle_assignments(session, cycle.id)
     return CycleResponse(
         id=cycle.id, starts_on=cycle.starts_on, ends_on=cycle.ends_on,
         seed=cycle.seed,
+        seen=await assignment_service.is_cycle_seen(session, member, cycle.id),
         assignments=await assignment_service.to_assignment_responses(session, assignments),
     )
 
@@ -115,7 +119,7 @@ async def create_chore_cycle(
         session, member, body.starts_on, body.ends_on
     )
     await session.commit()
-    return await _cycle_response(session, cycle)
+    return await _cycle_response(session, member, cycle)
 
 
 @router.get("/chore-cycles/current")
@@ -125,17 +129,25 @@ async def get_current_chore_cycle(
     cycle = await assignment_service.current_cycle(session, member.household_id)
     if cycle is None:
         raise NotFoundError
-    return await _cycle_response(session, cycle)
+    return await _cycle_response(session, member, cycle)
+
+
+@router.post("/chore-cycles/{cycle_id}/seen", status_code=status.HTTP_204_NO_CONTENT)
+async def mark_chore_cycle_seen(
+    cycle_id: UUID, member: CurrentMember, session: SessionDep
+) -> None:
+    await assignment_service.mark_cycle_seen(session, member, cycle_id)
+    await session.commit()
 
 
 @router.get("/chore-assignments")
 async def list_chore_assignments(
-    member: CurrentMember, session: SessionDep
+    member: CurrentMember, session: SessionDep, member_id: UUID | None = None
 ) -> list[AssignmentResponse]:
     cycle = await assignment_service.current_cycle(session, member.household_id)
     if cycle is None:
         return []
-    assignments = await assignment_service.list_cycle_assignments(session, cycle.id)
+    assignments = await assignment_service.list_cycle_assignments(session, cycle.id, member_id)
     return await assignment_service.to_assignment_responses(session, assignments)
 
 

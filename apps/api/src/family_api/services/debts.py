@@ -18,6 +18,12 @@ class OverpaymentError(DomainError):
     title = "El pago supera el saldo pendiente"
 
 
+class DebtHasPaymentsError(DomainError):
+    type_slug = "debt_has_payments"
+    status = 409
+    title = "Elimina primero los pagos registrados"
+
+
 async def create_debt(
     session: AsyncSession,
     member: HouseholdMember,
@@ -98,6 +104,42 @@ async def list_debts_with_figures(
             )
         )
     return result
+
+
+async def get_debt_detail(
+    session: AsyncSession, member: HouseholdMember, debt_id: UUID
+) -> tuple[Debt, int, list[DebtPayment]]:
+    debt = await session.scalar(
+        select(Debt).where(Debt.id == debt_id, Debt.member_id == member.id)
+    )
+    if debt is None:
+        raise NotFoundError
+    payments = list(
+        await session.scalars(
+            select(DebtPayment)
+            .where(DebtPayment.debt_id == debt.id)
+            .order_by(DebtPayment.paid_on.desc(), DebtPayment.id.desc())
+        )
+    )
+    outstanding = debt.principal_minor - sum(p.amount_minor for p in payments)
+    return debt, outstanding, payments
+
+
+async def delete_debt(
+    session: AsyncSession, member: HouseholdMember, debt_id: UUID
+) -> None:
+    """Refuses to delete a debt with payments (INV-D style): erasing it would
+    silently drop a ledger trail. The caller must revert the payments first,
+    same discipline as the loan/contribution ledgers."""
+    debt = await session.scalar(
+        select(Debt).where(Debt.id == debt_id, Debt.member_id == member.id)
+    )
+    if debt is None:
+        raise NotFoundError
+    if await _paid_total(session, debt.id) > 0:
+        raise DebtHasPaymentsError
+    await session.delete(debt)
+    await session.flush()
 
 
 async def add_payment(

@@ -7,6 +7,7 @@ export interface HouseholdExpense {
   amount_minor: number;
   currency: string;
   occurred_on: string;
+  name: string | null;
   note: string | null;
   funding: "pot" | "member";
   paid_by_member_id: string | null;
@@ -19,8 +20,13 @@ export interface HouseholdExpense {
 export function HouseholdExpenseRow({ expense }: { expense: HouseholdExpense }) {
   return (
     <li className="flex items-start gap-3 rounded-2xl border border-border bg-surface p-3.5">
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="font-bold">{expense.category_name}</span>
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <span className="font-bold">{expense.name || expense.category_name}</span>
+        {expense.name ? (
+          <span className="w-fit rounded-full border border-border bg-surface-sunken px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-text-muted">
+            {expense.category_name}
+          </span>
+        ) : null}
         {expense.note ? (
           <span className="text-sm text-text-muted">{expense.note}</span>
         ) : null}

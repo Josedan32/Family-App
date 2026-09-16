@@ -65,7 +65,7 @@ async def _give_papa_data(client: AsyncClient, papa: dict) -> None:
     await client.post(
         "/api/v1/me/transactions",
         json={
-            "kind": "income", "category_id": salario,
+            "kind": "income", "category_ids": [salario],
             "amount_minor": 3_000_000, "occurred_on": "2026-09-05",
         },
         headers=papa,
@@ -75,7 +75,7 @@ async def _give_papa_data(client: AsyncClient, papa: dict) -> None:
     await client.post(
         "/api/v1/me/transactions",
         json={
-            "kind": "expense", "category_id": comida,
+            "kind": "expense", "category_ids": [comida],
             "amount_minor": 500_000, "occurred_on": "2026-09-06",
         },
         headers=papa,

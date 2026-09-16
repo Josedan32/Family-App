@@ -9,6 +9,7 @@ class CreateHouseholdExpenseRequest(BaseModel):
     category_id: UUID
     amount_minor: int = Field(gt=0)
     occurred_on: date
+    name: str | None = Field(default=None, max_length=120)
     note: str | None = None
     funding: Literal["pot", "member"]
     paid_by_member_id: UUID | None = None
@@ -35,6 +36,7 @@ class UpdateHouseholdExpenseRequest(BaseModel):
 
     category_id: UUID | None = None
     occurred_on: date | None = None
+    name: str | None = Field(default=None, max_length=120)
     note: str | None = None
 
 
@@ -45,6 +47,7 @@ class HouseholdExpenseResponse(BaseModel):
     amount_minor: int
     currency: str
     occurred_on: date
+    name: str | None
     note: str | None
     funding: str
     paid_by_member_id: UUID | None

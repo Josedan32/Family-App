@@ -58,13 +58,14 @@ async def create_chore(
     activities: list[str] | None = None,
     requirements: list[str] | None = None,
     expectation: str | None = None,
+    applies_to_all: bool = False,
 ) -> Chore:
     require_admin(member)
     chore = Chore(
         id=new_id(), household_id=member.household_id, name=name,
         description=description, frequency=frequency, effort_points=effort_points,
         activities=activities or [], requirements=requirements or [],
-        expectation=expectation,
+        expectation=expectation, applies_to_all=applies_to_all,
     )
     session.add(chore)
     try:
@@ -97,6 +98,7 @@ async def update_chore(
     activities: list[str] | None = None,
     requirements: list[str] | None = None,
     expectation: str | None = None,
+    applies_to_all: bool | None = None,
 ) -> Chore:
     """Changing effort_points never rewrites existing assignments (FR-M8-04)."""
     require_admin(member)
@@ -117,6 +119,8 @@ async def update_chore(
         chore.requirements = requirements
     if expectation is not None:
         chore.expectation = expectation
+    if applies_to_all is not None:
+        chore.applies_to_all = applies_to_all
     await session.flush()
     return chore
 

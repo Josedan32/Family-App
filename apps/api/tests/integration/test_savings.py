@@ -86,6 +86,71 @@ async def test_no_stored_balance_column_exists() -> None:
 
 
 @pytest.mark.asyncio
+async def test_entries_are_listed_newest_first_with_dates(client: AsyncClient) -> None:
+    headers = await _member(client)
+    created = await client.post(
+        "/api/v1/me/savings-goals",
+        json={"name": "Moto", "target_amount_minor": 8000000},
+        headers=headers,
+    )
+    goal_id = created.json()["id"]
+
+    await client.post(
+        f"/api/v1/me/savings-goals/{goal_id}/entries",
+        json={"kind": "deposit", "amount_minor": 500000, "occurred_on": "2026-09-01"},
+        headers=headers,
+    )
+    await client.post(
+        f"/api/v1/me/savings-goals/{goal_id}/entries",
+        json={"kind": "withdrawal", "amount_minor": 100000, "occurred_on": "2026-09-10"},
+        headers=headers,
+    )
+
+    response = await client.get(
+        f"/api/v1/me/savings-goals/{goal_id}/entries", headers=headers
+    )
+
+    assert response.status_code == 200
+    entries = response.json()
+    assert [e["occurred_on"] for e in entries] == ["2026-09-10", "2026-09-01"]
+    assert entries[0]["kind"] == "withdrawal"
+    assert entries[0]["amount_minor"] == 100000
+
+
+@pytest.mark.asyncio
+async def test_cannot_list_entries_of_another_members_goal(client: AsyncClient) -> None:
+    daniel = await _member(client)
+    created = await client.post(
+        "/api/v1/me/savings-goals",
+        json={"name": "Moto", "target_amount_minor": 8000000},
+        headers=daniel,
+    )
+    goal_id = created.json()["id"]
+
+    invite = await client.post(
+        "/api/v1/households/current/invites",
+        json={"role_granted": "adult"},
+        headers=daniel,
+    )
+    registered = await client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "papa@example.com",
+            "password": "correct-horse-battery",
+            "display_name": "Papá",
+        },
+    )
+    papa = {"Authorization": f"Bearer {registered.json()['access_token']}"}
+    await client.post(
+        "/api/v1/households/join", json={"code": invite.json()["code"]}, headers=papa
+    )
+
+    response = await client.get(f"/api/v1/me/savings-goals/{goal_id}/entries", headers=papa)
+
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
 async def test_entries_must_be_positive(client: AsyncClient) -> None:
     headers = await _member(client)
     created = await client.post(

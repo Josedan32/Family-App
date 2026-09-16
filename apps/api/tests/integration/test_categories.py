@@ -28,6 +28,22 @@ async def test_seeded_expense_categories_are_listed(client: AsyncClient) -> None
 
 
 @pytest.mark.asyncio
+async def test_only_the_contribution_category_is_marked_unpickable(
+    client: AsyncClient,
+) -> None:
+    """A picker must hide only 'Aporte al hogar' — every other seeded default
+    (Comida, Transporte, ...) is a normal, pickable category, even though all
+    of them share `is_system=True` (archive-only-never-delete protection)."""
+    headers = await _member(client)
+    response = await client.get("/api/v1/categories?kind=expense", headers=headers)
+
+    by_name = {c["name"]: c for c in response.json()}
+    assert by_name["Aporte al hogar"]["is_contribution_category"] is True
+    assert by_name["Comida"]["is_system"] is True
+    assert by_name["Comida"]["is_contribution_category"] is False
+
+
+@pytest.mark.asyncio
 async def test_member_can_create_a_category(client: AsyncClient) -> None:
     headers = await _member(client)
     response = await client.post(
