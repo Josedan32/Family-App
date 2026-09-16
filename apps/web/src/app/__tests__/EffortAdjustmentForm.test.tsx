@@ -4,6 +4,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { EffortAdjustmentForm } from "../(app)/tareas/admin/EffortAdjustmentForm";
 
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
+
 const members = [
   { id: "m1", display_name: "Papá" },
   { id: "m2", display_name: "Mamá" },

@@ -550,6 +550,48 @@ The privacy model exists because money is private. **Housework is not** — its
 entire purpose is being seen and counted, and a private chore ledger could not
 settle the argument the module was built to settle.
 
+#### The catalogue
+
+**FR-M8-16** A chore carries, beyond its name and weight: an **ordered list of
+activities** (the steps), a list of **requirements** (the supplies), and an
+**expectation** (one sentence describing when it counts as done).
+
+Order matters for activities and not for requirements: the first are
+instructions, the second a shopping list. Both are capped at 20 items of 120
+characters — past that it is not a chore, it is two chores.
+
+The lists are carried **on the assignment**, not only on the chore, so the
+checklist is in front of whoever is doing the work without a second request.
+
+**Which steps a person has ticked is not recorded.** Nobody needs to audit
+sub-steps; the only fact that matters is whether the chore was finished, and
+that already has a button. Tick state is a working note on one device.
+
+#### The wheel
+
+**FR-M8-17** Generating a cycle records the **seed** that produced it, and the
+assignment screen can replay the draw as a spinning wheel.
+
+**The wheel reveals; it does not decide.** `generate_cycle` still assigns by
+lowest effort balance (FR-M8-06). The wheel animates a result that already
+exists, and the screen says so in as many words — it never presents itself as
+chance. The genuine randomness in the system is the tie-break of FR-M8-07, and
+that is enough.
+
+Because the seed is stored, every member replays the **identical** spin
+whenever they open the page, with no realtime infrastructure. It also makes the
+draw auditable: the same seed re-run produces the same assignments, so "why did
+I get the bathroom?" has an answer.
+
+Three constraints on the animation:
+
+- A month-long cycle draws well over a hundred assignments. The wheel reveals
+  **the coming week** and offers a way to skip.
+- `prefers-reduced-motion` is honoured **explicitly in script**. The stylesheet
+  only zeroes CSS durations; a rotation driven by JavaScript would still run.
+- Each result is **announced**, not only shown. A wheel that communicates
+  through motion alone is unusable with a screen reader.
+
 ### 7.5 Module 9 — Notifications (Phase 3)
 
 Web Push. Chore due today, debt installment due tomorrow, an inventory item

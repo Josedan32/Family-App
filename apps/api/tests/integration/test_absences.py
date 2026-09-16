@@ -5,7 +5,6 @@ balance stays flat and the ordinary rule assigns them more on return. There is
 deliberately no effort-debt table to check.
 """
 
-import random
 from datetime import date
 
 import pytest
@@ -35,7 +34,7 @@ async def test_an_absent_member_is_never_assigned_in_range(
 
     await generate_cycle(
         db_session, members[0], date(2026, 9, 1), date(2026, 9, 14),
-        rng=random.Random(11),
+        seed=11,
     )
 
     assigned = {
@@ -68,13 +67,13 @@ async def test_the_returning_member_catches_up_without_a_debt_table(
 
     await generate_cycle(
         db_session, members[0], date(2026, 9, 1), date(2026, 9, 14),
-        rng=random.Random(13),
+        seed=13,
     )
     await _complete_everything(db_session, household.id)
 
     await generate_cycle(
         db_session, members[0], date(2026, 9, 15), date(2026, 9, 28),
-        rng=random.Random(17),
+        seed=17,
     )
 
     second = (

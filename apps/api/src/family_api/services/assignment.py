@@ -6,6 +6,7 @@ exactly the "10 chores versus 2" outcome the module exists to prevent.
 """
 
 import random
+import secrets
 from datetime import UTC, date, datetime
 from uuid import UUID
 
@@ -52,16 +53,25 @@ async def generate_cycle(
     member: HouseholdMember,
     starts_on: date,
     ends_on: date,
-    rng: random.Random | None = None,
+    seed: int | None = None,
 ) -> ChoreCycle:
+    """Draw a cycle's assignments, recording the seed that produced them.
+
+    The seed is persisted (FR-M8-17) so the draw is reproducible: the wheel
+    replays the identical spin for every viewer, and the same seed re-run
+    yields the same assignments.
+    """
     require_admin(member)
-    rng = rng or random.Random()
+    if seed is None:
+        seed = secrets.randbits(48)
+    rng = random.Random(seed)
 
     household = await session.get(Household, member.household_id)
     assert household is not None
 
     cycle = ChoreCycle(
-        id=new_id(), household_id=household.id, starts_on=starts_on, ends_on=ends_on
+        id=new_id(), household_id=household.id, starts_on=starts_on,
+        ends_on=ends_on, seed=seed,
     )
     session.add(cycle)
     try:
@@ -200,10 +210,16 @@ async def to_assignment_responses(
 
     chore_ids = {a.chore_id for a in assignments}
     member_ids = {a.member_id for a in assignments}
-    chore_names_result = await session.execute(
-        select(Chore.id, Chore.name).where(Chore.id.in_(chore_ids))
+    # One batched read for the whole catalogue — never a query per row.
+    chore_rows = await session.execute(
+        select(
+            Chore.id, Chore.name, Chore.activities, Chore.requirements, Chore.expectation
+        ).where(Chore.id.in_(chore_ids))
     )
-    chore_names: dict[UUID, str] = {row[0]: row[1] for row in chore_names_result}
+    chores: dict[UUID, tuple[str, list[str], list[str], str | None]] = {
+        row[0]: (row[1], row[2], row[3], row[4]) for row in chore_rows
+    }
+    EMPTY: tuple[str, list[str], list[str], str | None] = ("", [], [], None)
 
     member_names_result = await session.execute(
         select(HouseholdMember.id, User.display_name)
@@ -214,7 +230,11 @@ async def to_assignment_responses(
 
     return [
         AssignmentResponse(
-            id=a.id, chore_id=a.chore_id, chore_name=chore_names.get(a.chore_id, ""),
+            id=a.id, chore_id=a.chore_id,
+            chore_name=chores.get(a.chore_id, EMPTY)[0],
+            chore_activities=chores.get(a.chore_id, EMPTY)[1],
+            chore_requirements=chores.get(a.chore_id, EMPTY)[2],
+            chore_expectation=chores.get(a.chore_id, EMPTY)[3],
             member_id=a.member_id, member_name=member_names.get(a.member_id, ""),
             due_on=a.due_on, status=a.status, effort_points=a.effort_points,
             completed_at=a.completed_at, completed_by_member_id=a.completed_by_member_id,

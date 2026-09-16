@@ -391,7 +391,17 @@ The rolling window over which effort balances are computed (FR-M8-08).
 `id` · `household_id` · `name TEXT NOT NULL` · `description TEXT NULL` ·
 `frequency chore_frequency NOT NULL` ·
 `effort_points SMALLINT NOT NULL CHECK (effort_points BETWEEN 1 AND 10)` ·
+`activities TEXT[] NOT NULL DEFAULT '{}'` ·
+`requirements TEXT[] NOT NULL DEFAULT '{}'` ·
+`expectation TEXT NULL` ·
 `archived_at TIMESTAMPTZ NULL` · audit.
+
+**Why native arrays and not child tables or JSONB** (FR-M8-16): the catalogue
+is ordered *content* belonging to one chore — no identity, no lifecycle, never
+filtered or joined on, always read and written whole with its parent. Child
+tables would add joins for something nothing queries; JSONB would introduce
+untyped data into a schema that has none. `TEXT[]` is native, ordered and
+typed. Caps (20 items, 120 characters) are enforced in the Pydantic layer.
 
 - `UNIQUE (household_id, name)`
 - Seeded defaults (FR-M8-02): Sacar la basura 1, Tender camas 2, Lavar platos 3,
@@ -400,7 +410,14 @@ The rolling window over which effort balances are computed (FR-M8-08).
 ### `chore_cycles`
 
 `id` · `household_id` · `starts_on DATE NOT NULL` · `ends_on DATE NOT NULL` ·
+`seed BIGINT NOT NULL DEFAULT 0` ·
 `generated_at TIMESTAMPTZ NOT NULL DEFAULT now()`.
+
+`seed` is the RNG seed that produced this cycle's assignments (FR-M8-17).
+Storing it makes the draw reproducible: the wheel replays the identical spin
+for every viewer, and re-running the same seed yields the same assignments.
+Cycles drawn before the column existed carry `0`, which marks them as *not*
+reproducible rather than implying a seed they never had.
 
 - `UNIQUE (household_id, starts_on)` — a cycle is generated once.
 - `CHECK (ends_on >= starts_on)`
@@ -474,6 +491,7 @@ Alembic revisions, in dependency order. One concern per revision.
 13. `debt_installments` — the three optional columns on `debts` — Phase 1
 14. `chores`, `chore_cycles`, `chore_assignments` — Phase 3
 15. `member_absences`, `effort_adjustments`, `households.effort_window_days` — Phase 3
+16. `chores.{activities,requirements,expectation}` + `chore_cycles.seed` — Phase 3
 
 Every revision must have a working `downgrade()`. Every revision is applied and
 rolled back once in CI against an empty database before it is considered done.

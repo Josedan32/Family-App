@@ -2,6 +2,7 @@ from datetime import date, datetime
 from uuid import UUID
 
 from sqlalchemy import (
+    BigInteger,
     CheckConstraint,
     Date,
     DateTime,
@@ -14,6 +15,7 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.dialects.postgresql import ENUM as PgEnum
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -47,6 +49,17 @@ class Chore(Base, TimestampMixin):
     frequency: Mapped[str] = mapped_column(chore_frequency, nullable=False)
     # The currency of the fairness system. Only admins price it (FR-M8-03).
     effort_points: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    # The catalogue (FR-M8-16). Native Postgres arrays rather than child tables
+    # or JSONB: these are ordered content belonging to one chore, never queried
+    # or joined on their own, always read and written whole with their parent.
+    activities: Mapped[list[str]] = mapped_column(
+        ARRAY(Text), nullable=False, server_default="{}"
+    )
+    requirements: Mapped[list[str]] = mapped_column(
+        ARRAY(Text), nullable=False, server_default="{}"
+    )
+    # The definition of done, in one sentence.
+    expectation: Mapped[str | None] = mapped_column(Text, nullable=True)
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
@@ -63,6 +76,10 @@ class ChoreCycle(Base):
     )
     starts_on: Mapped[date] = mapped_column(Date, nullable=False)
     ends_on: Mapped[date] = mapped_column(Date, nullable=False)
+    # Seeds the RNG that generated this cycle (FR-M8-17). Persisting it makes
+    # the draw reproducible — the wheel replays the identical spin for every
+    # viewer, and "why did I get the bathroom?" can be answered by re-running.
+    seed: Mapped[int] = mapped_column(BigInteger, nullable=False, server_default="0")
     generated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

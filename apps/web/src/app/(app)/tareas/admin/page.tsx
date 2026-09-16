@@ -35,7 +35,8 @@ export default async function TareasAdminPage() {
       <header className="flex flex-col gap-1">
         <h1 className="text-[1.75rem] font-bold tracking-tight">Administrar tareas</h1>
         <p className="text-sm text-text-muted">
-          {chores.length} tareas · ordenadas de menor a mayor esfuerzo
+          {chores.length} {chores.length === 1 ? "tarea" : "tareas"} · ordenadas de
+          menor a mayor esfuerzo
         </p>
       </header>
 

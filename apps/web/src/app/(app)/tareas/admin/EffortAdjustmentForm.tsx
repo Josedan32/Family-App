@@ -1,6 +1,7 @@
 "use client";
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/Button";
@@ -15,7 +16,7 @@ interface Member {
 }
 
 export function EffortAdjustmentForm({ members }: { members: Member[] }) {
-  const queryClient = useQueryClient();
+  const router = useRouter();
   const [memberId, setMemberId] = useState(members[0]?.id ?? "");
   const [points, setPoints] = useState(0);
   const [reason, setReason] = useState("");
@@ -27,7 +28,7 @@ export function EffortAdjustmentForm({ members }: { members: Member[] }) {
         body: JSON.stringify({ member_id: memberId, points, reason }),
       }),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["effort-balances"] });
+      router.refresh();
       pushToast({ message: "Ajuste registrado", type: "success" });
       setPoints(0);
       setReason("");

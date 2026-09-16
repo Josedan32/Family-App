@@ -2,11 +2,25 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const cookieStore = new Map<string, string>();
 
+/**
+ * Mirrors the real restriction: Next.js throws if `cookies().set()` is called
+ * outside a Server Action or Route Handler. `apiFetch`/`pageFetch` run during
+ * Server Component render, so if either ever tries to write a cookie, this
+ * mock throws exactly like the framework would.
+ */
 vi.mock("next/headers", () => ({
   cookies: async () => ({
     get: (name: string) => (cookieStore.has(name) ? { value: cookieStore.get(name) } : undefined),
-    set: (name: string, value: string) => cookieStore.set(name, value),
-    delete: (name: string) => cookieStore.delete(name),
+    set: () => {
+      throw new Error(
+        "Cookies can only be modified in a Server Action or Route Handler.",
+      );
+    },
+    delete: () => {
+      throw new Error(
+        "Cookies can only be modified in a Server Action or Route Handler.",
+      );
+    },
   }),
 }));
 
@@ -46,14 +60,12 @@ describe("pageFetch", () => {
     expect(redirect).not.toHaveBeenCalled();
   });
 
-  it("sends the viewer to /login once the refresh attempt also fails, instead of throwing", async () => {
+  it("redirects to /login on an expired token without attempting to write cookies", async () => {
     cookieStore.set("fh_access", "expired-access");
-    cookieStore.set("fh_refresh", "expired-refresh");
+    cookieStore.set("fh_refresh", "still-valid-refresh");
 
     const fetchMock = vi.fn(async (url: string) => {
-      if (String(url).includes("/auth/refresh")) {
-        return problem(401, "unauthorized", "Sesión expirada");
-      }
+      void url;
       return problem(401, "unauthorized", "Sesión expirada");
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -61,6 +73,10 @@ describe("pageFetch", () => {
     const pageFetch = await loadPageFetch();
     await expect(pageFetch("/dashboard")).rejects.toThrow("NEXT_REDIRECT:/login");
     expect(redirect).toHaveBeenCalledWith("/login");
+    // A render-time refresh attempt would call /auth/refresh and then try to
+    // write the new pair via setSession — neither may happen here.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0][0])).not.toContain("/auth/refresh");
   });
 
   it("rethrows non-401 errors instead of redirecting", async () => {

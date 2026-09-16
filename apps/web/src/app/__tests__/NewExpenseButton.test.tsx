@@ -5,6 +5,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { NewExpenseButton } from "../(app)/hogar/gastos/NewExpenseButton";
 import { formatMoney } from "@/lib/money";
 
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
+
 const categories = [{ id: "c1", name: "Otros", kind: "expense" }];
 
 function jsonResponse(body: unknown, status = 200) {
