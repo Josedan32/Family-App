@@ -38,19 +38,25 @@ function thisWeek(assignments: Assignment[]): Assignment[] {
 export function TareasClient({
   cycle,
   members,
+  myMemberId,
 }: {
   cycle: Cycle;
   members: AssignmentMember[];
+  myMemberId: string;
 }) {
   const [assignments, setAssignments] = useState(cycle.assignments);
   const [showDone, setShowDone] = useState(false);
   const [showWheel, setShowWheel] = useState(false);
+  const [memberFilter, setMemberFilter] = useState<string>("all");
   const router = useRouter();
 
-  const weekly = thisWeek(cycle.assignments);
+  const weeklyAll = thisWeek(cycle.assignments);
 
-  const pending = assignments.filter((a) => a.status === "pending");
-  const done = assignments.filter((a) => a.status === "done");
+  const filtered = assignments.filter(
+    (a) => memberFilter === "all" || a.member_id === memberFilter,
+  );
+  const pending = filtered.filter((a) => a.status === "pending");
+  const done = filtered.filter((a) => a.status === "done");
   const pendingPoints = pending.reduce((sum, a) => sum + a.effort_points, 0);
   const donePoints = done.reduce((sum, a) => sum + a.effort_points, 0);
 
@@ -102,10 +108,10 @@ export function TareasClient({
 
   return (
     <>
-      {showWheel && weekly.length > 0 ? (
+      {showWheel && weeklyAll.length > 0 ? (
         <AssignmentWheel
           key={`${cycle.id}-${cycle.seed}`}
-          assignments={weekly}
+          assignments={weeklyAll}
           members={members}
           seed={cycle.seed}
         />
@@ -116,7 +122,7 @@ export function TareasClient({
           <h2 className="text-xs font-semibold uppercase tracking-wide text-text-muted">
             Esta semana
           </h2>
-          {weekly.length > 0 && !showWheel ? (
+          {weeklyAll.length > 0 && !showWheel ? (
             <button
               onClick={() => setShowWheel(true)}
               className="min-h-11 whitespace-nowrap px-1 text-xs font-semibold text-brand"
@@ -124,6 +130,23 @@ export function TareasClient({
               Ver el sorteo
             </button>
           ) : null}
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <label className="flex items-center gap-1.5 text-xs text-text-muted">
+            Ver
+            <select
+              value={memberFilter}
+              onChange={(event) => setMemberFilter(event.target.value)}
+              className="min-h-9 rounded-lg border border-border bg-surface px-2 text-xs font-semibold text-text"
+            >
+              <option value="all">Todos</option>
+              {members.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.id === myMemberId ? "Mis tareas" : m.display_name}
+                </option>
+              ))}
+            </select>
+          </label>
           <span className="whitespace-nowrap text-xs tabular-nums text-text-muted">
             {pending.length} pendientes · {pendingPoints} pts
           </span>

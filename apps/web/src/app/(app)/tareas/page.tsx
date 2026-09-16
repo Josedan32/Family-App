@@ -27,6 +27,7 @@ interface EffortBalances {
 
 interface HouseholdDetail {
   my_role: string;
+  my_member_id: string;
   members: { id: string; display_name: string; role: string }[];
 }
 
@@ -101,7 +102,11 @@ export default async function TareasPage() {
       {cycle ? (
         <>
           <EffortBalanceBar rows={balances.members} />
-          <TareasClient cycle={cycle} members={assignableMembers} />
+          <TareasClient
+            cycle={cycle}
+            members={assignableMembers}
+            myMemberId={household.my_member_id}
+          />
         </>
       ) : (
         <div className="flex flex-col items-center gap-3 py-12 text-center">
