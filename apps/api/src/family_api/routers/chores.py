@@ -130,12 +130,12 @@ async def get_current_chore_cycle(
 
 @router.get("/chore-assignments")
 async def list_chore_assignments(
-    member: CurrentMember, session: SessionDep
+    member: CurrentMember, session: SessionDep, member_id: UUID | None = None
 ) -> list[AssignmentResponse]:
     cycle = await assignment_service.current_cycle(session, member.household_id)
     if cycle is None:
         return []
-    assignments = await assignment_service.list_cycle_assignments(session, cycle.id)
+    assignments = await assignment_service.list_cycle_assignments(session, cycle.id, member_id)
     return await assignment_service.to_assignment_responses(session, assignments)
 
 

@@ -191,15 +191,12 @@ async def reassign_assignment(
 
 
 async def list_cycle_assignments(
-    session: AsyncSession, cycle_id: UUID
+    session: AsyncSession, cycle_id: UUID, member_id: UUID | None = None
 ) -> list[ChoreAssignment]:
-    return list(
-        await session.scalars(
-            select(ChoreAssignment)
-            .where(ChoreAssignment.cycle_id == cycle_id)
-            .order_by(ChoreAssignment.due_on)
-        )
-    )
+    stmt = select(ChoreAssignment).where(ChoreAssignment.cycle_id == cycle_id)
+    if member_id is not None:
+        stmt = stmt.where(ChoreAssignment.member_id == member_id)
+    return list(await session.scalars(stmt.order_by(ChoreAssignment.due_on)))
 
 
 async def to_assignment_responses(
