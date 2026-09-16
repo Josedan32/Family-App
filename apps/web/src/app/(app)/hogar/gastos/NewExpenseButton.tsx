@@ -36,6 +36,7 @@ function NewExpenseForm({
   const [amount, setAmount] = useState(0);
   const [categoryId, setCategoryId] = useState("");
   const [occurredOn, setOccurredOn] = useState(new Date().toISOString().slice(0, 10));
+  const [name, setName] = useState("");
   const [note, setNote] = useState("");
   const [funding, setFunding] = useState<Funding>("pot");
   const [countsAsContribution, setCountsAsContribution] = useState(true);
@@ -54,6 +55,7 @@ function NewExpenseForm({
           category_id: categoryId,
           amount_minor: amount,
           occurred_on: occurredOn,
+          name: name || null,
           note: note || null,
           funding,
           ...(funding === "member" ? { counts_as_contribution: countsAsContribution } : {}),
@@ -112,6 +114,11 @@ function NewExpenseForm({
         required
         value={occurredOn}
         onChange={(event) => setOccurredOn(event.target.value)}
+      />
+      <Input
+        label="Nombre (opcional)"
+        value={name}
+        onChange={(event) => setName(event.target.value)}
       />
       <Input
         label="Nota (opcional)"
