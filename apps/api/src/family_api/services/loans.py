@@ -147,6 +147,36 @@ async def cancel_loan(
     await session.flush()
 
 
+async def get_loan_detail(
+    session: AsyncSession, viewer: HouseholdMember, loan_id: UUID
+) -> tuple[MemberLoan, int, list[MemberLoanPayment]]:
+    """Same visibility as `list_household_loans`: a party always sees their
+    own loan; anyone else resolves it against the BORROWER's `debts` setting
+    (docs/visibility-rules.md §5.1)."""
+    loan = await session.scalar(
+        select(MemberLoan).where(
+            MemberLoan.id == loan_id, MemberLoan.household_id == viewer.household_id
+        )
+    )
+    if loan is None:
+        raise NotFoundError
+
+    if viewer.id not in (loan.lender_member_id, loan.borrower_member_id):
+        borrower = await session.get(HouseholdMember, loan.borrower_member_id)
+        if borrower is None or await resolve(session, viewer, borrower, "debts") is Level.NONE:
+            raise NotFoundError
+
+    outstanding = loan.amount_minor - await _paid_total(session, loan.id)
+    payments = list(
+        await session.scalars(
+            select(MemberLoanPayment)
+            .where(MemberLoanPayment.loan_id == loan.id)
+            .order_by(MemberLoanPayment.paid_on.desc(), MemberLoanPayment.id.desc())
+        )
+    )
+    return loan, outstanding, payments
+
+
 async def list_household_loans(
     session: AsyncSession, viewer: HouseholdMember
 ) -> list[tuple[MemberLoan, int]]:

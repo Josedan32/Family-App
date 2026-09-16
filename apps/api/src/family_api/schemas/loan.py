@@ -39,3 +39,13 @@ class LoanResponse(BaseModel):
     note: str | None
     # "lender" or "borrower" — which side the caller is on.
     perspective: str
+
+
+class LoanPaymentResponse(BaseModel):
+    id: UUID
+    amount_minor: int
+    paid_on: date
+
+
+class LoanDetailResponse(LoanResponse):
+    payments: list[LoanPaymentResponse]

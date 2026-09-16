@@ -9,7 +9,13 @@ from family_api.db.models.household import Household, HouseholdMember
 from family_api.db.models.loan import MemberLoan
 from family_api.db.models.user import User
 from family_api.db.session import get_session
-from family_api.schemas.loan import CreateLoanPaymentRequest, CreateLoanRequest, LoanResponse
+from family_api.schemas.loan import (
+    CreateLoanPaymentRequest,
+    CreateLoanRequest,
+    LoanDetailResponse,
+    LoanPaymentResponse,
+    LoanResponse,
+)
 from family_api.services import loans as loan_service
 from family_api.services.members import CurrentMember
 
@@ -65,6 +71,21 @@ async def list_loans(
     else:
         rows = await loan_service.list_loans(session, member, role)
     return [await _render(session, member, loan, out) for loan, out in rows]
+
+
+@router.get("/{loan_id}")
+async def get_loan(
+    loan_id: UUID, member: CurrentMember, session: SessionDep
+) -> LoanDetailResponse:
+    loan, outstanding, payments = await loan_service.get_loan_detail(session, member, loan_id)
+    base = await _render(session, member, loan, outstanding)
+    return LoanDetailResponse(
+        **base.model_dump(),
+        payments=[
+            LoanPaymentResponse(id=p.id, amount_minor=p.amount_minor, paid_on=p.paid_on)
+            for p in payments
+        ],
+    )
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
