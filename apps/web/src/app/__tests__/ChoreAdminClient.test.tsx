@@ -4,14 +4,22 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ChoreAdminClient, type Chore } from "../(app)/tareas/admin/ChoreAdminClient";
 
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
+
 const chores: Chore[] = [
   {
     id: "1", name: "Sacar la basura", description: null,
-    frequency: "daily", effort_points: 1, archived_at: null,
+    frequency: "daily", effort_points: 1,
+    activities: [], requirements: [], expectation: null,
+    archived_at: null,
   },
   {
     id: "2", name: "Limpiar baño", description: null,
-    frequency: "weekly", effort_points: 7, archived_at: null,
+    frequency: "weekly", effort_points: 7,
+    activities: ["Sanitario", "Lavamanos"],
+    requirements: ["Guantes"],
+    expectation: "Sin manchas.",
+    archived_at: null,
   },
 ];
 
@@ -59,13 +67,13 @@ describe("ChoreAdminClient", () => {
   });
 
   it("creates a chore with the exact shape the API expects", async () => {
+    // The body is captured and asserted AFTER the await, never inside the mock:
+    // an assertion that throws in there only rejects the fetch, and the test
+    // still passes because the mock was called.
+    let sent: unknown = null;
     const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
-      const body = init?.body ? JSON.parse(init.body as string) : null;
-      expect(body).toEqual({
-        name: "Pasear al perro", description: "",
-        frequency: "weekly", effort_points: 5,
-      });
-      return jsonResponse({ id: "3", ...body });
+      sent = init?.body ? JSON.parse(init.body as string) : null;
+      return jsonResponse({ id: "3", ...(sent as object) });
     });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -75,6 +83,39 @@ describe("ChoreAdminClient", () => {
     fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    expect(sent).toEqual({
+      name: "Pasear al perro",
+      description: "",
+      frequency: "weekly",
+      effort_points: 5,
+      activities: [],
+      requirements: [],
+      expectation: "",
+    });
+  });
+
+  it("sends the catalogue the admin typed", async () => {
+    let sent: Record<string, unknown> = {};
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init?: RequestInit) => {
+        sent = init?.body ? JSON.parse(init.body as string) : {};
+        return jsonResponse({ id: "3", ...sent });
+      }),
+    );
+
+    renderClient(true);
+    fireEvent.click(screen.getByLabelText("Nueva tarea"));
+    fireEvent.change(screen.getByLabelText("Nombre"), { target: { value: "Regar plantas" } });
+    fireEvent.click(screen.getByRole("button", { name: "Añadir paso" }));
+    fireEvent.change(screen.getByLabelText("Pasos 1"), { target: { value: "Llenar la regadera" } });
+    fireEvent.click(screen.getByRole("button", { name: "Añadir insumo" }));
+    fireEvent.change(screen.getByLabelText("Necesitas 1"), { target: { value: "Regadera" } });
+    fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+
+    await waitFor(() => expect(sent.name).toBe("Regar plantas"));
+    expect(sent.activities).toEqual(["Llenar la regadera"]);
+    expect(sent.requirements).toEqual(["Regadera"]);
   });
 
   it("shows the duplicate name error inline, not a generic message", async () => {

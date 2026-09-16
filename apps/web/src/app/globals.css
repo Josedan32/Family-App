@@ -10,6 +10,10 @@
 
   --brand: #0F766E;
   --brand-contrast: #FFFFFF;
+  /* :active only — this is a touch app and there is no hover state. */
+  --brand-pressed: #0B5B55;
+  /* Quiet brand wash behind pills and selected chips. */
+  --brand-tint: #E0F2F0;
 
   --income: #15803D;
   --expense: #B91C1C;
@@ -33,13 +37,17 @@
   :root:not([data-theme="light"]) {
     --bg: #1C1917;
     --surface: #292524;
-    --surface-sunken: #1C1917;
+    /* NOT the same as --bg: a sunken panel that matches the background is
+       an invisible sunken panel. */
+    --surface-sunken: #211E1B;
     --border: #44403C;
     --text: #FAFAF9;
     --text-muted: #A8A29E;
 
     --brand: #2DD4BF;
     --brand-contrast: #1C1917;
+    --brand-pressed: #14B8A6;
+    --brand-tint: #134E4A;
 
     --income: #4ADE80;
     --expense: #F87171;
@@ -57,13 +65,15 @@
 :root[data-theme="dark"] {
   --bg: #1C1917;
   --surface: #292524;
-  --surface-sunken: #1C1917;
+  --surface-sunken: #211E1B;
   --border: #44403C;
   --text: #FAFAF9;
   --text-muted: #A8A29E;
 
   --brand: #2DD4BF;
   --brand-contrast: #1C1917;
+  --brand-pressed: #14B8A6;
+  --brand-tint: #134E4A;
 
   --income: #4ADE80;
   --expense: #F87171;
@@ -87,6 +97,8 @@
   --color-text-muted: var(--text-muted);
   --color-brand: var(--brand);
   --color-brand-contrast: var(--brand-contrast);
+  --color-brand-pressed: var(--brand-pressed);
+  --color-brand-tint: var(--brand-tint);
   --color-income: var(--income);
   --color-expense: var(--expense);
   --color-savings: var(--savings);

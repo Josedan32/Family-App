@@ -3,7 +3,6 @@
 docs/testing-strategy.md §4B.
 """
 
-import random
 from datetime import UTC, date, datetime
 
 import pytest
@@ -76,7 +75,7 @@ async def test_the_spread_stays_within_one_chore(db_session: AsyncSession) -> No
     household, members = await _household_of_four(db_session)
     await generate_cycle(
         db_session, members[0], date(2026, 9, 1), date(2026, 9, 28),
-        rng=random.Random(1),
+        seed=1,
     )
     await _complete_everything(db_session, household.id)
 
@@ -97,7 +96,7 @@ async def test_the_stated_failure_case_cannot_happen(
     household, members = await _household_of_four(db_session)
     await generate_cycle(
         db_session, members[0], date(2026, 9, 1), date(2026, 9, 28),
-        rng=random.Random(7),
+        seed=7,
     )
 
     counts: dict = {}
@@ -119,7 +118,7 @@ async def test_repricing_a_chore_never_rewrites_history(
     household, members = await _household_of_four(db_session)
     await generate_cycle(
         db_session, members[0], date(2026, 9, 1), date(2026, 9, 7),
-        rng=random.Random(3),
+        seed=3,
     )
     bano = await db_session.scalar(select(Chore).where(Chore.name == "Limpiar baño"))
     before = [
@@ -165,7 +164,7 @@ async def test_a_guest_is_never_assigned(db_session: AsyncSession) -> None:
 
     await generate_cycle(
         db_session, members[0], date(2026, 9, 1), date(2026, 9, 28),
-        rng=random.Random(5),
+        seed=5,
     )
 
     assigned = {
@@ -189,7 +188,7 @@ async def test_a_new_member_starts_at_the_median(db_session: AsyncSession) -> No
     household, members = await _household_of_four(db_session)
     await generate_cycle(
         db_session, members[0], date(2026, 9, 1), date(2026, 9, 28),
-        rng=random.Random(2),
+        seed=2,
     )
     await _complete_everything(db_session, household.id)
 
@@ -220,7 +219,7 @@ async def test_credit_follows_whoever_did_it(db_session: AsyncSession) -> None:
     household, members = await _household_of_four(db_session)
     await generate_cycle(
         db_session, members[0], date(2026, 9, 1), date(2026, 9, 7),
-        rng=random.Random(4),
+        seed=4,
     )
     assignment = await db_session.scalar(
         select(ChoreAssignment).where(ChoreAssignment.household_id == household.id)

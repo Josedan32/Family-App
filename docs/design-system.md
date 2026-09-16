@@ -68,64 +68,78 @@ Defined as CSS custom properties on `:root`, overridden under
 `@media (prefers-color-scheme: dark)`. Semantic names only — no component may
 reference a raw hex value.
 
-**These names are binding.** They come from the published Hoja de estilo
-(`docs/design-index.md`), not from this document's first draft — an earlier
-version of this file called them `--surface-sunken` and `--brand-contrast`, and
-using those would leave half the interface with no background.
+**These are the names the code actually uses**, verified against
+`apps/web/src/app/globals.css`. An earlier revision of this document renamed
+them to `--sunken`, `--brand-on`, `--private-panel` and `--skeleton` after
+reading the published style sheet. **That rename never happened in the code**,
+and the mismatch shipped two dead classes — `bg-brand-pressed` in four files
+and `bg-brand-tint` in one — which Tailwind silently compiled to nothing, so
+those buttons had no pressed state at all.
+
+There is no `--private-panel` and no `--skeleton`: the private block paints on
+`--surface-sunken`, and skeletons are deliberately rejected for that state
+(§7).
 
 ```css
-[data-theme="light"] {
-  --bg:            #FAFAF9;
-  --surface:       #FFFFFF;
-  --sunken:        #F5F5F4;
-  --border:        #E7E5E4;
-  --text:          #1C1917;
-  --text-muted:    #78716C;
+:root {
+  --bg:              #FAFAF9;
+  --surface:         #FFFFFF;
+  --surface-sunken:  #F5F5F4;
+  --border:          #E7E5E4;
+  --text:            #1C1917;
+  --text-muted:      #78716C;
 
-  --brand:         #0F766E;
-  --brand-pressed: #0B5B55;   /* :active — there is no hover state */
-  --brand-on:      #FFFFFF;
+  --brand:           #0F766E;
+  --brand-contrast:  #FFFFFF;
+  --brand-pressed:   #0B5B55;   /* :active — there is no hover state */
+  --brand-tint:      #E0F2F0;   /* quiet wash behind pills and chips */
 
-  --income:        #15803D;
-  --expense:       #B91C1C;
-  --savings:       #1D4ED8;
-  --debt:          #C2410C;
+  --income:          #15803D;
+  --expense:         #B91C1C;
+  --savings:         #1D4ED8;
+  --debt:            #C2410C;
 
-  --private:       #78716C;   /* the locked state, deliberately grey */
-  --private-panel: #F5F5F4;
-  --skeleton:      #E7E5E4;
+  --private:         #78716C;   /* the locked state, deliberately grey */
 
-  --danger:        #B91C1C;
-  --warning:       #A16207;
-  --success:       #15803D;
+  --danger:          #B91C1C;
+  --warning:         #A16207;
+  --success:         #15803D;
 }
 
-[data-theme="dark"] {
-  --bg:            #1C1917;
-  --surface:       #292524;
-  --sunken:        #211E1B;
-  --border:        #44403C;
-  --text:          #FAFAF9;
-  --text-muted:    #A8A29E;
+:root[data-theme="dark"] {
+  --bg:              #1C1917;
+  --surface:         #292524;
+  --surface-sunken:  #211E1B;
+  --border:          #44403C;
+  --text:            #FAFAF9;
+  --text-muted:      #A8A29E;
 
-  --brand:         #2DD4BF;
-  --brand-pressed: #14B8A6;
-  --brand-on:      #10312E;
+  --brand:           #2DD4BF;
+  --brand-contrast:  #1C1917;
+  --brand-pressed:   #14B8A6;
+  --brand-tint:      #134E4A;
 
-  --income:        #4ADE80;
-  --expense:       #F87171;
-  --savings:       #60A5FA;
-  --debt:          #FB923C;
+  --income:          #4ADE80;
+  --expense:         #F87171;
+  --savings:         #60A5FA;
+  --debt:            #FB923C;
 
-  --private:       #A8A29E;
-  --private-panel: #211E1B;
-  --skeleton:      #3B3633;
+  --private:         #A8A29E;
+
+  --danger:          #F87171;
+  --warning:         #FBBF24;
+  --success:         #4ADE80;
 }
 ```
 
-Note `--sunken` in dark is `#211E1B`, **not** the same value as `--bg`. An
-earlier draft of this file made them identical, which renders every sunken
-panel invisible in dark mode. The design caught it.
+The dark `--surface-sunken` is `#211E1B`, **not** the same value as `--bg`.
+They were identical until the design caught it, which made every sunken panel
+invisible in dark mode. `tokens.test.ts` now asserts they differ.
+
+Tailwind v4 reads these from CSS through `@theme inline`, so **a class whose
+token is missing compiles to nothing and fails silently.** `tokens.test.ts`
+scans every `.tsx` for semantic colour classes and fails if any lacks a token —
+that guard exists because this exact defect shipped once.
 
 **Every pairing must hit WCAG AA 4.5:1 for text and 3:1 for UI boundaries, in
 both schemes.** This is checked, not assumed.
