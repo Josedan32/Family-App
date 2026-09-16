@@ -41,7 +41,7 @@ export function ContributeButton({
 
   return (
     <>
-      <div className="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] md:static">
+      <div className="fixed inset-x-4 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-10 md:static md:inset-x-auto">
         <Button className="w-full" onClick={() => setOpen(true)}>
           Registrar mi aporte
         </Button>
