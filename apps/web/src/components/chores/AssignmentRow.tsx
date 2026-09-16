@@ -153,7 +153,7 @@ export function AssignmentRow({
       ) : null}
 
       {open ? (
-        <div className="flex flex-col gap-3 rounded-xl bg-surface-sunken p-3">
+        <div className="flex flex-col gap-3 rounded-xl border border-border bg-surface-sunken p-3">
           {assignment.chore_requirements.length > 0 ? (
             <div className="flex flex-col gap-1">
               <span className="text-xs font-semibold text-text-muted">
@@ -168,7 +168,7 @@ export function AssignmentRow({
           {assignment.chore_activities.length > 0 ? (
             <div className="flex flex-col gap-1.5">
               <span className="text-xs font-semibold text-text-muted">Pasos</span>
-              <ul className="flex flex-col gap-1.5">
+              <ul className="flex flex-col gap-1.5 rounded-xl border border-border bg-surface p-2">
                 {assignment.chore_activities.map((step) => (
                   <li key={step}>
                     <label className="flex items-start gap-2.5 text-sm">
