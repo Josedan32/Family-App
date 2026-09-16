@@ -33,6 +33,7 @@ function LoanForm({ onDone }: { onDone: () => void }) {
   const [lenderId, setLenderId] = useState("");
   const [borrowerId, setBorrowerId] = useState("");
   const [amount, setAmount] = useState(0);
+  const [amountTouched, setAmountTouched] = useState(false);
   const [lentOn, setLentOn] = useState(new Date().toISOString().slice(0, 10));
 
   const members = useQuery({
@@ -62,13 +63,17 @@ function LoanForm({ onDone }: { onDone: () => void }) {
   });
 
   const memberOptions = members.data ?? [];
+  const amountError =
+    amountTouched && amount <= 0 ? "Ingresa un monto mayor a cero" : undefined;
+  const canSubmit = !!lenderId && !!borrowerId && lenderId !== borrowerId && amount > 0;
 
   return (
     <form
       className="flex flex-col gap-5"
       onSubmit={(event) => {
         event.preventDefault();
-        create.mutate();
+        setAmountTouched(true);
+        if (canSubmit) create.mutate();
       }}
     >
       {/* The caller must be one of the two parties — the API enforces this,
@@ -111,7 +116,15 @@ function LoanForm({ onDone }: { onDone: () => void }) {
           ))}
         </select>
       </div>
-      <MoneyInput label="Monto" value={amount} onChange={setAmount} currency="COP" required />
+      <MoneyInput
+        label="Monto"
+        value={amount}
+        onChange={setAmount}
+        onBlur={() => setAmountTouched(true)}
+        currency="COP"
+        error={amountError}
+        required
+      />
       <Input
         label="Fecha"
         type="date"
@@ -124,12 +137,7 @@ function LoanForm({ onDone }: { onDone: () => void }) {
           {(create.error as Error).message}
         </p>
       ) : null}
-      <Button
-        type="submit"
-        disabled={
-          create.isPending || !lenderId || !borrowerId || lenderId === borrowerId || amount <= 0
-        }
-      >
+      <Button type="submit" disabled={create.isPending || !canSubmit}>
         {create.isPending ? "Guardando…" : "Registrar préstamo"}
       </Button>
     </form>

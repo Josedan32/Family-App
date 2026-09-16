@@ -35,7 +35,9 @@ function NewExpenseForm({
 }) {
   const router = useRouter();
   const [amount, setAmount] = useState(0);
+  const [amountTouched, setAmountTouched] = useState(false);
   const [categoryId, setCategoryId] = useState("");
+  const [categoryTouched, setCategoryTouched] = useState(false);
   const [occurredOn, setOccurredOn] = useState(new Date().toISOString().slice(0, 10));
   const [name, setName] = useState("");
   const [note, setNote] = useState("");
@@ -83,21 +85,30 @@ function NewExpenseForm({
     },
   });
 
+  const amountError =
+    amountTouched && amount <= 0 ? "Ingresa un monto mayor a cero" : undefined;
+  const categoryError = categoryTouched && !categoryId ? "Elige una categoría" : undefined;
+  const canSubmit = amount > 0 && !!categoryId;
+
   return (
     <form
       className="flex flex-col gap-5"
       onSubmit={(event) => {
         event.preventDefault();
         setFormError(null);
-        create.mutate();
+        setAmountTouched(true);
+        setCategoryTouched(true);
+        if (canSubmit) create.mutate();
       }}
     >
       <MoneyInput
         label="Monto"
         value={amount}
         onChange={setAmount}
+        onBlur={() => setAmountTouched(true)}
         currency={currency}
         kind="expense"
+        error={amountError}
         required
       />
 
@@ -108,6 +119,11 @@ function NewExpenseForm({
       ) : null}
 
       <CategoryPicker categories={categories.data} value={categoryId} onChange={setCategoryId} />
+      {categoryError ? (
+        <p role="alert" className="-mt-3 text-xs font-medium text-danger">
+          {categoryError}
+        </p>
+      ) : null}
 
       <Input
         label="Fecha"
@@ -184,7 +200,7 @@ function NewExpenseForm({
         </p>
       ) : null}
 
-      <Button type="submit" disabled={create.isPending || amount <= 0 || !categoryId}>
+      <Button type="submit" disabled={create.isPending || !canSubmit}>
         {create.isPending ? "Guardando…" : "Guardar"}
       </Button>
     </form>

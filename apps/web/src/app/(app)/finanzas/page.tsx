@@ -64,7 +64,13 @@ const CURRENCY = "COP";
 function SavingsGoalForm({ onDone }: { onDone: () => void }) {
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
+  const [nameTouched, setNameTouched] = useState(false);
   const [target, setTarget] = useState(0);
+  const [targetTouched, setTargetTouched] = useState(false);
+
+  const nameError = nameTouched && !name ? "Ponle un nombre a la meta" : undefined;
+  const targetError = targetTouched && target <= 0 ? "Ingresa un monto mayor a cero" : undefined;
+  const canSubmit = !!name && target > 0;
 
   const create = useMutation({
     mutationFn: () =>
@@ -84,16 +90,27 @@ function SavingsGoalForm({ onDone }: { onDone: () => void }) {
       className="flex flex-col gap-5"
       onSubmit={(event) => {
         event.preventDefault();
-        create.mutate();
+        setNameTouched(true);
+        setTargetTouched(true);
+        if (canSubmit) create.mutate();
       }}
     >
-      <Input label="Nombre" required value={name} onChange={(e) => setName(e.target.value)} />
+      <Input
+        label="Nombre"
+        required
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        onBlur={() => setNameTouched(true)}
+        error={nameError}
+      />
       <MoneyInput
         label="Meta"
         value={target}
         onChange={setTarget}
+        onBlur={() => setTargetTouched(true)}
         currency={CURRENCY}
         kind="savings"
+        error={targetError}
         required
       />
       {create.isError ? (
@@ -101,7 +118,7 @@ function SavingsGoalForm({ onDone }: { onDone: () => void }) {
           {(create.error as Error).message}
         </p>
       ) : null}
-      <Button type="submit" disabled={create.isPending || !name || target <= 0}>
+      <Button type="submit" disabled={create.isPending || !canSubmit}>
         {create.isPending ? "Guardando…" : "Guardar"}
       </Button>
     </form>
@@ -111,7 +128,9 @@ function SavingsGoalForm({ onDone }: { onDone: () => void }) {
 function DebtForm({ onDone }: { onDone: () => void }) {
   const queryClient = useQueryClient();
   const [creditorLabel, setCreditorLabel] = useState("");
+  const [creditorTouched, setCreditorTouched] = useState(false);
   const [principal, setPrincipal] = useState(0);
+  const [principalTouched, setPrincipalTouched] = useState(false);
   const [dueDay, setDueDay] = useState("");
   const [hasPlan, setHasPlan] = useState(false);
   const [installmentsTotal, setInstallmentsTotal] = useState("");
@@ -147,13 +166,19 @@ function DebtForm({ onDone }: { onDone: () => void }) {
 
   const planIncomplete =
     hasPlan && (!installmentsTotal || Number(installmentsTotal) <= 0 || installmentAmount <= 0);
+  const creditorError = creditorTouched && !creditorLabel ? "Dinos a quién le debes" : undefined;
+  const principalError =
+    principalTouched && principal <= 0 ? "Ingresa un monto mayor a cero" : undefined;
+  const canSubmit = !!creditorLabel && principal > 0 && !planIncomplete;
 
   return (
     <form
       className="flex flex-col gap-5"
       onSubmit={(event) => {
         event.preventDefault();
-        create.mutate();
+        setCreditorTouched(true);
+        setPrincipalTouched(true);
+        if (canSubmit) create.mutate();
       }}
     >
       <Input
@@ -161,13 +186,17 @@ function DebtForm({ onDone }: { onDone: () => void }) {
         required
         value={creditorLabel}
         onChange={(e) => setCreditorLabel(e.target.value)}
+        onBlur={() => setCreditorTouched(true)}
+        error={creditorError}
       />
       <MoneyInput
         label="Monto"
         value={principal}
         onChange={setPrincipal}
+        onBlur={() => setPrincipalTouched(true)}
         currency={CURRENCY}
         kind="debt"
+        error={principalError}
         required
       />
       <Input
@@ -223,10 +252,7 @@ function DebtForm({ onDone }: { onDone: () => void }) {
           {(create.error as Error).message}
         </p>
       ) : null}
-      <Button
-        type="submit"
-        disabled={create.isPending || !creditorLabel || principal <= 0 || planIncomplete}
-      >
+      <Button type="submit" disabled={create.isPending || !canSubmit}>
         {create.isPending ? "Guardando…" : "Guardar"}
       </Button>
     </form>
