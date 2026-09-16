@@ -56,11 +56,11 @@ async def _transactions_view(
     return TransactionListResponse(
         items=[
             TransactionResponse(
-                id=t.id, kind=t.kind, category_id=t.category_id, category_name=name,
+                id=t.id, kind=t.kind, category_id=t.category_id, category_name=category_name,
                 amount_minor=t.amount_minor, currency=household.currency,
-                occurred_on=t.occurred_on, note=t.note, source=t.source,
+                occurred_on=t.occurred_on, name=t.name, note=t.note, source=t.source,
             )
-            for t, name in rows
+            for t, category_name in rows
         ],
         next_cursor=None,
     )

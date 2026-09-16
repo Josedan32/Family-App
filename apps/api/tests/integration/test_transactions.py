@@ -42,6 +42,48 @@ async def test_member_can_record_an_expense(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
+async def test_expense_name_is_optional_and_persisted(client: AsyncClient) -> None:
+    headers = await _member(client)
+    category_id = await _category(client, headers, "Comida", "expense")
+
+    response = await client.post(
+        "/api/v1/me/transactions",
+        json={
+            "kind": "expense",
+            "category_id": category_id,
+            "amount_minor": 15000,
+            "occurred_on": "2026-09-02",
+            "name": "Mercado de la semana",
+        },
+        headers=headers,
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["name"] == "Mercado de la semana"
+
+    listed = await client.get("/api/v1/me/transactions?kind=expense", headers=headers)
+    assert listed.json()["items"][0]["name"] == "Mercado de la semana"
+
+
+@pytest.mark.asyncio
+async def test_expense_without_a_name_returns_null(client: AsyncClient) -> None:
+    headers = await _member(client)
+    category_id = await _category(client, headers, "Comida", "expense")
+
+    response = await client.post(
+        "/api/v1/me/transactions",
+        json={
+            "kind": "expense", "category_id": category_id,
+            "amount_minor": 15000, "occurred_on": "2026-09-02",
+        },
+        headers=headers,
+    )
+
+    assert response.json()["name"] is None
+
+
+@pytest.mark.asyncio
 async def test_amounts_must_be_positive(client: AsyncClient) -> None:
     """L-08: direction lives in `kind`, never in a sign."""
     headers = await _member(client)

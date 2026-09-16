@@ -10,6 +10,7 @@ class CreateTransactionRequest(BaseModel):
     category_id: UUID
     amount_minor: int = Field(gt=0)
     occurred_on: date
+    name: str | None = Field(default=None, max_length=120)
     note: str | None = None
 
 
@@ -17,6 +18,7 @@ class UpdateTransactionRequest(BaseModel):
     category_id: UUID | None = None
     amount_minor: int | None = Field(default=None, gt=0)
     occurred_on: date | None = None
+    name: str | None = Field(default=None, max_length=120)
     note: str | None = None
 
 
@@ -28,6 +30,7 @@ class TransactionResponse(BaseModel):
     amount_minor: int
     currency: str
     occurred_on: date
+    name: str | None
     note: str | None
     source: str
 

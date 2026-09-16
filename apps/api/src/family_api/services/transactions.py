@@ -37,6 +37,7 @@ async def create_transaction(
     category_id: UUID,
     amount_minor: int,
     occurred_on: date,
+    name: str | None = None,
     note: str | None = None,
 ) -> Transaction:
     """The owner is always the caller. A member cannot write into another's ledger."""
@@ -44,7 +45,7 @@ async def create_transaction(
     transaction = Transaction(
         id=new_id(), household_id=member.household_id, member_id=member.id,
         kind=kind, category_id=category_id, amount_minor=amount_minor,
-        occurred_on=occurred_on, note=note, source="manual",
+        occurred_on=occurred_on, name=name, note=note, source="manual",
     )
     session.add(transaction)
     await session.flush()
@@ -117,6 +118,7 @@ async def update_transaction(
     category_id: UUID | None,
     amount_minor: int | None,
     occurred_on: date | None,
+    name: str | None,
     note: str | None,
 ) -> Transaction:
     transaction = await _own_transaction(session, member, transaction_id)
@@ -127,6 +129,8 @@ async def update_transaction(
         transaction.amount_minor = amount_minor
     if occurred_on is not None:
         transaction.occurred_on = occurred_on
+    if name is not None:
+        transaction.name = name
     if note is not None:
         transaction.note = note
     await session.flush()

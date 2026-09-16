@@ -60,11 +60,11 @@ async def list_transactions(
     return TransactionListResponse(
         items=[
             TransactionResponse(
-                id=t.id, kind=t.kind, category_id=t.category_id, category_name=name,
+                id=t.id, kind=t.kind, category_id=t.category_id, category_name=category_name,
                 amount_minor=t.amount_minor, currency=currency,
-                occurred_on=t.occurred_on, note=t.note, source=t.source,
+                occurred_on=t.occurred_on, name=t.name, note=t.note, source=t.source,
             )
-            for t, name in rows
+            for t, category_name in rows
         ],
         next_cursor=None,
     )
@@ -77,7 +77,7 @@ async def create_transaction(
     try:
         transaction = await transaction_service.create_transaction(
             session, member, body.kind, body.category_id,
-            body.amount_minor, body.occurred_on, body.note,
+            body.amount_minor, body.occurred_on, body.name, body.note,
         )
     except CategoryKindMismatchError:
         raise HTTPException(
@@ -88,12 +88,12 @@ async def create_transaction(
         session, member.id, member.household_id, transaction.kind,
         transaction.occurred_on, transaction.occurred_on,
     )
-    name = next(n for t, n in rows if t.id == transaction.id)
+    category_name = next(n for t, n in rows if t.id == transaction.id)
     return TransactionResponse(
         id=transaction.id, kind=transaction.kind, category_id=transaction.category_id,
-        category_name=name, amount_minor=transaction.amount_minor,
+        category_name=category_name, amount_minor=transaction.amount_minor,
         currency=await _currency(session, member.household_id),
-        occurred_on=transaction.occurred_on, note=transaction.note,
+        occurred_on=transaction.occurred_on, name=transaction.name, note=transaction.note,
         source=transaction.source,
     )
 
@@ -108,7 +108,7 @@ async def update_transaction(
     try:
         transaction = await transaction_service.update_transaction(
             session, member, transaction_id, body.category_id,
-            body.amount_minor, body.occurred_on, body.note,
+            body.amount_minor, body.occurred_on, body.name, body.note,
         )
     except CategoryKindMismatchError:
         raise HTTPException(status_code=422, detail="Category kind mismatch") from None
@@ -117,12 +117,12 @@ async def update_transaction(
         session, member.id, member.household_id, transaction.kind,
         transaction.occurred_on, transaction.occurred_on,
     )
-    name = next(n for t, n in rows if t.id == transaction.id)
+    category_name = next(n for t, n in rows if t.id == transaction.id)
     return TransactionResponse(
         id=transaction.id, kind=transaction.kind, category_id=transaction.category_id,
-        category_name=name, amount_minor=transaction.amount_minor,
+        category_name=category_name, amount_minor=transaction.amount_minor,
         currency=await _currency(session, member.household_id),
-        occurred_on=transaction.occurred_on, note=transaction.note,
+        occurred_on=transaction.occurred_on, name=transaction.name, note=transaction.note,
         source=transaction.source,
     )
 
