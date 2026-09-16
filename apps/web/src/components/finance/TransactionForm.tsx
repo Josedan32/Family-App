@@ -65,6 +65,7 @@ export function TransactionForm({
         value={amount}
         onChange={setAmount}
         currency={currency}
+        kind={kind}
         required
       />
 

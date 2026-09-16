@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
 import { useState } from "react";
 
 import { DebtCard, type Debt } from "@/components/finance/DebtCard";
@@ -8,8 +9,15 @@ import { GoalCard, type Goal } from "@/components/finance/GoalCard";
 import { TransactionForm } from "@/components/finance/TransactionForm";
 import { TransactionRow, type Transaction } from "@/components/finance/TransactionRow";
 import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { IconDiamondFilled, IconCircleFilled, IconFileText, IconPlus } from "@/components/ui/Icons";
+import {
+  IconDiamondFilled,
+  IconCircleFilled,
+  IconFileText,
+  IconHandshake,
+  IconPlus,
+} from "@/components/ui/Icons";
 import { Input } from "@/components/ui/Input";
 import { MoneyInput } from "@/components/ui/MoneyInput";
 import { Sheet } from "@/components/ui/Sheet";
@@ -78,7 +86,14 @@ function SavingsGoalForm({ onDone }: { onDone: () => void }) {
       }}
     >
       <Input label="Nombre" required value={name} onChange={(e) => setName(e.target.value)} />
-      <MoneyInput label="Meta" value={target} onChange={setTarget} currency={CURRENCY} required />
+      <MoneyInput
+        label="Meta"
+        value={target}
+        onChange={setTarget}
+        currency={CURRENCY}
+        kind="savings"
+        required
+      />
       {create.isError ? (
         <p role="alert" className="text-sm text-danger">
           {(create.error as Error).message}
@@ -134,6 +149,7 @@ function DebtForm({ onDone }: { onDone: () => void }) {
         value={principal}
         onChange={setPrincipal}
         currency={CURRENCY}
+        kind="debt"
         required
       />
       <Input
@@ -211,6 +227,18 @@ export default function FinanzasPage() {
       </div>
 
       <Tabs tabs={TABS} active={tab} onChange={(id) => setTab(id as TabId)} />
+
+      <Link href="/finanzas/prestamos">
+        <Card className="flex items-center gap-3">
+          <span aria-hidden="true" className="flex-none text-brand">
+            <IconHandshake />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold">Préstamos</p>
+            <p className="text-xs text-text-muted">Lo que prestaste y lo que te prestaron</p>
+          </div>
+        </Card>
+      </Link>
 
       <div role="tabpanel" className="flex flex-col gap-2.5">
         {(tab === "income" || tab === "expense") && (

@@ -29,4 +29,19 @@ describe("MoneyInput", () => {
     render(<Harness />);
     expect(screen.getByLabelText("Monto")).toBeInTheDocument();
   });
+
+  it("shows the currency sign so the amount reads as money", () => {
+    render(<Harness />);
+    expect(screen.getByText("$", { exact: false })).toBeInTheDocument();
+  });
+
+  it("prefixes + and colors the field for income", () => {
+    render(<MoneyInput label="Monto" value={0} onChange={() => {}} currency="COP" kind="income" />);
+    expect(screen.getByText("+$", { exact: false })).toBeInTheDocument();
+  });
+
+  it("prefixes − and colors the field for expense", () => {
+    render(<MoneyInput label="Monto" value={0} onChange={() => {}} currency="COP" kind="expense" />);
+    expect(screen.getByText("−$", { exact: false })).toBeInTheDocument();
+  });
 });

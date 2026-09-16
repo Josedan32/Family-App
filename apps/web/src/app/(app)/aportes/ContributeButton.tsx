@@ -60,6 +60,7 @@ export function ContributeButton({
             value={amount}
             onChange={setAmount}
             currency={currency}
+            kind="expense"
             required
           />
           <Input

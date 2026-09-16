@@ -88,7 +88,14 @@ function NewExpenseForm({
         create.mutate();
       }}
     >
-      <MoneyInput label="Monto" value={amount} onChange={setAmount} currency={currency} required />
+      <MoneyInput
+        label="Monto"
+        value={amount}
+        onChange={setAmount}
+        currency={currency}
+        kind="expense"
+        required
+      />
 
       {funding === "pot" ? (
         <span className="-mt-3 text-xs text-text-muted">
