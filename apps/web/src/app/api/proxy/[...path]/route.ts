@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { apiFetch } from "@/lib/api/server";
+import { apiFetchWithRefresh } from "@/lib/api/server";
 import { ApiError } from "@/lib/api/errors";
 
 async function forward(request: Request, path: string[], method: string) {
@@ -10,7 +10,7 @@ async function forward(request: Request, path: string[], method: string) {
     method === "GET" || method === "DELETE" ? undefined : await request.text();
 
   try {
-    const data = await apiFetch<unknown>(target, { method, body });
+    const data = await apiFetchWithRefresh<unknown>(target, { method, body });
     return NextResponse.json(data ?? { ok: true });
   } catch (error) {
     if (error instanceof ApiError) {

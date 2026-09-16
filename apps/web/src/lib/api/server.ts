@@ -33,15 +33,40 @@ async function request<T>(path: string, token: string | undefined, init?: Reques
 }
 
 /**
- * Server-side fetch with one transparent refresh attempt.
- *
- * Reads behind visibility rules happen here, in Server Components, so data the
- * viewer may not see never reaches their browser at all.
+ * Server-side fetch with the current access token. No cookie writes here —
+ * this runs during Server Component render (directly, or via `pageFetch`),
+ * where Next.js forbids mutating cookies. A 401 is left for the caller.
  */
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const access = await getAccessToken();
+  return request<T>(path, access, init);
+}
+
+/**
+ * For Server Component reads. A 401 means the session is gone (there is no
+ * legal way to refresh it here), so we leave for the login screen instead of
+ * letting the exception surface as an unhandled render error. Every other
+ * status rethrows for the caller (or the route's error.tsx boundary) to turn
+ * into a toast.
+ */
+export async function pageFetch<T>(path: string, init?: RequestInit): Promise<T> {
   try {
-    return await request<T>(path, access, init);
+    return await apiFetch<T>(path, init);
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) redirect("/login");
+    throw error;
+  }
+}
+
+/**
+ * Fetch with one transparent refresh attempt, persisting the new pair on
+ * success. Only legal to call from a Server Action or Route Handler (e.g. the
+ * `/api/proxy` handler backing client-side reads) — never from a Server
+ * Component render, since it writes cookies.
+ */
+export async function apiFetchWithRefresh<T>(path: string, init?: RequestInit): Promise<T> {
+  try {
+    return await apiFetch<T>(path, init);
   } catch (error) {
     if (!(error instanceof ApiError) || error.status !== 401) throw error;
 
@@ -55,21 +80,5 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
     );
     await setSession(pair.access_token, pair.refresh_token);
     return await request<T>(path, pair.access_token, init);
-  }
-}
-
-/**
- * For Server Component reads. A 401 here means the transparent refresh above
- * already failed — the session is truly gone — so we leave for the login
- * screen instead of letting the exception surface as an unhandled render
- * error. Every other status rethrows for the caller (or the route's
- * error.tsx boundary) to turn into a toast.
- */
-export async function pageFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  try {
-    return await apiFetch<T>(path, init);
-  } catch (error) {
-    if (error instanceof ApiError && error.status === 401) redirect("/login");
-    throw error;
   }
 }
