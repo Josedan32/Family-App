@@ -136,6 +136,12 @@ function LoanForm({ onDone }: { onDone: () => void }) {
   );
 }
 
+interface LoanPayment {
+  id: string;
+  amount_minor: number;
+  paid_on: string;
+}
+
 function LoanDetail({ loan }: { loan: Loan }) {
   const queryClient = useQueryClient();
   const [payAmount, setPayAmount] = useState(0);
@@ -146,6 +152,11 @@ function LoanDetail({ loan }: { loan: Loan }) {
   const canPay = loan.perspective !== "observer" && active;
   const canCancel = loan.perspective === "lender" && active;
 
+  const detail = useQuery({
+    queryKey: ["loan-detail", loan.id],
+    queryFn: () => clientFetch<{ payments: LoanPayment[] }>(`/loans/${loan.id}`),
+  });
+
   const pay = useMutation({
     mutationFn: () =>
       clientFetch(`/loans/${loan.id}/payments`, {
@@ -154,6 +165,7 @@ function LoanDetail({ loan }: { loan: Loan }) {
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["loans"] });
+      await queryClient.invalidateQueries({ queryKey: ["loan-detail", loan.id] });
       setPayAmount(0);
       pushToast({ message: "Pago registrado", type: "success" });
     },
@@ -194,6 +206,24 @@ function LoanDetail({ loan }: { loan: Loan }) {
             <span>{loan.note}</span>
           </div>
         ) : null}
+      </div>
+
+      <div className="flex flex-col gap-2 border-t border-border pt-3">
+        <span className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+          Pagos registrados
+        </span>
+        {detail.isLoading ? null : detail.data?.payments.length ? (
+          <ul className="flex flex-col gap-1.5">
+            {detail.data.payments.map((payment) => (
+              <li key={payment.id} className="flex items-center justify-between text-sm">
+                <span className="text-text-muted">{payment.paid_on}</span>
+                <MoneyDisplay amountMinor={payment.amount_minor} currency={loan.currency} />
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-text-muted">Todavía no hay pagos.</p>
+        )}
       </div>
 
       {canPay ? (
