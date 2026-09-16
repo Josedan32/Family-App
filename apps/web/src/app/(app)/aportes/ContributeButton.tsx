@@ -11,6 +11,8 @@ import { Sheet } from "@/components/ui/Sheet";
 import { clientFetch } from "@/lib/api/client";
 import { pushToast } from "@/lib/toast";
 
+const TODAY = () => new Date().toISOString().slice(0, 10);
+
 export function ContributeButton({
   periodId,
   currency,
@@ -22,8 +24,18 @@ export function ContributeButton({
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState(0);
-  const [paidOn, setPaidOn] = useState(new Date().toISOString().slice(0, 10));
+  const [amountTouched, setAmountTouched] = useState(false);
+  const [paidOn, setPaidOn] = useState(TODAY());
+  const [dateTouched, setDateTouched] = useState(false);
   const [note, setNote] = useState("");
+
+  const amountError =
+    amountTouched && amount <= 0 ? "Ingresa un monto mayor a cero" : undefined;
+  const dateError =
+    dateTouched && (!paidOn || paidOn > TODAY())
+      ? "La fecha no puede ser en el futuro"
+      : undefined;
+  const canSubmit = amount > 0 && !!paidOn && paidOn <= TODAY();
 
   const contribute = useMutation({
     mutationFn: () =>
@@ -52,15 +64,19 @@ export function ContributeButton({
           className="flex flex-col gap-5"
           onSubmit={(event) => {
             event.preventDefault();
-            contribute.mutate();
+            setAmountTouched(true);
+            setDateTouched(true);
+            if (canSubmit) contribute.mutate();
           }}
         >
           <MoneyInput
             label="Monto"
             value={amount}
             onChange={setAmount}
+            onBlur={() => setAmountTouched(true)}
             currency={currency}
             kind="expense"
+            error={amountError}
             required
           />
           <Input
@@ -69,6 +85,8 @@ export function ContributeButton({
             required
             value={paidOn}
             onChange={(event) => setPaidOn(event.target.value)}
+            onBlur={() => setDateTouched(true)}
+            error={dateError}
           />
           <Input
             label="Nota (opcional)"
@@ -81,7 +99,7 @@ export function ContributeButton({
               {(contribute.error as Error).message}
             </p>
           ) : null}
-          <Button type="submit" disabled={contribute.isPending || amount <= 0}>
+          <Button type="submit" disabled={contribute.isPending || !canSubmit}>
             {contribute.isPending ? "Guardando…" : "Guardar"}
           </Button>
         </form>

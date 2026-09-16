@@ -44,4 +44,18 @@ describe("MoneyInput", () => {
     render(<MoneyInput label="Monto" value={0} onChange={() => {}} currency="COP" kind="expense" />);
     expect(screen.getByText("−$", { exact: false })).toBeInTheDocument();
   });
+
+  it("marks the field invalid and shows the message when error is set", () => {
+    render(
+      <MoneyInput
+        label="Monto"
+        value={0}
+        onChange={() => {}}
+        currency="COP"
+        error="Ingresa un monto mayor a cero"
+      />,
+    );
+    expect(screen.getByLabelText("Monto")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByRole("alert")).toHaveTextContent("Ingresa un monto mayor a cero");
+  });
 });

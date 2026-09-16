@@ -17,6 +17,9 @@ interface Props {
    * amounts are never signed, they just carry their module's color.
    */
   kind?: Kind;
+  /** Feedback before submit, not only after a failed request. */
+  error?: string;
+  onBlur?: () => void;
 }
 
 const SIGN: Partial<Record<Kind, string>> = { income: "+", expense: "−" };
@@ -27,10 +30,20 @@ const TONE: Record<Kind, string> = {
   debt: "text-debt",
 };
 
-export function MoneyInput({ label, value, onChange, currency, required, kind }: Props) {
+export function MoneyInput({
+  label,
+  value,
+  onChange,
+  currency,
+  required,
+  kind,
+  error,
+  onBlur,
+}: Props) {
   const id = useId();
   const tone = kind ? TONE[kind] : "";
   const sign = kind ? (SIGN[kind] ?? "") : "";
+  const errorId = error ? `${id}-error` : undefined;
 
   return (
     <div className="flex flex-col gap-1">
@@ -49,13 +62,21 @@ export function MoneyInput({ label, value, onChange, currency, required, kind }:
           inputMode="numeric"
           autoComplete="off"
           required={required}
+          aria-describedby={errorId}
+          aria-invalid={error ? true : undefined}
           value={value === 0 ? "" : groupDigits(value, currency)}
           onChange={(event) => onChange(parseAmountInput(event.target.value))}
-          className={`tabular w-full rounded-lg border border-border bg-surface py-3 pr-3 text-xl ${
-            kind ? "pl-9" : "pl-7"
-          }`}
+          onBlur={onBlur}
+          className={`tabular w-full rounded-lg border bg-surface py-3 pr-3 text-xl ${
+            error ? "border-danger" : "border-border"
+          } ${kind ? "pl-9" : "pl-7"}`}
         />
       </div>
+      {error ? (
+        <span id={errorId} role="alert" className="text-xs font-medium text-danger">
+          {error}
+        </span>
+      ) : null}
     </div>
   );
 }
