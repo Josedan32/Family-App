@@ -1,4 +1,15 @@
+"use client";
+
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+
+import { Button } from "@/components/ui/Button";
+import { Sheet } from "@/components/ui/Sheet";
+import { clientFetch } from "@/lib/api/client";
+import { pushToast } from "@/lib/toast";
+
 import { MoneyDisplay } from "./MoneyDisplay";
+import { TransactionForm } from "./TransactionForm";
 
 export interface Transaction {
   id: string;
@@ -8,12 +19,24 @@ export interface Transaction {
   amount_minor: number;
   currency: string;
   occurred_on: string;
+  name: string | null;
   note: string | null;
   source: string;
 }
 
 export function TransactionRow({ transaction }: { transaction: Transaction }) {
+  const queryClient = useQueryClient();
+  const [editing, setEditing] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const isDerived = transaction.source !== "manual";
+
+  const remove = useMutation({
+    mutationFn: () => clientFetch(`/me/transactions/${transaction.id}`, { method: "DELETE" }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      pushToast({ message: "Movimiento eliminado", type: "info" });
+    },
+  });
 
   return (
     <li
@@ -22,9 +45,14 @@ export function TransactionRow({ transaction }: { transaction: Transaction }) {
       }`}
     >
       <div className="flex items-start gap-3">
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="font-bold">{transaction.category_name}</span>
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <span className="font-bold">{transaction.name || transaction.category_name}</span>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {transaction.name ? (
+              <span className="rounded-full border border-border bg-surface-sunken px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-text-muted">
+                {transaction.category_name}
+              </span>
+            ) : null}
             {isDerived ? (
               <span className="rounded-full border border-brand px-1.5 py-0.5 text-[0.625rem] font-bold uppercase tracking-wide text-brand">
                 Aporte
@@ -45,6 +73,7 @@ export function TransactionRow({ transaction }: { transaction: Transaction }) {
           className="whitespace-nowrap text-xl font-bold"
         />
       </div>
+
       {isDerived ? (
         <div className="flex items-center justify-between gap-3 border-t border-border pt-2.5">
           <span className="text-xs text-text-muted">
@@ -54,7 +83,58 @@ export function TransactionRow({ transaction }: { transaction: Transaction }) {
             Ver aportes ›
           </a>
         </div>
-      ) : null}
+      ) : (
+        <div className="flex items-center gap-3 border-t border-border pt-2.5">
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            className="text-sm font-semibold text-brand"
+          >
+            Editar
+          </button>
+          {confirmingDelete ? (
+            <div className="flex flex-1 items-center justify-end gap-2">
+              <span className="text-sm text-text-muted">¿Eliminar?</span>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setConfirmingDelete(false)}
+              >
+                No
+              </Button>
+              <Button
+                type="button"
+                variant="danger"
+                disabled={remove.isPending}
+                onClick={() => remove.mutate()}
+              >
+                Sí, eliminar
+              </Button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setConfirmingDelete(true)}
+              className="text-sm font-semibold text-danger"
+            >
+              Eliminar
+            </button>
+          )}
+        </div>
+      )}
+
+      <Sheet
+        open={editing}
+        onClose={() => setEditing(false)}
+        title={transaction.kind === "income" ? "Editar ingreso" : "Editar gasto"}
+      >
+        <TransactionForm
+          kind={transaction.kind}
+          currency={transaction.currency}
+          transaction={transaction}
+          onDone={() => setEditing(false)}
+        />
+      </Sheet>
     </li>
   );
 }
