@@ -4,6 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from family_api.db.models.seeded import Category
 from family_api.db.session import get_session
 from family_api.schemas.category import (
     CategoryResponse,
@@ -11,10 +12,22 @@ from family_api.schemas.category import (
     UpdateCategoryRequest,
 )
 from family_api.services import categories as category_service
+from family_api.services.households import CONTRIBUTION_CATEGORY
 from family_api.services.members import CurrentMember
 
 router = APIRouter(prefix="/categories", tags=["categories"])
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
+
+
+def _to_response(category: Category) -> CategoryResponse:
+    return CategoryResponse(
+        id=category.id, kind=category.kind, name=category.name, icon=category.icon,
+        is_system=category.is_system,
+        is_contribution_category=(
+            category.kind == "expense" and category.name == CONTRIBUTION_CATEGORY
+        ),
+        archived_at=category.archived_at,
+    )
 
 
 @router.get("")
@@ -25,7 +38,7 @@ async def list_categories(
     include_archived: bool = False,
 ) -> list[CategoryResponse]:
     rows = await category_service.list_categories(session, member, kind, include_archived)
-    return [CategoryResponse.model_validate(r, from_attributes=True) for r in rows]
+    return [_to_response(r) for r in rows]
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -36,7 +49,7 @@ async def create_category(
         session, member, body.kind, body.name, body.icon
     )
     await session.commit()
-    return CategoryResponse.model_validate(category, from_attributes=True)
+    return _to_response(category)
 
 
 @router.patch("/{category_id}")
@@ -50,7 +63,7 @@ async def update_category(
         session, member, category_id, body.name, body.icon
     )
     await session.commit()
-    return CategoryResponse.model_validate(category, from_attributes=True)
+    return _to_response(category)
 
 
 @router.delete("/{category_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -22,4 +22,9 @@ class CategoryResponse(BaseModel):
     name: str
     icon: str | None
     is_system: bool
+    # True only for the single category record_contribution stamps itself
+    # ("Aporte al hogar"). `is_system` covers every seeded default (they're
+    # archived, never deleted) — this is the narrower "never pick this by
+    # hand" signal a picker actually needs.
+    is_contribution_category: bool
     archived_at: datetime | None

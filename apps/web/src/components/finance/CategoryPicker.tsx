@@ -2,7 +2,7 @@ interface Category {
   id: string;
   name: string;
   kind: string;
-  is_system: boolean;
+  is_contribution_category: boolean;
 }
 
 type Props =
@@ -24,15 +24,17 @@ type Props =
  * selection (personal transactions only — household expenses keep one
  * category by design).
  *
- * System categories (like "Aporte al hogar") are written only by their
- * owning service — record_contribution stamps that category itself. Letting
- * someone pick it by hand here creates a look-alike transaction that never
- * becomes a real contribution, never shows the "Aporte" pill and never
- * appears in Gastos del Hogar, which is confusing enough to be a bug.
+ * "Aporte al hogar" is written only by record_contribution itself — it is
+ * NOT the same thing as `is_system` (every seeded default carries that, and
+ * all of those are perfectly normal, pickable categories; `is_system` only
+ * means "archived, never deleted"). Letting someone pick the contribution
+ * category by hand here creates a look-alike transaction that never becomes
+ * a real contribution, never shows the "Aporte" pill and never appears in
+ * Gastos del Hogar, which is confusing enough to be a bug.
  */
 export function CategoryPicker(props: Props) {
   const { categories } = props;
-  const selectable = categories?.filter((category) => !category.is_system);
+  const selectable = categories?.filter((category) => !category.is_contribution_category);
   const multi = props.mode === "multi";
 
   function isSelected(id: string): boolean {

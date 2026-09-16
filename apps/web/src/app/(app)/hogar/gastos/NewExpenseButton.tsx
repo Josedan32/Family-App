@@ -19,7 +19,7 @@ interface Category {
   id: string;
   name: string;
   kind: string;
-  is_system: boolean;
+  is_contribution_category: boolean;
 }
 
 type Funding = "pot" | "member";

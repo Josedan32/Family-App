@@ -3,10 +3,13 @@ import { describe, expect, it, vi } from "vitest";
 
 import { CategoryPicker } from "../finance/CategoryPicker";
 
+// "Comida" and "Transporte" are seeded defaults — is_system is true for them
+// too (archive-only-never-delete), but they must stay pickable. Only the
+// contribution category is excluded.
 const categories = [
-  { id: "c1", name: "Comida", kind: "expense", is_system: false },
-  { id: "c2", name: "Transporte", kind: "expense", is_system: false },
-  { id: "c3", name: "Aporte al hogar", kind: "expense", is_system: true },
+  { id: "c1", name: "Comida", kind: "expense", is_contribution_category: false },
+  { id: "c2", name: "Transporte", kind: "expense", is_contribution_category: false },
+  { id: "c3", name: "Aporte al hogar", kind: "expense", is_contribution_category: true },
 ];
 
 describe("CategoryPicker", () => {
@@ -15,10 +18,15 @@ describe("CategoryPicker", () => {
     expect(screen.getByText("Comida")).toBeInTheDocument();
   });
 
-  it("never offers a system category — it is written only by its owning service", () => {
-    // "Aporte al hogar" is stamped by record_contribution itself. Letting
-    // someone pick it here creates a look-alike transaction that never
-    // becomes a real contribution (docs/superpowers backlog, Fase 2.5).
+  it("offers every seeded default category, not just user-created ones", () => {
+    // Regression: these are marked is_system=true by the seed (archive-only
+    // protection), which must NOT be confused with "unpickable".
+    render(<CategoryPicker categories={categories} value="" onChange={() => {}} />);
+    expect(screen.getByText("Comida")).toBeInTheDocument();
+    expect(screen.getByText("Transporte")).toBeInTheDocument();
+  });
+
+  it("never offers the contribution category — it is written only by record_contribution", () => {
     render(<CategoryPicker categories={categories} value="" onChange={() => {}} />);
     expect(screen.queryByText("Aporte al hogar")).not.toBeInTheDocument();
   });
