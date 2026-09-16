@@ -168,14 +168,10 @@ function ChoreForm({
         value={form.effort_points}
         onChange={(effort_points) => setForm({ ...form, effort_points })}
       />
-      <p className="-mt-3 text-xs text-text-muted">
-        Este número decide a quién le toca la tarea al repartir el ciclo.
-      </p>
 
       <CatalogueEditor
         label="Pasos"
         addLabel="Añadir paso"
-        hint="El orden importa: así aparecerán en la checklist de quien la haga."
         items={form.activities}
         onChange={(activities) => setForm({ ...form, activities })}
       />
@@ -287,11 +283,6 @@ export function ChoreAdminClient({ chores, isAdmin }: { chores: Chore[]; isAdmin
             </li>
           );
         })}
-
-        <span className="px-0.5 py-1 text-[0.6875rem] text-text-muted">
-          Los puntos de esfuerzo se usan al repartir el ciclo y al comparar el aporte de cada
-          quien.
-        </span>
       </ul>
 
       {isAdmin ? (

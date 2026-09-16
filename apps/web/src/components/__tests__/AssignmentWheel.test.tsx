@@ -59,17 +59,6 @@ describe("AssignmentWheel", () => {
     }
   });
 
-  it("says plainly that it balances effort rather than pretending to be chance", () => {
-    setReducedMotion(false);
-    render(
-      <AssignmentWheel assignments={[assignment()]} members={MEMBERS} seed={42} />,
-    );
-
-    expect(
-      screen.getByText(/reparte equilibrando el esfuerzo/i),
-    ).toBeInTheDocument();
-  });
-
   it("skips straight to the result when the viewer prefers reduced motion", () => {
     // globals.css only zeroes CSS durations; a JS-driven rotation would still
     // run, so this has to be an explicit check.

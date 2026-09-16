@@ -78,10 +78,6 @@ export default async function HogarPage() {
             </div>
           ))}
         </Card>
-        <p className="text-xs text-text-muted">
-          El rol define qué puede administrar cada quien. Ningún rol, incluido el de
-          administrador, permite ver los movimientos privados de otro miembro.
-        </p>
       </div>
 
       {isAdmin ? <InvitesSection /> : null}

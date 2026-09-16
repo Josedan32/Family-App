@@ -243,10 +243,6 @@ export function AssignmentWheel({
       <p role="status" aria-live="polite" className="sr-only">
         {settled ? `${settled.chore_name} le tocó a ${settled.member_name}` : ""}
       </p>
-
-      <p className="text-center text-xs text-text-muted">
-        La ruleta reparte equilibrando el esfuerzo de cada quien.
-      </p>
     </section>
   );
 }

@@ -99,7 +99,6 @@ export default function OnboardingPage() {
             onChange={(e) => setCode(e.target.value.toUpperCase().slice(0, CODE_LENGTH))}
             aria-invalid={error ? true : undefined}
             className="text-center text-2xl font-bold tabular tracking-[0.22em] uppercase"
-            helperText="8 caracteres. Nunca usamos 0, O, 1, I ni L para que no se confundan al dictarlos."
           />
         )}
 
