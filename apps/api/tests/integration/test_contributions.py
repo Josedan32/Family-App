@@ -152,6 +152,101 @@ async def test_deleting_a_contribution_removes_both_rows(
 
 
 @pytest.mark.asyncio
+async def test_editing_a_contribution_updates_the_mirrored_expense_atomically(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """Same discipline as create/delete (INV-D-01): both rows change together."""
+    _, papa, period_id = await _household_with_period(client)
+    created = await client.post(
+        f"/api/v1/contribution-periods/{period_id}/contributions",
+        json={"amount_minor": 1_000_000, "paid_on": "2026-09-05"},
+        headers=papa,
+    )
+    contribution_id = created.json()["id"]
+
+    response = await client.patch(
+        f"/api/v1/contributions/{contribution_id}",
+        json={"amount_minor": 1_200_000, "note": "Ajuste"},
+        headers=papa,
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["amount_minor"] == 1_200_000
+    assert body["note"] == "Ajuste"
+
+    transaction = await db_session.scalar(
+        select(Transaction).where(Transaction.id == body["expense_transaction_id"])
+    )
+    assert transaction is not None
+    assert transaction.amount_minor == 1_200_000
+    assert transaction.note == "Ajuste"
+
+    # L-04 still holds: the mirror stays off-limits to direct edits.
+    direct = await client.patch(
+        f"/api/v1/me/transactions/{transaction.id}",
+        json={"amount_minor": 1},
+        headers=papa,
+    )
+    assert direct.status_code == 409
+    assert direct.json()["type"] == "derived_record"
+
+
+@pytest.mark.asyncio
+async def test_amount_must_stay_positive_when_editing(client: AsyncClient) -> None:
+    _, papa, period_id = await _household_with_period(client)
+    created = await client.post(
+        f"/api/v1/contribution-periods/{period_id}/contributions",
+        json={"amount_minor": 1_000_000, "paid_on": "2026-09-05"},
+        headers=papa,
+    )
+    contribution_id = created.json()["id"]
+
+    response = await client.patch(
+        f"/api/v1/contributions/{contribution_id}",
+        json={"amount_minor": -1},
+        headers=papa,
+    )
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_a_member_cannot_edit_another_members_contribution(client: AsyncClient) -> None:
+    admin, papa, period_id = await _household_with_period(client)
+    created = await client.post(
+        f"/api/v1/contribution-periods/{period_id}/contributions",
+        json={"amount_minor": 1_000_000, "paid_on": "2026-09-05"},
+        headers=papa,
+    )
+    contribution_id = created.json()["id"]
+
+    registered = await client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "mama@example.com",
+            "password": "correct-horse-battery",
+            "display_name": "Mamá",
+        },
+    )
+    invite = await client.post(
+        "/api/v1/households/current/invites",
+        json={"role_granted": "adult"},
+        headers=admin,
+    )
+    mama = {"Authorization": f"Bearer {registered.json()['access_token']}"}
+    await client.post(
+        "/api/v1/households/join", json={"code": invite.json()["code"]}, headers=mama
+    )
+
+    response = await client.patch(
+        f"/api/v1/contributions/{contribution_id}",
+        json={"amount_minor": 1},
+        headers=mama,
+    )
+    assert response.status_code == 403
+
+
+@pytest.mark.asyncio
 async def test_the_period_dashboard_reports_the_spec_example(
     client: AsyncClient,
 ) -> None:

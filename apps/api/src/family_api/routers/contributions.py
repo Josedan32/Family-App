@@ -18,6 +18,7 @@ from family_api.schemas.contribution import (
     PeriodMemberRow,
     PeriodResponse,
     SetPledgesRequest,
+    UpdateContributionRequest,
     UpdatePeriodRequest,
 )
 from family_api.services import contributions as contribution_service
@@ -166,6 +167,26 @@ async def record_contribution(
 ) -> ContributionResponse:
     contribution = await contribution_service.record_contribution(
         session, member, period_id, body.amount_minor, body.paid_on, body.note
+    )
+    await session.commit()
+    return ContributionResponse(
+        id=contribution.id, member_id=contribution.member_id,
+        amount_minor=contribution.amount_minor,
+        currency=await _currency(session, member.household_id),
+        paid_on=contribution.paid_on, note=contribution.note,
+        expense_transaction_id=contribution.expense_transaction_id,
+    )
+
+
+@contributions_router.patch("/{contribution_id}")
+async def update_contribution(
+    contribution_id: UUID,
+    body: UpdateContributionRequest,
+    member: CurrentMember,
+    session: SessionDep,
+) -> ContributionResponse:
+    contribution = await contribution_service.update_contribution(
+        session, member, contribution_id, body.amount_minor, body.paid_on, body.note
     )
     await session.commit()
     return ContributionResponse(

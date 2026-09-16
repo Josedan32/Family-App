@@ -224,6 +224,49 @@ async def record_contribution(
     return contribution
 
 
+async def update_contribution(
+    session: AsyncSession,
+    actor: HouseholdMember,
+    contribution_id: UUID,
+    amount_minor: int | None,
+    paid_on: date | None,
+    note: str | None,
+) -> Contribution:
+    """Updates the contribution AND its mirrored expense atomically — same
+    discipline as `record_contribution` (INV-D-01): one write, both rows."""
+    contribution = await session.scalar(
+        select(Contribution).where(
+            Contribution.id == contribution_id,
+            Contribution.household_id == actor.household_id,
+        )
+    )
+    if contribution is None:
+        raise NotFoundError
+    if contribution.member_id != actor.id and actor.role != "admin":
+        raise ForbiddenRoleError
+
+    period = await session.get(ContributionPeriod, contribution.period_id)
+    assert period is not None
+    if period.status == "closed":
+        raise PeriodClosedError
+
+    transaction = await session.get(Transaction, contribution.expense_transaction_id)
+    assert transaction is not None
+
+    if amount_minor is not None:
+        contribution.amount_minor = amount_minor
+        transaction.amount_minor = amount_minor
+    if paid_on is not None:
+        contribution.paid_on = paid_on
+        transaction.occurred_on = paid_on
+    if note is not None:
+        contribution.note = note
+        transaction.note = note
+
+    await session.flush()
+    return contribution
+
+
 async def delete_contribution(
     session: AsyncSession, actor: HouseholdMember, contribution_id: UUID
 ) -> None:
