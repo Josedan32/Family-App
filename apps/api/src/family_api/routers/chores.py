@@ -47,6 +47,7 @@ async def create_chore(
     chore = await chore_service.create_chore(
         session, member, body.name, body.description, body.frequency,
         body.effort_points, body.activities, body.requirements, body.expectation,
+        body.applies_to_all,
     )
     await session.commit()
     return ChoreResponse.model_validate(chore, from_attributes=True)
@@ -59,7 +60,7 @@ async def update_chore(
     chore = await chore_service.update_chore(
         session, member, chore_id, body.name, body.description,
         body.frequency, body.effort_points, body.activities,
-        body.requirements, body.expectation,
+        body.requirements, body.expectation, body.applies_to_all,
     )
     await session.commit()
     return ChoreResponse.model_validate(chore, from_attributes=True)

@@ -32,6 +32,7 @@ class CreateChoreRequest(BaseModel):
     activities: CatalogueList = Field(default_factory=list)
     requirements: CatalogueList = Field(default_factory=list)
     expectation: str | None = Field(default=None, max_length=500)
+    applies_to_all: bool = False
 
     @field_validator("activities", "requirements")
     @classmethod
@@ -47,6 +48,7 @@ class UpdateChoreRequest(BaseModel):
     activities: CatalogueList | None = None
     requirements: CatalogueList | None = None
     expectation: str | None = Field(default=None, max_length=500)
+    applies_to_all: bool | None = None
 
     @field_validator("activities", "requirements")
     @classmethod
@@ -63,6 +65,7 @@ class ChoreResponse(BaseModel):
     activities: CatalogueList
     requirements: CatalogueList
     expectation: str | None
+    applies_to_all: bool
     archived_at: datetime | None
 
 

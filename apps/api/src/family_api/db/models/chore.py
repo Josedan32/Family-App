@@ -3,6 +3,7 @@ from uuid import UUID
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     CheckConstraint,
     Date,
     DateTime,
@@ -60,6 +61,11 @@ class Chore(Base, TimestampMixin):
     )
     # The definition of done, in one sentence.
     expectation: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # One assignment per eligible member, every occurrence — never the
+    # balanced-by-effort draw (see `generate_cycle`).
+    applies_to_all: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default="false"
+    )
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
