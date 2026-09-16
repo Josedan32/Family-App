@@ -14,8 +14,7 @@ import { TransactionForm } from "./TransactionForm";
 export interface Transaction {
   id: string;
   kind: "income" | "expense";
-  category_id: string;
-  category_name: string;
+  categories: { id: string; name: string }[];
   amount_minor: number;
   currency: string;
   occurred_on: string;
@@ -29,6 +28,7 @@ export function TransactionRow({ transaction }: { transaction: Transaction }) {
   const [editing, setEditing] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const isDerived = transaction.source !== "manual";
+  const categoryNames = transaction.categories.map((c) => c.name).join(" · ");
 
   const remove = useMutation({
     mutationFn: () => clientFetch(`/me/transactions/${transaction.id}`, { method: "DELETE" }),
@@ -46,13 +46,18 @@ export function TransactionRow({ transaction }: { transaction: Transaction }) {
     >
       <div className="flex items-start gap-3">
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <span className="font-bold">{transaction.name || transaction.category_name}</span>
+          <span className="font-bold">{transaction.name || categoryNames}</span>
           <div className="flex flex-wrap items-center gap-1.5">
-            {transaction.name ? (
-              <span className="rounded-full border border-border bg-surface-sunken px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-text-muted">
-                {transaction.category_name}
-              </span>
-            ) : null}
+            {transaction.name
+              ? transaction.categories.map((category) => (
+                  <span
+                    key={category.id}
+                    className="rounded-full border border-border bg-surface-sunken px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-text-muted"
+                  >
+                    {category.name}
+                  </span>
+                ))
+              : null}
             {isDerived ? (
               <span className="rounded-full border border-brand px-1.5 py-0.5 text-[0.625rem] font-bold uppercase tracking-wide text-brand">
                 Aporte

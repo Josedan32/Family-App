@@ -18,7 +18,7 @@ interface Category {
 
 interface EditableTransaction {
   id: string;
-  category_id: string;
+  categories: { id: string; name: string }[];
   amount_minor: number;
   occurred_on: string;
   name: string | null;
@@ -40,7 +40,9 @@ export function TransactionForm({
   const queryClient = useQueryClient();
   const [amount, setAmount] = useState(transaction?.amount_minor ?? 0);
   const [amountTouched, setAmountTouched] = useState(false);
-  const [categoryId, setCategoryId] = useState(transaction?.category_id ?? "");
+  const [categoryIds, setCategoryIds] = useState<string[]>(
+    transaction?.categories.map((c) => c.id) ?? [],
+  );
   const [categoryTouched, setCategoryTouched] = useState(false);
   const [occurredOn, setOccurredOn] = useState(
     transaction?.occurred_on ?? new Date().toISOString().slice(0, 10),
@@ -51,8 +53,8 @@ export function TransactionForm({
   const amountError =
     amountTouched && amount <= 0 ? "Ingresa un monto mayor a cero" : undefined;
   const categoryError =
-    categoryTouched && !categoryId ? "Elige una categoría" : undefined;
-  const canSubmit = amount > 0 && !!categoryId;
+    categoryTouched && categoryIds.length === 0 ? "Elige al menos una categoría" : undefined;
+  const canSubmit = amount > 0 && categoryIds.length > 0;
 
   const categories = useQuery({
     queryKey: ["categories", kind],
@@ -65,7 +67,7 @@ export function TransactionForm({
         ? clientFetch(`/me/transactions/${transaction.id}`, {
             method: "PATCH",
             body: JSON.stringify({
-              category_id: categoryId,
+              category_ids: categoryIds,
               amount_minor: amount,
               occurred_on: occurredOn,
               name: name || null,
@@ -76,7 +78,7 @@ export function TransactionForm({
             method: "POST",
             body: JSON.stringify({
               kind,
-              category_id: categoryId,
+              category_ids: categoryIds,
               amount_minor: amount,
               occurred_on: occurredOn,
               name: name || null,
@@ -110,7 +112,12 @@ export function TransactionForm({
         required
       />
 
-      <CategoryPicker categories={categories.data} value={categoryId} onChange={setCategoryId} />
+      <CategoryPicker
+        categories={categories.data}
+        mode="multi"
+        value={categoryIds}
+        onChange={setCategoryIds}
+      />
       {categoryError ? (
         <p role="alert" className="-mt-3 text-xs font-medium text-danger">
           {categoryError}

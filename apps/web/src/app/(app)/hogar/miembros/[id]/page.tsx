@@ -29,7 +29,7 @@ interface MoneyTotal {
 
 interface TransactionListItem {
   id: string;
-  category_name: string;
+  categories: { id: string; name: string }[];
   amount_minor: number;
   occurred_on: string;
   note: string | null;

@@ -7,8 +7,7 @@ import { TransactionRow, type Transaction } from "../finance/TransactionRow";
 const expense: Transaction = {
   id: "1",
   kind: "expense",
-  category_id: "c1",
-  category_name: "Comida",
+  categories: [{ id: "c1", name: "Comida" }],
   amount_minor: 15_000,
   currency: "COP",
   occurred_on: "2026-09-02",
@@ -35,7 +34,7 @@ describe("TransactionRow", () => {
   });
 
   it("shows a plus for income", () => {
-    renderRow({ ...expense, kind: "income", category_name: "Salario" });
+    renderRow({ ...expense, kind: "income", categories: [{ id: "c2", name: "Salario" }] });
     expect(screen.getByText("+$ 15.000")).toBeInTheDocument();
   });
 
@@ -49,6 +48,19 @@ describe("TransactionRow", () => {
     renderRow({ ...expense, name: "Mercado de la semana" });
     expect(screen.getByText("Mercado de la semana")).toBeInTheDocument();
     expect(screen.getByText("Comida")).toBeInTheDocument();
+  });
+
+  it("shows every category as its own pill for a multi-category transaction", () => {
+    renderRow({
+      ...expense,
+      name: "Mercado de la semana",
+      categories: [
+        { id: "c1", name: "Comida" },
+        { id: "c2", name: "Transporte" },
+      ],
+    });
+    expect(screen.getByText("Comida")).toBeInTheDocument();
+    expect(screen.getByText("Transporte")).toBeInTheDocument();
   });
 
   it("falls back to the category as the title when there is no name", () => {
