@@ -13,7 +13,12 @@ from family_api.schemas.debt import (
     CreateDebtRequest,
     DebtResponse,
 )
-from family_api.schemas.savings import CreateEntryRequest, CreateGoalRequest, SavingsGoalResponse
+from family_api.schemas.savings import (
+    CreateEntryRequest,
+    CreateGoalRequest,
+    SavingsEntryResponse,
+    SavingsGoalResponse,
+)
 from family_api.schemas.transaction import (
     CreateTransactionRequest,
     TransactionListResponse,
@@ -163,6 +168,21 @@ async def create_goal(
         target_date=goal.target_date, balance_minor=0, progress=0.0,
         currency=await _currency(session, member.household_id),
     )
+
+
+@router.get("/savings-goals/{goal_id}/entries")
+async def list_entries(
+    goal_id: UUID, member: CurrentMember, session: SessionDep
+) -> list[SavingsEntryResponse]:
+    entries = await savings_service.list_entries(session, member, goal_id)
+    currency = await _currency(session, member.household_id)
+    return [
+        SavingsEntryResponse(
+            id=e.id, kind=e.kind, amount_minor=e.amount_minor,
+            occurred_on=e.occurred_on, note=e.note, currency=currency,
+        )
+        for e in entries
+    ]
 
 
 @router.post("/savings-goals/{goal_id}/entries", status_code=status.HTTP_201_CREATED)

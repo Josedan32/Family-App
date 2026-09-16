@@ -18,6 +18,15 @@ class CreateEntryRequest(BaseModel):
     note: str | None = None
 
 
+class SavingsEntryResponse(BaseModel):
+    id: UUID
+    kind: Literal["deposit", "withdrawal"]
+    amount_minor: int
+    occurred_on: date
+    note: str | None
+    currency: str
+
+
 class SavingsGoalResponse(BaseModel):
     id: UUID
     name: str
