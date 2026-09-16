@@ -23,6 +23,7 @@ from family_api.schemas.savings import (
     SavingsGoalResponse,
 )
 from family_api.schemas.transaction import (
+    CategoryRef,
     CreateTransactionRequest,
     TransactionListResponse,
     TransactionResponse,
@@ -68,11 +69,12 @@ async def list_transactions(
     return TransactionListResponse(
         items=[
             TransactionResponse(
-                id=t.id, kind=t.kind, category_id=t.category_id, category_name=category_name,
+                id=t.id, kind=t.kind,
+                categories=[CategoryRef(id=cid, name=cname) for cid, cname in categories],
                 amount_minor=t.amount_minor, currency=currency,
                 occurred_on=t.occurred_on, name=t.name, note=t.note, source=t.source,
             )
-            for t, category_name in rows
+            for t, categories in rows
         ],
         next_cursor=None,
     )
@@ -84,7 +86,7 @@ async def create_transaction(
 ) -> TransactionResponse:
     try:
         transaction = await transaction_service.create_transaction(
-            session, member, body.kind, body.category_id,
+            session, member, body.kind, body.category_ids,
             body.amount_minor, body.occurred_on, body.name, body.note,
         )
     except CategoryKindMismatchError:
@@ -96,10 +98,11 @@ async def create_transaction(
         session, member.id, member.household_id, transaction.kind,
         transaction.occurred_on, transaction.occurred_on,
     )
-    category_name = next(n for t, n in rows if t.id == transaction.id)
+    categories = next(c for t, c in rows if t.id == transaction.id)
     return TransactionResponse(
-        id=transaction.id, kind=transaction.kind, category_id=transaction.category_id,
-        category_name=category_name, amount_minor=transaction.amount_minor,
+        id=transaction.id, kind=transaction.kind,
+        categories=[CategoryRef(id=cid, name=cname) for cid, cname in categories],
+        amount_minor=transaction.amount_minor,
         currency=await _currency(session, member.household_id),
         occurred_on=transaction.occurred_on, name=transaction.name, note=transaction.note,
         source=transaction.source,
@@ -115,7 +118,7 @@ async def update_transaction(
 ) -> TransactionResponse:
     try:
         transaction = await transaction_service.update_transaction(
-            session, member, transaction_id, body.category_id,
+            session, member, transaction_id, body.category_ids,
             body.amount_minor, body.occurred_on, body.name, body.note,
         )
     except CategoryKindMismatchError:
@@ -125,10 +128,11 @@ async def update_transaction(
         session, member.id, member.household_id, transaction.kind,
         transaction.occurred_on, transaction.occurred_on,
     )
-    category_name = next(n for t, n in rows if t.id == transaction.id)
+    categories = next(c for t, c in rows if t.id == transaction.id)
     return TransactionResponse(
-        id=transaction.id, kind=transaction.kind, category_id=transaction.category_id,
-        category_name=category_name, amount_minor=transaction.amount_minor,
+        id=transaction.id, kind=transaction.kind,
+        categories=[CategoryRef(id=cid, name=cname) for cid, cname in categories],
+        amount_minor=transaction.amount_minor,
         currency=await _currency(session, member.household_id),
         occurred_on=transaction.occurred_on, name=transaction.name, note=transaction.note,
         source=transaction.source,

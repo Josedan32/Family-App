@@ -11,6 +11,7 @@ from family_api.db.models.household import Household, HouseholdMember
 from family_api.db.models.household_expense import HouseholdExpense
 from family_api.db.models.seeded import Category
 from family_api.db.models.transaction import Transaction
+from family_api.db.models.transaction_category import TransactionCategory
 from family_api.errors import DomainError, ForbiddenRoleError, NotFoundError
 from family_api.ids import new_id
 from family_api.services.contributions import get_open_period
@@ -131,6 +132,13 @@ async def create_expense(
         session.add(transaction)
         await session.flush()
         transaction_id = transaction.id
+        session.add(
+            TransactionCategory(
+                id=new_id(), household_id=member.household_id,
+                transaction_id=transaction.id, category_id=category.id,
+            )
+        )
+        await session.flush()
 
         if counts_as_contribution:
             period = await get_open_period(session, member.household_id)

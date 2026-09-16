@@ -92,7 +92,7 @@ async def test_the_mirrored_expense_uses_the_aporte_al_hogar_category(
     ledger = await client.get(
         "/api/v1/me/transactions?kind=expense&period=2026-09", headers=papa
     )
-    assert ledger.json()["items"][0]["category_name"] == "Aporte al hogar"
+    assert ledger.json()["items"][0]["categories"][0]["name"] == "Aporte al hogar"
 
 
 @pytest.mark.asyncio

@@ -5,9 +5,14 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 
+class CategoryRef(BaseModel):
+    id: UUID
+    name: str
+
+
 class CreateTransactionRequest(BaseModel):
     kind: Literal["income", "expense"]
-    category_id: UUID
+    category_ids: list[UUID] = Field(min_length=1)
     amount_minor: int = Field(gt=0)
     occurred_on: date
     name: str | None = Field(default=None, max_length=120)
@@ -15,7 +20,7 @@ class CreateTransactionRequest(BaseModel):
 
 
 class UpdateTransactionRequest(BaseModel):
-    category_id: UUID | None = None
+    category_ids: list[UUID] | None = Field(default=None, min_length=1)
     amount_minor: int | None = Field(default=None, gt=0)
     occurred_on: date | None = None
     name: str | None = Field(default=None, max_length=120)
@@ -25,8 +30,7 @@ class UpdateTransactionRequest(BaseModel):
 class TransactionResponse(BaseModel):
     id: UUID
     kind: str
-    category_id: UUID
-    category_name: str
+    categories: list[CategoryRef]
     amount_minor: int
     currency: str
     occurred_on: date

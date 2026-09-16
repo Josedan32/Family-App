@@ -17,6 +17,7 @@ from family_api.periods import parse_period
 from family_api.schemas.debt import DebtResponse, DebtSummaryResponse
 from family_api.schemas.savings import SavingsGoalResponse, SavingsSummaryResponse
 from family_api.schemas.transaction import (
+    CategoryRef,
     MoneyTotalResponse,
     TransactionListResponse,
     TransactionResponse,
@@ -56,11 +57,12 @@ async def _transactions_view(
     return TransactionListResponse(
         items=[
             TransactionResponse(
-                id=t.id, kind=t.kind, category_id=t.category_id, category_name=category_name,
+                id=t.id, kind=t.kind,
+                categories=[CategoryRef(id=cid, name=cname) for cid, cname in categories],
                 amount_minor=t.amount_minor, currency=household.currency,
                 occurred_on=t.occurred_on, name=t.name, note=t.note, source=t.source,
             )
-            for t, category_name in rows
+            for t, categories in rows
         ],
         next_cursor=None,
     )

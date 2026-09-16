@@ -13,6 +13,7 @@ from family_api.db.models.contribution import (
 from family_api.db.models.household import HouseholdMember
 from family_api.db.models.seeded import Category
 from family_api.db.models.transaction import Transaction
+from family_api.db.models.transaction_category import TransactionCategory
 from family_api.errors import DomainError, ForbiddenRoleError, NotFoundError
 from family_api.ids import new_id
 from family_api.services.households import CONTRIBUTION_CATEGORY
@@ -212,6 +213,13 @@ async def record_contribution(
         source="contribution", source_id=contribution_id,
     )
     session.add(transaction)
+    await session.flush()
+    session.add(
+        TransactionCategory(
+            id=new_id(), household_id=member.household_id,
+            transaction_id=transaction.id, category_id=category.id,
+        )
+    )
     await session.flush()
 
     contribution = Contribution(

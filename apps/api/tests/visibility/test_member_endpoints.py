@@ -44,7 +44,7 @@ async def _papa_earns(client: AsyncClient, papa: dict, amount: int) -> None:
     await client.post(
         "/api/v1/me/transactions",
         json={
-            "kind": "income", "category_id": salario,
+            "kind": "income", "category_ids": [salario],
             "amount_minor": amount, "occurred_on": "2026-09-05",
         },
         headers=papa,
@@ -83,7 +83,7 @@ async def test_public_returns_the_transaction_list(client: AsyncClient) -> None:
     )
 
     assert response.status_code == 200
-    assert response.json()["items"][0]["category_name"] == "Salario"
+    assert response.json()["items"][0]["categories"][0]["name"] == "Salario"
 
 
 @pytest.mark.asyncio
