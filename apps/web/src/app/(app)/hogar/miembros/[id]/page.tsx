@@ -1,5 +1,6 @@
 import { InstallmentLine } from "@/components/finance/InstallmentLine";
 import { MoneyDisplay } from "@/components/finance/MoneyDisplay";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { PrivateBlock } from "@/components/privacy/PrivateBlock";
 import { VisibilityBadge, type Level } from "@/components/privacy/VisibilityBadge";
 import { Card } from "@/components/ui/Card";
@@ -164,6 +165,7 @@ export default async function MemberProfilePage({
 
   return (
     <div className="flex flex-col gap-5">
+      <PageHeader />
       <div className="flex items-center gap-3.5">
         <div
           aria-hidden="true"

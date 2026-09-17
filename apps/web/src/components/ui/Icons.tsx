@@ -147,6 +147,14 @@ export function IconArrowUp(props: IconProps) {
   );
 }
 
+export function IconArrowLeft(props: IconProps) {
+  return (
+    <svg {...LINE_PROPS} {...props}>
+      <path d="M19 12H5M11 6l-6 6 6 6" />
+    </svg>
+  );
+}
+
 export function IconArrowDown(props: IconProps) {
   return (
     <svg {...LINE_PROPS} {...props}>
