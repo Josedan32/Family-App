@@ -145,6 +145,10 @@ async def list_chore_assignments(
     member: CurrentMember,
     session: SessionDep,
     member_id: UUID | None = None,
+    # `status`/`from`/`to` exist for future/API-only/mobile consumers. The
+    # current web UI (TareasClient) filters client-side over the already
+    # fetched cycle data via its own `filterAssignments` helper instead of
+    # calling these params — that's intentional, not an oversight.
     status_filter: Annotated[str | None, Query(alias="status")] = None,
     due_from: Annotated[date | None, Query(alias="from")] = None,
     due_to: Annotated[date | None, Query(alias="to")] = None,
