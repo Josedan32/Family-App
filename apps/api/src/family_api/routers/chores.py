@@ -145,7 +145,7 @@ async def list_chore_assignments(
     member: CurrentMember,
     session: SessionDep,
     member_id: UUID | None = None,
-    status: str | None = None,
+    status_filter: Annotated[str | None, Query(alias="status")] = None,
     due_from: Annotated[date | None, Query(alias="from")] = None,
     due_to: Annotated[date | None, Query(alias="to")] = None,
 ) -> list[AssignmentResponse]:
@@ -153,7 +153,7 @@ async def list_chore_assignments(
     if cycle is None:
         return []
     assignments = await assignment_service.list_cycle_assignments(
-        session, cycle.id, member_id, status=status, due_from=due_from, due_to=due_to
+        session, cycle.id, member_id, status=status_filter, due_from=due_from, due_to=due_to
     )
     return await assignment_service.to_assignment_responses(session, assignments)
 
