@@ -17,6 +17,7 @@ from family_api.schemas.debt import (
     DebtPaymentResponse,
     DebtResponse,
 )
+from family_api.schemas.finance_summary import MonthlySummaryResponse
 from family_api.schemas.savings import (
     CreateEntryRequest,
     CreateGoalRequest,
@@ -31,6 +32,7 @@ from family_api.schemas.transaction import (
     UpdateTransactionRequest,
 )
 from family_api.services import debts as debt_service
+from family_api.services import finance_summary as finance_summary_service
 from family_api.services import savings as savings_service
 from family_api.services import transactions as transaction_service
 from family_api.services.installments import InstallmentFigures, compute_installments
@@ -151,6 +153,25 @@ async def delete_transaction(
 ) -> None:
     await transaction_service.delete_transaction(session, member, transaction_id)
     await session.commit()
+
+
+@router.get("/monthly-summary")
+async def monthly_summary(
+    member: CurrentMember, session: SessionDep, period: str | None = None
+) -> MonthlySummaryResponse:
+    start, end = parse_period(period, await _timezone(session, member.household_id))
+    currency = await _currency(session, member.household_id)
+    figures = await finance_summary_service.monthly_summary(session, member.id, start, end)
+    return MonthlySummaryResponse(
+        period=f"{start.year:04d}-{start.month:02d}",
+        currency=currency,
+        income_minor=figures.income_minor,
+        expenses_minor=figures.expenses_minor,
+        saved_minor=figures.saved_minor,
+        debt_payments_minor=figures.debt_payments_minor,
+        remaining_minor=figures.remaining_minor,
+        status=figures.status,
+    )
 
 
 def _goal_response(goal: SavingsGoal, balance: int, currency: str) -> SavingsGoalResponse:

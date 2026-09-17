@@ -16,6 +16,7 @@ from family_api.db.models.household import Household
 from family_api.db.session import get_session
 from family_api.periods import parse_period
 from family_api.schemas.debt import DebtResponse, DebtSummaryResponse
+from family_api.schemas.finance_summary import MonthlySummaryResponse
 from family_api.schemas.savings import SavingsGoalResponse, SavingsSummaryResponse
 from family_api.schemas.transaction import (
     CategoryRef,
@@ -24,6 +25,7 @@ from family_api.schemas.transaction import (
     TransactionResponse,
 )
 from family_api.services import debts as debt_service
+from family_api.services import finance_summary as finance_summary_service
 from family_api.services import savings as savings_service
 from family_api.services import transactions as transaction_service
 from family_api.services.visibility import Level, VisibilityScope, visibility_for
@@ -155,3 +157,35 @@ async def member_debts(
         )
         for d, out, figures in rows
     ]
+
+
+@router.get("/{member_id}/monthly-summary")
+async def member_monthly_summary(
+    income_scope: Annotated[VisibilityScope, Depends(visibility_for("income"))],
+    expenses_scope: Annotated[VisibilityScope, Depends(visibility_for("expenses"))],
+    savings_scope: Annotated[VisibilityScope, Depends(visibility_for("savings"))],
+    debts_scope: Annotated[VisibilityScope, Depends(visibility_for("debts"))],
+    session: SessionDep,
+    period: str | None = None,
+) -> MonthlySummaryResponse:
+    """The summary combines all four modules into one derived figure, so it
+    is only released when NONE of them is private for this viewer — a
+    remaining-balance figure computed from a hidden module would leak that
+    module's total by subtraction. This is stricter than any single-module
+    route (docs/visibility-rules.md §3), which is deliberate: a composite
+    that always used the least-restrictive of the four would defeat the
+    point of a per-module setting."""
+    owner = income_scope.owner
+    household = await _household(session, owner.household_id)
+    start, end = parse_period(period, household.timezone)
+    figures = await finance_summary_service.monthly_summary(session, owner.id, start, end)
+    return MonthlySummaryResponse(
+        period=f"{start.year:04d}-{start.month:02d}",
+        currency=household.currency,
+        income_minor=figures.income_minor,
+        expenses_minor=figures.expenses_minor,
+        saved_minor=figures.saved_minor,
+        debt_payments_minor=figures.debt_payments_minor,
+        remaining_minor=figures.remaining_minor,
+        status=figures.status,
+    )

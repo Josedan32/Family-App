@@ -61,6 +61,9 @@ Hermana, Abuelo, Abuela, Tío, Tía, Otro.
 | Prestamista | `lender` | |
 | Deudor | `borrower` | |
 | Pendiente / Pagado | `pending` / `paid` | |
+| Resumen mensual | `monthly_summary` | Composes income, expenses, savings deposits and debt payments for one period into a single derived figure. |
+| Restante | `remaining_minor` | `income_minor - expenses_minor - saved_minor - debt_payments_minor`. Derived, never stored. |
+| Saludable / Ajustado / En descubierto | `healthy` / `tight` / `overspent` | The monthly summary's derived `status`. |
 
 ### The `debt` vs `member_loan` distinction
 

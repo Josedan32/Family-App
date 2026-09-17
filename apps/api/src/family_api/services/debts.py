@@ -62,6 +62,23 @@ async def _paid_total(session: AsyncSession, debt_id: UUID) -> int:
     return int(total or 0)
 
 
+async def payments_in_period(
+    session: AsyncSession, member_id: UUID, start: date_type, end: date_type
+) -> int:
+    """Sum of payments made across all of a member's debts within the period."""
+    total = await session.scalar(
+        select(func.coalesce(func.sum(DebtPayment.amount_minor), 0))
+        .select_from(DebtPayment)
+        .join(Debt, Debt.id == DebtPayment.debt_id)
+        .where(
+            Debt.member_id == member_id,
+            DebtPayment.paid_on >= start,
+            DebtPayment.paid_on <= end,
+        )
+    )
+    return int(total or 0)
+
+
 async def list_debts_with_outstanding(
     session: AsyncSession, member_id: UUID
 ) -> list[tuple[Debt, int]]:

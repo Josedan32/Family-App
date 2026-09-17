@@ -46,6 +46,26 @@ async def list_goals_with_balances(
     return [(goal, int(balance or 0)) for goal, balance in (await session.execute(stmt)).all()]
 
 
+async def deposits_in_period(
+    session: AsyncSession, member_id: UUID, start: date, end: date
+) -> int:
+    """Sum of deposit entries within the period, never netted against
+    withdrawals — Task 15's "total saved that month" is what went in, not the
+    running balance (that is `total_balance`)."""
+    total = await session.scalar(
+        select(func.coalesce(func.sum(SavingsEntry.amount_minor), 0))
+        .select_from(SavingsEntry)
+        .join(SavingsGoal, SavingsGoal.id == SavingsEntry.goal_id)
+        .where(
+            SavingsGoal.member_id == member_id,
+            SavingsEntry.kind == "deposit",
+            SavingsEntry.occurred_on >= start,
+            SavingsEntry.occurred_on <= end,
+        )
+    )
+    return int(total or 0)
+
+
 async def total_balance(session: AsyncSession, member_id: UUID) -> int:
     """The single number the savings summary returns."""
     total = await session.scalar(
