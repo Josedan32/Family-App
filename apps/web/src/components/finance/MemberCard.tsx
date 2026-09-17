@@ -7,6 +7,7 @@ import {
   IconDiamondFilled,
   IconLock,
 } from "@/components/ui/Icons";
+import { CategoryBreakdownList } from "./CategoryBreakdownList";
 import { MoneyDisplay } from "./MoneyDisplay";
 
 export interface ModuleCell {
@@ -20,6 +21,18 @@ export interface ModuleCell {
   total_minor?: number;
 }
 
+export interface CategoryAmount {
+  category_name: string;
+  amount_minor: number;
+}
+
+export interface CategoryBreakdown {
+  /** Same resolved-level semantics as `ModuleCell`. */
+  level: "full" | "summary" | "private";
+  /** Absent — not null, not an empty list — when the level is private. */
+  rows?: CategoryAmount[];
+}
+
 export interface DashboardMember {
   member_id: string;
   display_name: string;
@@ -29,6 +42,7 @@ export interface DashboardMember {
   expenses: ModuleCell;
   savings: ModuleCell;
   debts: ModuleCell;
+  expenses_by_category: CategoryBreakdown;
 }
 
 const MODULES = ["income", "expenses", "savings", "debts"] as const;
@@ -135,11 +149,31 @@ export function MemberCard({
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-3">
-          {MODULES.map((name) => (
-            <Cell key={name} name={name} cell={member[name]} currency={currency} />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-2 gap-3">
+            {MODULES.map((name) => (
+              <Cell key={name} name={name} cell={member[name]} currency={currency} />
+            ))}
+          </div>
+          {member.expenses_by_category.level !== "private" ? (
+            <div className="flex flex-col gap-2 border-t border-border pt-3">
+              <p className="text-xs font-medium text-text-muted">
+                Gastos personales por categoría
+              </p>
+              <CategoryBreakdownList
+                rows={member.expenses_by_category.rows ?? []}
+                currency={currency}
+              />
+              {/* A transaction tagged with more than one category counts
+                  fully in each row here, so the rows can add up to more
+                  than "Gastos" above. */}
+              <p className="text-xs text-text-muted">
+                Un gasto con más de una categoría cuenta completo en cada una, así que la suma
+                puede superar el total de Gastos de arriba.
+              </p>
+            </div>
+          ) : null}
+        </>
       )}
     </Card>
   );

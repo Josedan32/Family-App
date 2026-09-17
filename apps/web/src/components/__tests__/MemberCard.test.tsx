@@ -12,6 +12,10 @@ const base: DashboardMember = {
   expenses: { level: "summary", total_minor: 2_100_000 },
   savings: { level: "full", total_minor: 900_000 },
   debts: { level: "private" },
+  expenses_by_category: {
+    level: "summary",
+    rows: [{ category_name: "Comida", amount_minor: 500_000 }],
+  },
 };
 
 describe("MemberCard", () => {
@@ -47,5 +51,26 @@ describe("MemberCard", () => {
     const hidden: DashboardMember = { ...base, income: { level: "private" } };
     render(<MemberCard member={hidden} currency="COP" />);
     expect(screen.getByTestId("cell-income")).not.toHaveTextContent("$0");
+  });
+
+  it("shows the per-category expense breakdown when visible", () => {
+    render(<MemberCard member={base} currency="COP" />);
+    expect(screen.getByText("Gastos personales por categoría")).toBeInTheDocument();
+    expect(screen.getByText("Comida")).toBeInTheDocument();
+  });
+
+  it("discloses that a multi-category expense can outsum the total", () => {
+    render(<MemberCard member={base} currency="COP" />);
+    expect(screen.getByText(/puede superar el total de Gastos/)).toBeInTheDocument();
+  });
+
+  it("omits the category breakdown when private", () => {
+    const hidden: DashboardMember = {
+      ...base,
+      expenses_by_category: { level: "private" },
+    };
+    render(<MemberCard member={hidden} currency="COP" />);
+    expect(screen.queryByText("Gastos personales por categoría")).toBeNull();
+    expect(screen.queryByText(/puede superar el total de Gastos/)).toBeNull();
   });
 });

@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import type { CategoryAmount } from "@/components/finance/CategoryBreakdownList";
+import { CategoryBreakdownList } from "@/components/finance/CategoryBreakdownList";
 import { ContributionProgress } from "@/components/finance/ContributionProgress";
 import { MemberCard, type DashboardMember } from "@/components/finance/MemberCard";
 import { MoneyDisplay } from "@/components/finance/MoneyDisplay";
@@ -11,7 +13,12 @@ import { pageFetch } from "@/lib/api/server";
 interface Dashboard {
   period: string;
   currency: string;
-  household: { income_minor: number; expenses_minor: number; savings_minor: number };
+  household: {
+    income_minor: number;
+    expenses_minor: number;
+    savings_minor: number;
+    expenses_by_category: CategoryAmount[];
+  };
   contribution?: {
     goal_amount_minor: number;
     collected_minor: number;
@@ -95,6 +102,20 @@ export default async function DashboardPage() {
           included. Saying so here is what makes the derivability acceptable. */}
       <p className="-mt-2 text-xs text-text-muted">
         Los totales del hogar incluyen a todos los miembros.
+      </p>
+
+      <Card>
+        <p className="mb-3.5 text-sm font-medium text-text-muted">
+          Gastos del hogar por categoría
+        </p>
+        <CategoryBreakdownList rows={data.household.expenses_by_category} currency={data.currency} />
+      </Card>
+
+      {/* This reflects the household ledger (libro del hogar), a different
+          record than the sum of personal transactions behind "Gastos"
+          above — the two totals are not expected to match. */}
+      <p className="-mt-2 text-xs text-text-muted">
+        Refleja el libro del hogar; puede no coincidir con el total de gastos de arriba.
       </p>
 
       {data.contribution ? (
