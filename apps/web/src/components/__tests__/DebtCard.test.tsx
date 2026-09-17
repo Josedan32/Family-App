@@ -46,4 +46,15 @@ describe("DebtCard", () => {
     render(<DebtCard debt={debtWithoutPlan} />);
     expect(screen.queryByText(/Cuota/)).not.toBeInTheDocument();
   });
+
+  it("hides the creditor label when it duplicates the name", () => {
+    const debtWithSameLabel: Debt = { ...debtWithPlan, name: "Addi", creditor_label: "Addi" };
+    render(<DebtCard debt={debtWithSameLabel} />);
+    expect(screen.getAllByText("Addi")).toHaveLength(1);
+  });
+
+  it("shows the creditor label when it differs from the name", () => {
+    render(<DebtCard debt={debtWithPlan} />);
+    expect(screen.getByText("Addi - Celular")).toBeInTheDocument();
+  });
 });

@@ -26,7 +26,9 @@ export function DebtCard({ debt }: { debt: Debt }) {
   return (
     <Card className="flex flex-col gap-2">
       <span className="font-bold">{debt.name}</span>
-      <span className="-mt-2 text-xs text-text-muted">{debt.creditor_label}</span>
+      {debt.creditor_label !== debt.name ? (
+        <span className="-mt-2 text-xs text-text-muted">{debt.creditor_label}</span>
+      ) : null}
       <div className="flex items-end justify-between gap-3">
         <span className="text-xs text-text-muted">
           {debt.due_day ? `Vence el día ${debt.due_day}` : "Sin fecha de corte"}
