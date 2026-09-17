@@ -56,10 +56,12 @@ export function TareasClient({
   cycle,
   members,
   myMemberId,
+  isAdmin = false,
 }: {
   cycle: Cycle;
   members: AssignmentMember[];
   myMemberId: string;
+  isAdmin?: boolean;
 }) {
   const [assignments, setAssignments] = useState(cycle.assignments);
   const [showDone, setShowDone] = useState(false);
@@ -68,7 +70,16 @@ export function TareasClient({
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [minPoints, setMinPoints] = useState<number | null>(null);
   const [maxPoints, setMaxPoints] = useState<number | null>(null);
+  // Admin-only: which household the list represents. Distinct from
+  // `memberFilter` — that dropdown narrows to one member for anyone; this
+  // is the admin's "am I looking at the whole household or just myself"
+  // switch, and it must stay visually separate rather than double as the
+  // same control (see task-12 brief).
+  const [adminScope, setAdminScope] = useState<"all" | "mine">("all");
   const router = useRouter();
+
+  const effectiveMemberFilter =
+    isAdmin && adminScope === "mine" ? myMemberId : memberFilter;
 
   useEffect(() => {
     // Visiting this page is what "seeing the draw" means — no separate
@@ -81,7 +92,7 @@ export function TareasClient({
   const weeklyAll = thisWeek(cycle.assignments);
 
   const filtered = filterAssignments(assignments, {
-    memberFilter,
+    memberFilter: effectiveMemberFilter,
     statusFilter,
     minPoints,
     maxPoints,
@@ -170,13 +181,44 @@ export function TareasClient({
             </button>
           ) : null}
         </div>
+        {isAdmin ? (
+          <div
+            role="tablist"
+            aria-label="Alcance de la vista"
+            className="flex gap-1 rounded-xl border border-border bg-surface-sunken p-1"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={adminScope === "all"}
+              onClick={() => setAdminScope("all")}
+              className={`min-h-9 flex-1 rounded-lg text-xs font-semibold ${
+                adminScope === "all" ? "bg-surface text-brand shadow-sm" : "text-text-muted"
+              }`}
+            >
+              Todas las tareas
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={adminScope === "mine"}
+              onClick={() => setAdminScope("mine")}
+              className={`min-h-9 flex-1 rounded-lg text-xs font-semibold ${
+                adminScope === "mine" ? "bg-surface text-brand shadow-sm" : "text-text-muted"
+              }`}
+            >
+              Mis tareas
+            </button>
+          </div>
+        ) : null}
         <div className="flex items-center justify-between gap-3">
           <label className="flex items-center gap-1.5 text-xs text-text-muted">
             Ver
             <select
               value={memberFilter}
+              disabled={isAdmin && adminScope === "mine"}
               onChange={(event) => setMemberFilter(event.target.value)}
-              className="min-h-9 rounded-lg border border-border bg-surface px-2 text-xs font-semibold text-text"
+              className="min-h-9 rounded-lg border border-border bg-surface px-2 text-xs font-semibold text-text disabled:opacity-50"
             >
               <option value="all">Todos</option>
               {members.map((m) => (
