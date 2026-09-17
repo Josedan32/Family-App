@@ -12,6 +12,15 @@ import {
 import { AssignmentWheel } from "@/components/chores/AssignmentWheel";
 import { clientFetch } from "@/lib/api/client";
 
+import { filterAssignments } from "./filterAssignments";
+
+const STATUS_LABELS: Record<string, string> = {
+  pending: "Pendiente",
+  done: "Hecha",
+  skipped: "Omitida",
+  reassigned: "Reasignada",
+};
+
 interface Cycle {
   id: string;
   starts_on: string;
@@ -49,6 +58,9 @@ export function TareasClient({
   const [showDone, setShowDone] = useState(false);
   const [showWheel, setShowWheel] = useState(false);
   const [memberFilter, setMemberFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [minPoints, setMinPoints] = useState<number | null>(null);
+  const [maxPoints, setMaxPoints] = useState<number | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -61,9 +73,12 @@ export function TareasClient({
 
   const weeklyAll = thisWeek(cycle.assignments);
 
-  const filtered = assignments.filter(
-    (a) => memberFilter === "all" || a.member_id === memberFilter,
-  );
+  const filtered = filterAssignments(assignments, {
+    memberFilter,
+    statusFilter,
+    minPoints,
+    maxPoints,
+  });
   const pending = filtered.filter((a) => a.status === "pending");
   const done = filtered.filter((a) => a.status === "done");
   const pendingPoints = pending.reduce((sum, a) => sum + a.effort_points, 0);
@@ -159,6 +174,51 @@ export function TareasClient({
           <span className="whitespace-nowrap text-xs tabular-nums text-text-muted">
             {pending.length} pendientes · {pendingPoints} pts
           </span>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="flex items-center gap-1.5 text-xs text-text-muted">
+            Estado
+            <select
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value)}
+              className="min-h-9 rounded-lg border border-border bg-surface px-2 text-xs font-semibold text-text"
+            >
+              <option value="all">Todos</option>
+              {Object.entries(STATUS_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex items-center gap-1.5 text-xs text-text-muted">
+            Puntos
+            <input
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={10}
+              placeholder="Mín"
+              value={minPoints ?? ""}
+              onChange={(event) =>
+                setMinPoints(event.target.value === "" ? null : Number(event.target.value))
+              }
+              className="min-h-9 w-14 rounded-lg border border-border bg-surface px-2 text-xs font-semibold text-text"
+            />
+            –
+            <input
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={10}
+              placeholder="Máx"
+              value={maxPoints ?? ""}
+              onChange={(event) =>
+                setMaxPoints(event.target.value === "" ? null : Number(event.target.value))
+              }
+              className="min-h-9 w-14 rounded-lg border border-border bg-surface px-2 text-xs font-semibold text-text"
+            />
+          </label>
         </div>
         <ul className="flex flex-col gap-2">
           {pending.map((assignment) => (
