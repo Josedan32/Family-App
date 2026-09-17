@@ -57,7 +57,7 @@ describe("copyToClipboard", () => {
     const result = await copyToClipboard("test text");
 
     expect(result).toBe(false);
-    expect(pushToast).toHaveBeenCalledWith({ message: "Error al copiar", type: "error" });
+    expect(pushToast).toHaveBeenCalledWith({ message: "Error al copiar", type: "danger" });
   });
 });
 
