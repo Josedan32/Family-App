@@ -1,4 +1,4 @@
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,6 +9,7 @@ from family_api.errors import (
     AlreadyInHouseholdError,
     IncorrectPasswordError,
     InvalidCredentialsError,
+    PhotoTooLargeError,
     TokenExpiredError,
     TokenReusedError,
 )
@@ -20,6 +21,10 @@ from family_api.security.tokens import (
     generate_refresh_token,
     hash_refresh_token,
 )
+
+# Client-side resize targets ~128px JPEG data URLs, well under this. The cap
+# only guards against a stray huge payload bloating the users table.
+MAX_PHOTO_URL_LENGTH = 250_000
 
 
 async def _issue_pair(session: AsyncSession, user: User) -> TokenPair:
@@ -93,6 +98,23 @@ async def change_password(
     if not verify_password(current_password, user.password_hash):
         raise IncorrectPasswordError
     user.password_hash = hash_password(new_password)
+
+
+async def update_profile(
+    user: User,
+    *,
+    display_name: str | None,
+    photo_url: str | None,
+    birth_date: date | None,
+) -> None:
+    if photo_url is not None and len(photo_url) > MAX_PHOTO_URL_LENGTH:
+        raise PhotoTooLargeError
+    if display_name is not None:
+        user.display_name = display_name
+    if photo_url is not None:
+        user.photo_url = photo_url
+    if birth_date is not None:
+        user.birth_date = birth_date
 
 
 async def revoke_refresh(session: AsyncSession, raw_token: str) -> None:

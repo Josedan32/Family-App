@@ -90,12 +90,12 @@ me_router = APIRouter(prefix="/me", tags=["profile"])
 async def update_profile(
     body: UpdateProfileRequest, user: CurrentUser, session: SessionDep
 ) -> UserResponse:
-    if body.display_name is not None:
-        user.display_name = body.display_name
-    if body.photo_url is not None:
-        user.photo_url = body.photo_url
-    if body.birth_date is not None:
-        user.birth_date = body.birth_date
+    await auth_service.update_profile(
+        user,
+        display_name=body.display_name,
+        photo_url=body.photo_url,
+        birth_date=body.birth_date,
+    )
     await session.commit()
     return UserResponse(
         id=user.id, email=user.email, display_name=user.display_name,

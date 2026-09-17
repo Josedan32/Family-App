@@ -98,6 +98,12 @@ class IncorrectPasswordError(DomainError):
     title = "La contraseña actual no es correcta"
 
 
+class PhotoTooLargeError(DomainError):
+    type_slug = "photo_too_large"
+    status = 400
+    title = "La foto es demasiado grande"
+
+
 class TokenExpiredError(DomainError):
     type_slug = "token_expired"
     status = 401
