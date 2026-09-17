@@ -29,6 +29,9 @@ export function ProfileForm({ initial }: { initial: Profile }) {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [confirmError, setConfirmError] = useState<string | null>(null);
+  const [newPasswordError, setNewPasswordError] = useState<string | null>(null);
+
+  const MIN_NEW_PASSWORD_LENGTH = 12;
 
   const save = useMutation({
     mutationFn: () =>
@@ -69,6 +72,13 @@ export function ProfileForm({ initial }: { initial: Profile }) {
 
   function submitPasswordChange() {
     setPasswordError(null);
+    if (newPassword.length < MIN_NEW_PASSWORD_LENGTH) {
+      setNewPasswordError(
+        `La contraseña debe tener al menos ${MIN_NEW_PASSWORD_LENGTH} caracteres`,
+      );
+      return;
+    }
+    setNewPasswordError(null);
     if (newPassword !== confirmPassword) {
       setConfirmError("Las contraseñas no coinciden");
       return;
@@ -134,6 +144,7 @@ export function ProfileForm({ initial }: { initial: Profile }) {
           autoComplete="new-password"
           value={newPassword}
           onChange={(event) => setNewPassword(event.target.value)}
+          error={newPasswordError ?? undefined}
         />
         <Input
           label="Confirmar contraseña nueva"
