@@ -8,6 +8,7 @@ import { DebtCard, type Debt } from "@/components/finance/DebtCard";
 import { DebtDetail } from "@/components/finance/DebtDetail";
 import { GoalCard, type Goal } from "@/components/finance/GoalCard";
 import { GoalDetail } from "@/components/finance/GoalDetail";
+import { MonthlySummaryCard } from "@/components/finance/MonthlySummaryCard";
 import { TransactionForm } from "@/components/finance/TransactionForm";
 import { TransactionRow, type Transaction } from "@/components/finance/TransactionRow";
 import { Button } from "@/components/ui/Button";
@@ -362,6 +363,8 @@ export default function FinanzasPage() {
         <h1 className="text-[1.75rem] font-bold tracking-tight">Finanzas</h1>
         <span className="text-xs capitalize text-text-muted">{month}</span>
       </div>
+
+      <MonthlySummaryCard endpoint="/me/monthly-summary" />
 
       <Tabs tabs={TABS} active={tab} onChange={(id) => setTab(id as TabId)} />
 
