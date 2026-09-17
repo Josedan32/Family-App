@@ -21,6 +21,9 @@ export interface Transaction {
   name: string | null;
   note: string | null;
   source: string;
+  is_recurring: boolean;
+  frequency: string | null;
+  payment_method: string;
 }
 
 export function TransactionRow({ transaction }: { transaction: Transaction }) {

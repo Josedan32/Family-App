@@ -106,6 +106,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/change-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Change Password */
+        post: operations["change_password_api_v1_auth_change_password_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/profile": {
         parameters: {
             query?: never;
@@ -1018,6 +1035,13 @@ export interface components {
             /** Archived At */
             archived_at: string | null;
         };
+        /** ChangePasswordRequest */
+        ChangePasswordRequest: {
+            /** Current Password */
+            current_password: string;
+            /** New Password */
+            new_password: string;
+        };
         /** ChoreResponse */
         ChoreResponse: {
             /**
@@ -1336,6 +1360,19 @@ export interface components {
             occurred_on: string;
             /** Note */
             note?: string | null;
+            /**
+             * Is Recurring
+             * @default false
+             */
+            is_recurring: boolean;
+            /** Frequency */
+            frequency?: ("monthly" | "once" | "biweekly") | null;
+            /**
+             * Payment Method
+             * @default cash
+             * @enum {string}
+             */
+            payment_method: "cash" | "nequi" | "bancolombia";
         };
         /** CycleResponse */
         CycleResponse: {
@@ -1820,6 +1857,12 @@ export interface components {
             note: string | null;
             /** Source */
             source: string;
+            /** Is Recurring */
+            is_recurring: boolean;
+            /** Frequency */
+            frequency: string | null;
+            /** Payment Method */
+            payment_method: string;
         };
         /** UpdateCategoryRequest */
         UpdateCategoryRequest: {
@@ -2164,6 +2207,39 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["UserResponse"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_password_api_v1_auth_change_password_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangePasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
