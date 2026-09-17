@@ -46,6 +46,12 @@ describe("ContributeButton", () => {
     expect(screen.getByRole("button", { name: "Guardar" })).toBeDisabled();
   });
 
+  it("marks the category picker as optional", () => {
+    renderButton();
+    fireEvent.click(screen.getByText("Registrar mi aporte"));
+    expect(screen.getByText("Categoría (opcional)")).toBeInTheDocument();
+  });
+
   describe("category selection", () => {
     afterEach(() => {
       vi.unstubAllGlobals();

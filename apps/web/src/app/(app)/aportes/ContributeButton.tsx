@@ -113,7 +113,12 @@ export function ContributeButton({
             onChange={(event) => setNote(event.target.value)}
             helperText="La nota la ven todos los miembros del hogar."
           />
-          <CategoryPicker categories={categories.data} value={categoryId} onChange={setCategoryId} />
+          <CategoryPicker
+            categories={categories.data}
+            value={categoryId}
+            onChange={setCategoryId}
+            label="Categoría (opcional)"
+          />
           {contribute.isError ? (
             <p role="alert" className="text-sm text-danger">
               {(contribute.error as Error).message}
