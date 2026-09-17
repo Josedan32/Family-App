@@ -28,11 +28,12 @@ export function Button({
 }: Props) {
   const id = useId();
   const reasonId = disabled && disabledReason ? `${id}-disabled-reason` : undefined;
+  const describedBy = [reasonId, rest["aria-describedby"]].filter(Boolean).join(" ") || undefined;
   const button = (
     <button
       disabled={disabled}
-      aria-describedby={reasonId}
       {...rest}
+      aria-describedby={describedBy}
       className={`rounded-lg px-4 py-3 font-medium transition-opacity disabled:opacity-50 ${VARIANTS[variant]} ${className}`}
     />
   );

@@ -39,4 +39,18 @@ describe("Button", () => {
     expect(screen.getByRole("button")).toBeDisabled();
     expect(screen.queryByRole("alert")).toBeNull();
   });
+
+  it("keeps both the disabled-reason id and a caller-supplied aria-describedby", () => {
+    render(
+      <Button disabled disabledReason="Cierra el ciclo actual primero" aria-describedby="hint">
+        Registrar aporte
+      </Button>,
+    );
+    const button = screen.getByRole("button", { name: "Registrar aporte" });
+    const reason = screen.getByText("Cierra el ciclo actual primero");
+
+    const describedBy = button.getAttribute("aria-describedby")?.split(" ") ?? [];
+    expect(describedBy).toContain(reason.id);
+    expect(describedBy).toContain("hint");
+  });
 });
