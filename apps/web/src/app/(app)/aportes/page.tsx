@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { ContributionProgress } from "@/components/finance/ContributionProgress";
 import { MoneyDisplay } from "@/components/finance/MoneyDisplay";
 import { Card } from "@/components/ui/Card";
@@ -46,6 +48,9 @@ export default async function AportesPage() {
       <div className="flex flex-col gap-4">
         <h1 className="text-[1.75rem] font-bold tracking-tight">Aportes</h1>
         <EmptyState icon={<IconHandshake />} message="No hay un periodo abierto" />
+        <Link href="/aportes/periodos" className="self-center text-sm font-semibold text-brand">
+          Ver periodos anteriores
+        </Link>
       </div>
     );
   }
@@ -119,6 +124,10 @@ export default async function AportesPage() {
       </div>
 
       <MyContributions periodId={period.id} />
+
+      <Link href="/aportes/periodos" className="self-center text-sm font-semibold text-brand">
+        Ver periodos anteriores
+      </Link>
 
       <ContributeButton periodId={period.id} currency={period.currency} />
     </div>
