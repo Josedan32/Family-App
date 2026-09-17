@@ -44,7 +44,19 @@ function expiryLabel(invite: Invite) {
   ).toLocaleString("es-CO", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}`;
 }
 
-async function handleShare(code: string) {
+export async function copyToClipboard(text: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+    pushToast({ message: "Copiado", type: "success" });
+    return true;
+  } catch (error) {
+    console.error("Failed to copy:", error);
+    pushToast({ message: "Error al copiar", type: "error" });
+    return false;
+  }
+}
+
+export async function handleShare(code: string) {
   const message = buildShareMessage(code);
 
   // Try Web Share API first
@@ -56,26 +68,24 @@ async function handleShare(code: string) {
       pushToast({ message: "Compartido", type: "success" });
       return;
     } catch (error) {
-      // User cancelled or share failed, fall through to other methods
-      if ((error as Error).name !== "AbortError") {
-        console.error("Share failed:", error);
+      const errorName = (error as Error).name;
+      // User cancelled (AbortError) — do NOT fall through to wa.me
+      if (errorName === "AbortError") {
+        return;
       }
+      // Share API failed for other reason, fall through to wa.me
+      console.error("Share failed:", error);
     }
   }
 
   // Fall back to WhatsApp link
   const encodedMessage = encodeURIComponent(message);
   const whatsappUrl = `https://wa.me/?text=${encodedMessage}`;
-  window.open(whatsappUrl, "_blank");
-}
+  const opened = window.open(whatsappUrl, "_blank");
 
-async function copyToClipboard(text: string) {
-  try {
-    await navigator.clipboard.writeText(text);
-    pushToast({ message: "Copiado", type: "success" });
-  } catch (error) {
-    console.error("Failed to copy:", error);
-    pushToast({ message: "Error al copiar", type: "error" });
+  // If wa.me link was blocked (popup blocked), fall back to clipboard
+  if (!opened) {
+    await copyToClipboard(message);
   }
 }
 
@@ -177,7 +187,7 @@ export function InvitesSection() {
                 onClick={() => copyToClipboard((create.data as Invite).code)}
                 className="whitespace-nowrap"
               >
-                Copiar
+                Copiar código
               </Button>
             </div>
           </div>
