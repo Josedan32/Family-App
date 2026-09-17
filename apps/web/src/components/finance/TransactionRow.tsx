@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/Button";
@@ -87,9 +88,9 @@ export function TransactionRow({ transaction }: { transaction: Transaction }) {
           <span className="text-xs text-text-muted">
             Se registra automáticamente desde Aportes.
           </span>
-          <a href="/aportes" className="whitespace-nowrap text-sm font-semibold text-brand">
+          <Link href="/aportes" className="whitespace-nowrap text-sm font-semibold text-brand">
             Ver aportes ›
-          </a>
+          </Link>
         </div>
       ) : (
         <div className="flex items-center gap-3 border-t border-border pt-2.5">
