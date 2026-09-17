@@ -153,10 +153,18 @@ async def category_breakdown_for(
     """One member's transactions of `kind`, summed per category.
 
     A transaction carrying more than one category (Task 9) contributes its
-    full amount to EACH of its categories: this answers "how much went
-    toward category X", not "how is the total partitioned", so rows can sum
-    to more than `total_for(...)`. Splitting the amount across categories
-    would invent an allocation the data does not record.
+    full amount to EACH of its categories, so rows here can sum to more than
+    `total_for(...)`. This is a deliberate choice, made on its own merits,
+    not because some other query already does it this way:
+
+    - The alternative — splitting the amount across categories — would
+      invent an allocation the data does not record. A $100 transaction
+      tagged "Comida" and "Hogar" was never split 50/50, or any other ratio;
+      manufacturing one would misrepresent the household's spending.
+    - This is a breakdown that answers "how much went toward category X",
+      not a partition of the total that must reconcile to it. The caller
+      (the dashboard) surfaces this to the viewer alongside the plain total,
+      so the discrepancy is visible rather than silently absorbed here.
     """
     rows = (
         await session.execute(
