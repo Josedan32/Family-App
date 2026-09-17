@@ -51,7 +51,7 @@ export async function copyToClipboard(text: string) {
     return true;
   } catch (error) {
     console.error("Failed to copy:", error);
-    pushToast({ message: "Error al copiar", type: "error" });
+    pushToast({ message: "Error al copiar", type: "danger" });
     return false;
   }
 }
