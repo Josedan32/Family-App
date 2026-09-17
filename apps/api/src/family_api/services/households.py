@@ -11,9 +11,9 @@ from family_api.services.chores import seed_chores
 
 # FR-M2-01. Seeded data stays in the user's language (docs/glossary.md §6).
 # The expense list below is the union of the original seed plus two logical
-# groups added by Task 5 (household-flavored and personal-flavored names);
-# `Category` itself has no "household vs personal" attribute, so they are
-# combined into one flat, deduplicated list.
+# groups added to support both household-flavored and personal-flavored
+# expense names; `Category` itself has no "household vs personal" attribute,
+# so they are combined into one flat, deduplicated list.
 _BASE_EXPENSE_CATEGORIES = (
     "Transporte", "Comida", "Educación", "Entretenimiento", "Salud", "Otros",
 )

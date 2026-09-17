@@ -17,7 +17,7 @@ class TransactionCategory(Base, TimestampMixin):
     contribution's mirrored expense stays fixed to the system "Aporte al
     hogar" category as its first entry, but MAY carry one additional,
     member-chosen category on top of it — see `Contribution.category_id` and
-    `record_contribution` (Task 9).
+    `record_contribution`.
     """
 
     __tablename__ = "transaction_categories"

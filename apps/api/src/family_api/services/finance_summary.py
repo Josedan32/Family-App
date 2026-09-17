@@ -2,7 +2,7 @@
 
 No SQL lives here — it calls `transactions.total_for`, `savings.
 deposits_in_period` and `debts.payments_in_period` and does integer
-arithmetic on their results. Status thresholds per Task 15's ruling:
+arithmetic on their results. Status thresholds:
 `overspent` when remaining is negative, `tight` when remaining is under 10%
 of income, `healthy` otherwise; a zero-income period is `overspent` only if
 something was spent, saved or paid, else `healthy`.

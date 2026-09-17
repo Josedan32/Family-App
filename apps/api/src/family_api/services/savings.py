@@ -50,8 +50,8 @@ async def deposits_in_period(
     session: AsyncSession, member_id: UUID, start: date, end: date
 ) -> int:
     """Sum of deposit entries within the period, never netted against
-    withdrawals — Task 15's "total saved that month" is what went in, not the
-    running balance (that is `total_balance`)."""
+    withdrawals — "total saved that month" is what went in, not the running
+    balance (that is `total_balance`)."""
     total = await session.scalar(
         select(func.coalesce(func.sum(SavingsEntry.amount_minor), 0))
         .select_from(SavingsEntry)

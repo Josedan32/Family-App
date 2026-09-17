@@ -190,9 +190,9 @@ async def record_contribution(
     anywhere rolls back both.
 
     `category_id`, when given, is the member's OPTIONAL, ADDITIONAL category
-    (Task 9) — it is attached via `TransactionCategory` alongside the fixed
-    system category, never replacing it as the transaction's own
-    `category_id` or as the first `TransactionCategory` row.
+    — it is attached via `TransactionCategory` alongside the fixed system
+    category, never replacing it as the transaction's own `category_id` or
+    as the first `TransactionCategory` row.
     """
     if member.role == "guest":
         raise ForbiddenRoleError

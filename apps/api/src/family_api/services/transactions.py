@@ -152,8 +152,8 @@ async def category_breakdown_for(
 ) -> list[tuple[str, int]]:
     """One member's transactions of `kind`, summed per category.
 
-    A transaction carrying more than one category (Task 9) contributes its
-    full amount to EACH of its categories, so rows here can sum to more than
+    A transaction carrying more than one category contributes its full
+    amount to EACH of its categories, so rows here can sum to more than
     `total_for(...)`. This is a deliberate choice, made on its own merits,
     not because some other query already does it this way:
 

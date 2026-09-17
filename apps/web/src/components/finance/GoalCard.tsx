@@ -22,7 +22,7 @@ const PRIORITY_LABEL: Record<Goal["priority"], string> = {
 };
 
 function GoalDeadlineState({ goal }: { goal: Goal }) {
-  // Precedence: goal achieved > deadline passed > "N days left" (Task 13).
+  // Precedence: goal achieved > deadline passed > "N days left".
   if (goal.state === "completado") {
     return (
       <span className="flex items-center gap-1 text-xs font-semibold text-success">
