@@ -10,11 +10,26 @@ from family_api.ids import new_id
 from family_api.services.chores import seed_chores
 
 # FR-M2-01. Seeded data stays in the user's language (docs/glossary.md §6).
+# The expense list below is the union of the original seed plus two logical
+# groups added by Task 5 (household-flavored and personal-flavored names);
+# `Category` itself has no "household vs personal" attribute, so they are
+# combined into one flat, deduplicated list.
+_BASE_EXPENSE_CATEGORIES = (
+    "Transporte", "Comida", "Educación", "Entretenimiento", "Salud", "Otros",
+)
+_NEW_HOUSEHOLD_EXPENSE_CATEGORIES = ("Internet", "Servicios", "Arriendo", "Comida")
+_NEW_PERSONAL_EXPENSE_CATEGORIES = (
+    "Trabajo", "Viaje", "Regalo", "Banco", "Salud", "Lujo", "Inversión",
+    "Responsabilidad", "Casa", "Ropa", "Aseo Personal", "Deudas - Préstamos", "Gym",
+)
+
 SEEDED_CATEGORIES: dict[str, tuple[str, ...]] = {
     "income": ("Salario", "Negocio", "Regalos", "Otros"),
-    "expense": (
-        "Transporte", "Comida", "Educación", "Entretenimiento", "Salud", "Otros",
-    ),
+    "expense": tuple(dict.fromkeys((
+        *_BASE_EXPENSE_CATEGORIES,
+        *_NEW_HOUSEHOLD_EXPENSE_CATEGORIES,
+        *_NEW_PERSONAL_EXPENSE_CATEGORIES,
+    ))),
 }
 
 # The category FR-M4-05 assigns to the expense a contribution generates.

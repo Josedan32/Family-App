@@ -60,11 +60,30 @@ async def test_creation_seeds_the_spec_categories(
 
     assert income == {"Salario", "Negocio", "Regalos", "Otros"}
     assert expense == {
-        "Transporte", "Comida", "Educación", "Entretenimiento",
-        "Salud", "Otros", "Aporte al hogar",
+        "Transporte", "Comida", "Educación", "Entretenimiento", "Salud", "Otros",
+        "Internet", "Servicios", "Arriendo",
+        "Trabajo", "Viaje", "Regalo", "Banco", "Lujo", "Inversión",
+        "Responsabilidad", "Casa", "Ropa", "Aseo Personal", "Deudas - Préstamos", "Gym",
+        "Aporte al hogar",
     }
     aporte = next(c for c in rows if c.name == "Aporte al hogar")
     assert aporte.is_system is True
+
+
+@pytest.mark.asyncio
+async def test_creation_skips_expense_categories_already_seeded(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """Household ("Comida") and personal ("Salud" etc.) additions overlap the
+    base seed list; each name must appear exactly once (Task 5)."""
+    token = await _register(client)
+    await client.post("/api/v1/households", json={"name": "Hogar"}, headers=_auth(token))
+
+    rows = (await db_session.scalars(select(Category))).all()
+    expense_names = [c.name for c in rows if c.kind == "expense"]
+
+    assert expense_names.count("Comida") == 1
+    assert expense_names.count("Salud") == 1
 
 
 @pytest.mark.asyncio
