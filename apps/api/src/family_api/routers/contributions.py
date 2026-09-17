@@ -111,6 +111,15 @@ async def current_period(
     return await _detail(session, member, period)
 
 
+@router.get("/{period_id}")
+async def get_period(
+    period_id: UUID, member: CurrentMember, session: SessionDep
+) -> PeriodDetailResponse:
+    """Always visible to every household member (FR-M4-07)."""
+    period = await contribution_service._load_period(session, member, period_id)
+    return await _detail(session, member, period)
+
+
 @router.patch("/{period_id}")
 async def update_period(
     period_id: UUID,
