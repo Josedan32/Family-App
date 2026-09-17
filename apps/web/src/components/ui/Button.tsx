@@ -42,7 +42,7 @@ export function Button({
   return (
     <div className="flex flex-col gap-1">
       {button}
-      <span id={reasonId} role="alert" className="text-xs text-warning">
+      <span id={reasonId} className="text-xs text-warning">
         {disabledReason}
       </span>
     </div>

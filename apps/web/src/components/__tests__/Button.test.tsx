@@ -19,9 +19,11 @@ describe("Button", () => {
     const button = screen.getByRole("button", { name: "Registrar aporte" });
     expect(button).toBeDisabled();
 
-    const reason = screen.getByRole("alert");
-    expect(reason).toHaveTextContent("Cierra el ciclo actual primero");
+    const reason = screen.getByText("Cierra el ciclo actual primero");
     expect(button).toHaveAttribute("aria-describedby", reason.id);
+    // Static, page-lifetime text — not a live-region interrupt.
+    expect(reason).not.toHaveAttribute("role", "alert");
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("does not render disabledReason text when the button is enabled", () => {
