@@ -52,6 +52,36 @@ async def _earn(client: AsyncClient, headers: dict, amount: int) -> None:
     )
 
 
+async def _spend(
+    client: AsyncClient, headers: dict, amount: int, category_name: str = "Comida"
+) -> None:
+    categories = await client.get("/api/v1/categories?kind=expense", headers=headers)
+    category_id = next(c["id"] for c in categories.json() if c["name"] == category_name)
+    await client.post(
+        "/api/v1/me/transactions",
+        json={
+            "kind": "expense", "category_ids": [category_id],
+            "amount_minor": amount, "occurred_on": "2026-09-05",
+        },
+        headers=headers,
+    )
+
+
+async def _spend_household(
+    client: AsyncClient, headers: dict, amount: int, category_name: str = "Servicios"
+) -> None:
+    categories = await client.get("/api/v1/categories?kind=expense", headers=headers)
+    category_id = next(c["id"] for c in categories.json() if c["name"] == category_name)
+    await client.post(
+        "/api/v1/household-expenses",
+        json={
+            "category_id": category_id, "amount_minor": amount,
+            "occurred_on": "2026-09-05", "funding": "member",
+        },
+        headers=headers,
+    )
+
+
 @pytest.mark.asyncio
 async def test_household_totals_include_private_members(client: AsyncClient) -> None:
     """FR-D1-02 / spec §8.4.
@@ -177,6 +207,89 @@ async def test_a_guest_sees_aggregates_but_no_member_figures(
     assert response.json()["household"]["income_minor"] == 3_000_000
     card = next(m for m in response.json()["members"] if m["member_id"] == papa_id)
     assert card["income"] == {"level": "private"}
+
+
+@pytest.mark.asyncio
+async def test_a_private_members_category_breakdown_is_omitted(
+    client: AsyncClient,
+) -> None:
+    """Matches the existing visibility test pattern for other dashboard cells."""
+    admin, papa, papa_id = await _household(client)
+    await _spend(client, papa, 100_000, "Comida")
+    await client.put(
+        "/api/v1/me/visibility",
+        json={m: "private" for m in ("income", "expenses", "savings", "debts")},
+        headers=papa,
+    )
+
+    response = await client.get("/api/v1/dashboard?period=2026-09", headers=admin)
+    card = next(m for m in response.json()["members"] if m["member_id"] == papa_id)
+
+    assert card["expenses_by_category"] == {"level": "private"}
+    assert "rows" not in card["expenses_by_category"]
+
+
+@pytest.mark.asyncio
+async def test_a_visible_members_category_breakdown_sums_correctly(
+    client: AsyncClient,
+) -> None:
+    admin, papa, papa_id = await _household(client)
+    await _spend(client, papa, 100_000, "Comida")
+    await _spend(client, papa, 40_000, "Comida")
+    await _spend(client, papa, 25_000, "Transporte")
+
+    response = await client.get("/api/v1/dashboard?period=2026-09", headers=admin)
+    card = next(m for m in response.json()["members"] if m["member_id"] == papa_id)
+
+    assert card["expenses_by_category"]["level"] == "summary"
+    rows = {r["category_name"]: r["amount_minor"] for r in card["expenses_by_category"]["rows"]}
+    assert rows == {"Comida": 140_000, "Transporte": 25_000}
+
+
+@pytest.mark.asyncio
+async def test_a_multi_category_expense_counts_fully_in_each_category(
+    client: AsyncClient,
+) -> None:
+    """A transaction tagged with two categories (Task 9's pattern) is a
+    breakdown of "how much went toward X", not a partition of the total:
+    each category gets the full amount, so rows can outsum the plain total."""
+    admin, papa, papa_id = await _household(client)
+    categories = await client.get("/api/v1/categories?kind=expense", headers=papa)
+    comida = next(c["id"] for c in categories.json() if c["name"] == "Comida")
+    transporte = next(c["id"] for c in categories.json() if c["name"] == "Transporte")
+    await client.post(
+        "/api/v1/me/transactions",
+        json={
+            "kind": "expense", "category_ids": [comida, transporte],
+            "amount_minor": 60_000, "occurred_on": "2026-09-05",
+        },
+        headers=papa,
+    )
+
+    response = await client.get("/api/v1/dashboard?period=2026-09", headers=admin)
+    card = next(m for m in response.json()["members"] if m["member_id"] == papa_id)
+    rows = {r["category_name"]: r["amount_minor"] for r in card["expenses_by_category"]["rows"]}
+
+    assert rows == {"Comida": 60_000, "Transporte": 60_000}
+    assert card["expenses"]["total_minor"] == 60_000
+
+
+@pytest.mark.asyncio
+async def test_household_category_breakdown_aggregates_household_expenses(
+    client: AsyncClient,
+) -> None:
+    admin, _, _ = await _household(client)
+    await _spend_household(client, admin, 300_000, "Servicios")
+    await _spend_household(client, admin, 50_000, "Servicios")
+    await _spend_household(client, admin, 90_000, "Internet")
+
+    response = await client.get("/api/v1/dashboard?period=2026-09", headers=admin)
+    rows = {
+        r["category_name"]: r["amount_minor"]
+        for r in response.json()["household"]["expenses_by_category"]
+    }
+
+    assert rows == {"Servicios": 350_000, "Internet": 90_000}
 
 
 @pytest.mark.asyncio

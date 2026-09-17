@@ -147,6 +147,35 @@ async def total_for(
     return int(total or 0)
 
 
+async def category_breakdown_for(
+    session: AsyncSession, member_id: UUID, kind: str, start: date, end: date
+) -> list[tuple[str, int]]:
+    """One member's transactions of `kind`, summed per category.
+
+    A transaction carrying more than one category (Task 9) contributes its
+    full amount to EACH of its categories: this answers "how much went
+    toward category X", not "how is the total partitioned", so rows can sum
+    to more than `total_for(...)`. Splitting the amount across categories
+    would invent an allocation the data does not record.
+    """
+    rows = (
+        await session.execute(
+            select(Category.name, func.coalesce(func.sum(Transaction.amount_minor), 0))
+            .join(TransactionCategory, TransactionCategory.transaction_id == Transaction.id)
+            .join(Category, Category.id == TransactionCategory.category_id)
+            .where(
+                Transaction.member_id == member_id,
+                Transaction.kind == kind,
+                Transaction.occurred_on >= start,
+                Transaction.occurred_on <= end,
+            )
+            .group_by(Category.name)
+            .order_by(func.sum(Transaction.amount_minor).desc())
+        )
+    ).all()
+    return [(name, int(total)) for name, total in rows]
+
+
 async def _own_transaction(
     session: AsyncSession, member: HouseholdMember, transaction_id: UUID
 ) -> Transaction:
