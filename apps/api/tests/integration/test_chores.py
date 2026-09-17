@@ -222,6 +222,32 @@ async def test_assignments_can_be_filtered_by_status(client: AsyncClient) -> Non
 
 
 @pytest.mark.asyncio
+async def test_assignments_reject_an_invalid_status_value(client: AsyncClient) -> None:
+    admin, _ = await _admin_and_adult(client)
+
+    response = await client.get(
+        "/api/v1/chore-assignments?status=not-a-real-status", headers=admin
+    )
+
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_assignments_reject_from_after_to(client: AsyncClient) -> None:
+    admin, _ = await _admin_and_adult(client)
+    today = date.today()
+
+    response = await client.get(
+        "/api/v1/chore-assignments"
+        f"?from={(today + timedelta(days=3)).isoformat()}&to={today.isoformat()}",
+        headers=admin,
+    )
+
+    assert response.status_code == 422
+    assert response.json()["type"] == "invalid_date_range"
+
+
+@pytest.mark.asyncio
 async def test_assignments_can_be_filtered_by_due_date_range(client: AsyncClient) -> None:
     admin, _ = await _admin_and_adult(client)
     today = date.today()
