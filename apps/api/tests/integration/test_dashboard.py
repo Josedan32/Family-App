@@ -286,7 +286,7 @@ async def test_household_category_breakdown_aggregates_household_expenses(
     response = await client.get("/api/v1/dashboard?period=2026-09", headers=admin)
     rows = {
         r["category_name"]: r["amount_minor"]
-        for r in response.json()["household"]["expenses_by_category"]
+        for r in response.json()["household"]["household_ledger_expenses_by_category"]
     }
 
     assert rows == {"Servicios": 350_000, "Internet": 90_000}

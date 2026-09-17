@@ -17,7 +17,7 @@ interface Dashboard {
     income_minor: number;
     expenses_minor: number;
     savings_minor: number;
-    expenses_by_category: CategoryAmount[];
+    household_ledger_expenses_by_category: CategoryAmount[];
   };
   contribution?: {
     goal_amount_minor: number;
@@ -108,7 +108,10 @@ export default async function DashboardPage() {
         <p className="mb-3.5 text-sm font-medium text-text-muted">
           Gastos del hogar por categoría
         </p>
-        <CategoryBreakdownList rows={data.household.expenses_by_category} currency={data.currency} />
+        <CategoryBreakdownList
+          rows={data.household.household_ledger_expenses_by_category}
+          currency={data.currency}
+        />
       </Card>
 
       {/* This reflects the household ledger (libro del hogar), a different

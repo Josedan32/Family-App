@@ -40,7 +40,10 @@ class HouseholdTotals(BaseModel):
     # personal expense transactions above — see docstring on
     # services.dashboard.build_dashboard. Always visible: this is a
     # household-wide total, the same exemption as the totals it sits beside.
-    expenses_by_category: list[CategoryAmount]
+    # Named distinctly from `MemberCard.expenses_by_category` (a different
+    # population: personal Transaction expenses) to keep the two from being
+    # confused at the schema level, not just in a UI caption.
+    household_ledger_expenses_by_category: list[CategoryAmount]
 
 
 class ContributionSummary(BaseModel):

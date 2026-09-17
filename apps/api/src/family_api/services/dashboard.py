@@ -132,7 +132,7 @@ async def build_dashboard(
             income_minor=household_income,
             expenses_minor=household_expenses,
             savings_minor=household_savings,
-            expenses_by_category=[
+            household_ledger_expenses_by_category=[
                 CategoryAmount(category_name=name, amount_minor=amount)
                 for name, amount in household_expense_rows
             ],
