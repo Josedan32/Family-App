@@ -215,8 +215,10 @@ def _debt_response(
     debt: Debt, outstanding: int, figures: InstallmentFigures | None, currency: str
 ) -> DebtResponse:
     return DebtResponse(
-        id=debt.id, creditor_type=debt.creditor_type, creditor_label=debt.creditor_label,
+        id=debt.id, name=debt.name,
+        creditor_type=debt.creditor_type, creditor_label=debt.creditor_label,
         principal_minor=debt.principal_minor, outstanding_minor=outstanding,
+        paid_total_minor=debt.principal_minor - outstanding,
         annual_interest_rate=float(debt.annual_interest_rate)
         if debt.annual_interest_rate is not None else None,
         due_day=debt.due_day, status=debt.status, currency=currency,
@@ -225,6 +227,7 @@ def _debt_response(
         installments_remaining=figures.remaining if figures else None,
         next_installment_on=figures.next_on if figures else None,
         next_installment_amount_minor=figures.next_amount_minor if figures else None,
+        minimum_payment_minor=debt.minimum_payment_minor,
         is_overdue=figures.is_overdue if figures else None,
     )
 
@@ -241,10 +244,10 @@ async def create_debt(
     body: CreateDebtRequest, member: CurrentMember, session: SessionDep
 ) -> DebtResponse:
     debt = await debt_service.create_debt(
-        session, member, body.creditor_type, body.creditor_label,
+        session, member, body.name, body.creditor_type, body.creditor_label,
         body.principal_minor, body.annual_interest_rate, body.due_day,
         body.installments_total, body.installment_amount_minor,
-        body.first_installment_on,
+        body.first_installment_on, body.minimum_payment_minor,
     )
     await session.commit()
     currency = await _currency(session, member.household_id)
@@ -268,7 +271,8 @@ async def get_debt(
         **base.model_dump(),
         payments=[
             DebtPaymentResponse(
-                id=p.id, amount_minor=p.amount_minor, paid_on=p.paid_on, note=p.note
+                id=p.id, amount_minor=p.amount_minor, paid_on=p.paid_on, note=p.note,
+                payment_method=p.payment_method,
             )
             for p in payments
         ],
@@ -289,7 +293,8 @@ async def add_debt_payment(
     session: SessionDep,
 ) -> DebtResponse:
     _, payment = await debt_service.add_payment(
-        session, member, debt_id, body.amount_minor, body.paid_on, body.note
+        session, member, debt_id, body.amount_minor, body.paid_on, body.note,
+        body.payment_method,
     )
     await session.commit()
     currency = await _currency(session, member.household_id)

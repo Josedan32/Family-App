@@ -17,6 +17,7 @@ async def _member(client: AsyncClient) -> dict[str, str]:
 
 
 ADDI = {
+    "name": "Celular",
     "creditor_type": "addi",
     "creditor_label": "Addi - Celular",
     "principal_minor": 1_200_000,
@@ -47,6 +48,7 @@ async def test_a_debt_without_a_plan_is_still_valid(client: AsyncClient) -> None
     response = await client.post(
         "/api/v1/me/debts",
         json={
+            "name": "Préstamo familiar",
             "creditor_type": "family",
             "creditor_label": "Tío Jorge",
             "principal_minor": 500_000,
@@ -77,6 +79,7 @@ async def test_a_half_filled_plan_is_rejected(
     response = await client.post(
         "/api/v1/me/debts",
         json={
+            "name": "Celular",
             "creditor_type": "addi",
             "creditor_label": "Addi",
             "principal_minor": 1_200_000,

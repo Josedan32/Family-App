@@ -132,6 +132,7 @@ async def test_debt_detail_carries_installment_figures(client: AsyncClient) -> N
     await client.post(
         "/api/v1/me/debts",
         json={
+            "name": "Celular",
             "creditor_type": "addi",
             "creditor_label": "Addi - Celular",
             "principal_minor": 1_200_000,
