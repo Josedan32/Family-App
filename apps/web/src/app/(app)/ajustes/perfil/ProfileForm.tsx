@@ -4,6 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { AvatarUpload } from "@/components/ui/AvatarUpload";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { clientFetch } from "@/lib/api/client";
@@ -12,6 +13,7 @@ import { pushToast } from "@/lib/toast";
 
 interface Profile {
   display_name: string;
+  photo_url: string | null;
   birth_date: string | null;
   age: number | null;
 }
@@ -19,6 +21,7 @@ interface Profile {
 export function ProfileForm({ initial }: { initial: Profile }) {
   const router = useRouter();
   const [displayName, setDisplayName] = useState(initial.display_name);
+  const [photoUrl, setPhotoUrl] = useState(initial.photo_url);
   const [birthDate, setBirthDate] = useState(initial.birth_date ?? "");
 
   const [currentPassword, setCurrentPassword] = useState("");
@@ -87,6 +90,12 @@ export function ProfileForm({ initial }: { initial: Profile }) {
 
   return (
     <div className="flex flex-col gap-5">
+      <AvatarUpload
+        displayName={displayName}
+        photoUrl={photoUrl}
+        onUpdated={setPhotoUrl}
+      />
+
       <div className="flex flex-col gap-3">
         <Input
           label="Nombre"
