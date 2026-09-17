@@ -7,6 +7,7 @@ from family_api.config import get_settings
 from family_api.db.models.user import RefreshToken, User
 from family_api.errors import (
     AlreadyInHouseholdError,
+    IncorrectPasswordError,
     InvalidCredentialsError,
     TokenExpiredError,
     TokenReusedError,
@@ -84,6 +85,14 @@ async def rotate_refresh(session: AsyncSession, raw_token: str) -> TokenPair:
     user = await session.get(User, stored.user_id)
     assert user is not None
     return await _issue_pair(session, user)
+
+
+async def change_password(
+    session: AsyncSession, user: User, current_password: str, new_password: str
+) -> None:
+    if not verify_password(current_password, user.password_hash):
+        raise IncorrectPasswordError
+    user.password_hash = hash_password(new_password)
 
 
 async def revoke_refresh(session: AsyncSession, raw_token: str) -> None:

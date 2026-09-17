@@ -92,6 +92,12 @@ class InvalidCredentialsError(DomainError):
     title = "Correo o contraseña incorrectos"
 
 
+class IncorrectPasswordError(DomainError):
+    type_slug = "incorrect_password"
+    status = 400
+    title = "La contraseña actual no es correcta"
+
+
 class TokenExpiredError(DomainError):
     type_slug = "token_expired"
     status = 401

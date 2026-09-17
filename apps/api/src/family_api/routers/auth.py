@@ -7,6 +7,7 @@ from family_api.config import get_settings
 from family_api.db.session import get_session
 from family_api.ratelimit import check_rate_limit
 from family_api.schemas.auth import (
+    ChangePasswordRequest,
     LoginRequest,
     RefreshRequest,
     RegisterRequest,
@@ -69,6 +70,17 @@ async def me(user: CurrentUser) -> UserResponse:
         birth_date=user.birth_date,
         age=derive_age(user.birth_date),
     )
+
+
+@router.post("/change-password", status_code=status.HTTP_204_NO_CONTENT)
+async def change_password(
+    body: ChangePasswordRequest, user: CurrentUser, session: SessionDep, request: Request
+) -> None:
+    _limit_auth(request)
+    await auth_service.change_password(
+        session, user, body.current_password, body.new_password
+    )
+    await session.commit()
 
 
 me_router = APIRouter(prefix="/me", tags=["profile"])
