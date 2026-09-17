@@ -21,6 +21,13 @@ const STATUS_LABELS: Record<string, string> = {
   reassigned: "Reasignada",
 };
 
+const STATUS_LABELS_PLURAL: Record<string, string> = {
+  pending: "pendientes",
+  done: "hechas",
+  skipped: "omitidas",
+  reassigned: "reasignadas",
+};
+
 interface Cycle {
   id: string;
   starts_on: string;
@@ -83,6 +90,14 @@ export function TareasClient({
   const done = filtered.filter((a) => a.status === "done");
   const pendingPoints = pending.reduce((sum, a) => sum + a.effort_points, 0);
   const donePoints = done.reduce((sum, a) => sum + a.effort_points, 0);
+  // The list only ever shows "pending" and "done" sections, so a status
+  // filter set to "skipped"/"reassigned" (or a member/points combo that only
+  // matches those) would otherwise blank the page with no explanation.
+  const otherStatusOnly = filtered.length > 0 && pending.length === 0 && done.length === 0;
+  const otherStatusMessage =
+    statusFilter !== "all"
+      ? `No hay tareas ${STATUS_LABELS_PLURAL[statusFilter]} en este periodo.`
+      : "No hay tareas que coincidan con estos filtros.";
 
   const complete = useMutation({
     mutationFn: (id: string) =>
@@ -231,6 +246,11 @@ export function TareasClient({
             />
           ))}
         </ul>
+        {otherStatusOnly ? (
+          <p className="rounded-xl border border-border bg-surface-sunken p-3 text-center text-xs text-text-muted">
+            {otherStatusMessage}
+          </p>
+        ) : null}
       </div>
 
       {done.length ? (

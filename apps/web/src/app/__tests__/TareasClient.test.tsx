@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, waitFor } from "@testing-library/react";
+import { fireEvent, render, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { Assignment, AssignmentMember } from "@/components/chores/AssignmentRow";
@@ -76,5 +76,33 @@ describe("TareasClient — sorteo visto", () => {
 
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("TareasClient — filtro de estado", () => {
+  it("shows an empty-state message when the status filter matches neither pending nor done", async () => {
+    const fetchMock = vi.fn(async () => jsonResponse(null, 204));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { getByLabelText, findByText } = renderClient({
+      id: "cycle-1", starts_on: "2026-09-01", ends_on: "2026-09-28",
+      seed: 1, seen: true, assignments: [assignment({ status: "skipped" })],
+    });
+
+    fireEvent.change(getByLabelText("Estado"), { target: { value: "skipped" } });
+
+    expect(await findByText("No hay tareas omitidas en este periodo.")).toBeInTheDocument();
+  });
+
+  it("does not show the empty-state message when pending items are visible", async () => {
+    const fetchMock = vi.fn(async () => jsonResponse(null, 204));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { queryByText } = renderClient({
+      id: "cycle-1", starts_on: "2026-09-01", ends_on: "2026-09-28",
+      seed: 1, seen: true, assignments: [assignment({ status: "pending" })],
+    });
+
+    expect(queryByText(/No hay tareas/)).not.toBeInTheDocument();
   });
 });
