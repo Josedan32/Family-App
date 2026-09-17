@@ -163,3 +163,26 @@ async def test_change_password_allows_login_with_the_new_password(client: AsyncC
 
     assert response.status_code == 200
     assert response.json()["access_token"]
+
+
+@pytest.mark.asyncio
+async def test_change_password_revokes_existing_refresh_tokens(client: AsyncClient) -> None:
+    registered = await client.post("/api/v1/auth/register", json=REGISTRATION)
+    body = registered.json()
+    access_token = body["access_token"]
+    old_refresh_token = body["refresh_token"]
+
+    await client.post(
+        "/api/v1/auth/change-password",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={
+            "current_password": REGISTRATION["password"],
+            "new_password": "a-brand-new-password",
+        },
+    )
+
+    response = await client.post(
+        "/api/v1/auth/refresh", json={"refresh_token": old_refresh_token}
+    )
+
+    assert response.status_code == 401

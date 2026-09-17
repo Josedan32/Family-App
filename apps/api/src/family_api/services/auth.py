@@ -98,6 +98,12 @@ async def change_password(
     if not verify_password(current_password, user.password_hash):
         raise IncorrectPasswordError
     user.password_hash = hash_password(new_password)
+    # A password change must end every existing session, not just future ones.
+    await session.execute(
+        update(RefreshToken)
+        .where(RefreshToken.user_id == user.id, RefreshToken.revoked_at.is_(None))
+        .values(revoked_at=datetime.now(UTC))
+    )
 
 
 async def update_profile(
