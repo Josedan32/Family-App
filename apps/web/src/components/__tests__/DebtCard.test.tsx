@@ -5,10 +5,12 @@ import { DebtCard, type Debt } from "../finance/DebtCard";
 
 const debtWithPlan: Debt = {
   id: "1",
+  name: "Celular",
   creditor_type: "addi",
   creditor_label: "Addi - Celular",
   principal_minor: 1_200_000,
   outstanding_minor: 1_000_000,
+  paid_total_minor: 200_000,
   due_day: 15,
   status: "pending",
   currency: "COP",
@@ -17,6 +19,7 @@ const debtWithPlan: Debt = {
   installments_remaining: 10,
   next_installment_on: "2026-12-15",
   next_installment_amount_minor: 100_000,
+  minimum_payment_minor: null,
   is_overdue: false,
 };
 
