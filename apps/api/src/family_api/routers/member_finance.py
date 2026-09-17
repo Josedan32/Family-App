@@ -61,6 +61,8 @@ async def _transactions_view(
                 categories=[CategoryRef(id=cid, name=cname) for cid, cname in categories],
                 amount_minor=t.amount_minor, currency=household.currency,
                 occurred_on=t.occurred_on, name=t.name, note=t.note, source=t.source,
+                is_recurring=t.is_recurring, frequency=t.frequency,
+                payment_method=t.payment_method,
             )
             for t, categories in rows
         ],

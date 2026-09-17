@@ -73,6 +73,8 @@ async def list_transactions(
                 categories=[CategoryRef(id=cid, name=cname) for cid, cname in categories],
                 amount_minor=t.amount_minor, currency=currency,
                 occurred_on=t.occurred_on, name=t.name, note=t.note, source=t.source,
+                is_recurring=t.is_recurring, frequency=t.frequency,
+                payment_method=t.payment_method,
             )
             for t, categories in rows
         ],
@@ -88,6 +90,7 @@ async def create_transaction(
         transaction = await transaction_service.create_transaction(
             session, member, body.kind, body.category_ids,
             body.amount_minor, body.occurred_on, body.name, body.note,
+            body.is_recurring, body.frequency, body.payment_method,
         )
     except CategoryKindMismatchError:
         raise HTTPException(
@@ -105,7 +108,8 @@ async def create_transaction(
         amount_minor=transaction.amount_minor,
         currency=await _currency(session, member.household_id),
         occurred_on=transaction.occurred_on, name=transaction.name, note=transaction.note,
-        source=transaction.source,
+        source=transaction.source, is_recurring=transaction.is_recurring,
+        frequency=transaction.frequency, payment_method=transaction.payment_method,
     )
 
 
@@ -135,7 +139,8 @@ async def update_transaction(
         amount_minor=transaction.amount_minor,
         currency=await _currency(session, member.household_id),
         occurred_on=transaction.occurred_on, name=transaction.name, note=transaction.note,
-        source=transaction.source,
+        source=transaction.source, is_recurring=transaction.is_recurring,
+        frequency=transaction.frequency, payment_method=transaction.payment_method,
     )
 
 

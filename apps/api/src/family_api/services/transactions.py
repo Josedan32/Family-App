@@ -60,6 +60,9 @@ async def create_transaction(
     occurred_on: date,
     name: str | None = None,
     note: str | None = None,
+    is_recurring: bool = False,
+    frequency: str | None = None,
+    payment_method: str = "cash",
 ) -> Transaction:
     """The owner is always the caller. A member cannot write into another's ledger."""
     categories = await _resolve_categories(session, member, category_ids, kind)
@@ -67,6 +70,7 @@ async def create_transaction(
         id=new_id(), household_id=member.household_id, member_id=member.id,
         kind=kind, category_id=categories[0].id, amount_minor=amount_minor,
         occurred_on=occurred_on, name=name, note=note, source="manual",
+        is_recurring=is_recurring, frequency=frequency, payment_method=payment_method,
     )
     session.add(transaction)
     await session.flush()
