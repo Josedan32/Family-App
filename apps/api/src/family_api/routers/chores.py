@@ -2,7 +2,7 @@ from datetime import date
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from family_api.db.models.chore import ChoreCycle
@@ -142,12 +142,19 @@ async def mark_chore_cycle_seen(
 
 @router.get("/chore-assignments")
 async def list_chore_assignments(
-    member: CurrentMember, session: SessionDep, member_id: UUID | None = None
+    member: CurrentMember,
+    session: SessionDep,
+    member_id: UUID | None = None,
+    status: str | None = None,
+    due_from: Annotated[date | None, Query(alias="from")] = None,
+    due_to: Annotated[date | None, Query(alias="to")] = None,
 ) -> list[AssignmentResponse]:
     cycle = await assignment_service.current_cycle(session, member.household_id)
     if cycle is None:
         return []
-    assignments = await assignment_service.list_cycle_assignments(session, cycle.id, member_id)
+    assignments = await assignment_service.list_cycle_assignments(
+        session, cycle.id, member_id, status=status, due_from=due_from, due_to=due_to
+    )
     return await assignment_service.to_assignment_responses(session, assignments)
 
 
