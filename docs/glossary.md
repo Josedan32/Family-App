@@ -47,6 +47,10 @@ Hermana, Abuelo, Abuela, Tío, Tía, Otro.
 | Meta de ahorro | `savings_goal` | One goal: Moto, Universidad, Viaje. |
 | Abono / Retiro | `savings_entry` (`deposit` / `withdrawal`) | |
 | Saldo | `balance_minor` | Always derived, never stored. |
+| Prioridad | `priority` | On a savings goal: `alta` / `media` / `baja`. Genuine user input, stored. |
+| Días restantes | `days_remaining` | Derived from `target_date`, never stored. Negative once the deadline has passed. |
+| Meta alcanzada | `state: "completado"` | `balance_minor >= target_amount_minor`. Takes priority over a passed deadline in the goal card's derived label. |
+| Plazo vencido | `is_overdue` | Derived: `target_date` has passed and the goal is not yet `completado`. |
 | Deuda | `debt` | Owed to an **external** creditor: bank, Addi, credit card. |
 | Acreedor | `creditor` | |
 | Pago | `payment` | Against a debt or a loan. |

@@ -61,12 +61,19 @@ const EMPTY_COPY: Record<TabId, { message: string; action: string; sheetTitle: s
 
 const CURRENCY = "COP";
 
+const PRIORITY_OPTIONS: { value: "alta" | "media" | "baja"; label: string }[] = [
+  { value: "alta", label: "Alta" },
+  { value: "media", label: "Media" },
+  { value: "baja", label: "Baja" },
+];
+
 function SavingsGoalForm({ onDone }: { onDone: () => void }) {
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
   const [nameTouched, setNameTouched] = useState(false);
   const [target, setTarget] = useState(0);
   const [targetTouched, setTargetTouched] = useState(false);
+  const [priority, setPriority] = useState<"alta" | "media" | "baja">("media");
 
   const nameError = nameTouched && !name ? "Ponle un nombre a la meta" : undefined;
   const targetError = targetTouched && target <= 0 ? "Ingresa un monto mayor a cero" : undefined;
@@ -76,7 +83,7 @@ function SavingsGoalForm({ onDone }: { onDone: () => void }) {
     mutationFn: () =>
       clientFetch("/me/savings-goals", {
         method: "POST",
-        body: JSON.stringify({ name, target_amount_minor: target }),
+        body: JSON.stringify({ name, target_amount_minor: target, priority }),
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["savings-goals"] });
@@ -113,6 +120,25 @@ function SavingsGoalForm({ onDone }: { onDone: () => void }) {
         error={targetError}
         required
       />
+      <div role="radiogroup" aria-label="Prioridad" className="flex flex-col gap-1.5">
+        <span className="text-sm font-medium">Prioridad</span>
+        <div className="grid grid-cols-3 gap-1 rounded-xl border border-border bg-surface p-1">
+          {PRIORITY_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              role="radio"
+              aria-checked={priority === option.value}
+              onClick={() => setPriority(option.value)}
+              className={`min-h-[44px] rounded-lg text-sm font-semibold ${
+                priority === option.value ? "bg-brand text-brand-contrast" : "text-text-muted"
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </div>
       {create.isError ? (
         <p role="alert" className="text-sm text-danger">
           {(create.error as Error).message}
