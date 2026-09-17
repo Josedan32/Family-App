@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from family_api.db.models.debt import Debt
 from family_api.db.models.household import Household
+from family_api.db.models.savings import SavingsGoal
 from family_api.db.session import get_session
 from family_api.periods import parse_period
 from family_api.schemas.debt import (
@@ -152,19 +153,23 @@ async def delete_transaction(
     await session.commit()
 
 
+def _goal_response(goal: SavingsGoal, balance: int, currency: str) -> SavingsGoalResponse:
+    state, days_remaining, is_overdue = savings_service.goal_state(
+        balance, goal.target_amount_minor, goal.target_date, date.today()
+    )
+    return SavingsGoalResponse(
+        id=goal.id, name=goal.name, target_amount_minor=goal.target_amount_minor,
+        target_date=goal.target_date, priority=goal.priority, balance_minor=balance,
+        progress=savings_service.progress(balance, goal.target_amount_minor),
+        currency=currency, days_remaining=days_remaining, is_overdue=is_overdue, state=state,
+    )
+
+
 @router.get("/savings-goals")
 async def list_goals(member: CurrentMember, session: SessionDep) -> list[SavingsGoalResponse]:
     currency = await _currency(session, member.household_id)
     rows = await savings_service.list_goals_with_balances(session, member.id)
-    return [
-        SavingsGoalResponse(
-            id=g.id, name=g.name, target_amount_minor=g.target_amount_minor,
-            target_date=g.target_date, balance_minor=balance,
-            progress=savings_service.progress(balance, g.target_amount_minor),
-            currency=currency,
-        )
-        for g, balance in rows
-    ]
+    return [_goal_response(g, balance, currency) for g, balance in rows]
 
 
 @router.post("/savings-goals", status_code=status.HTTP_201_CREATED)
@@ -172,14 +177,10 @@ async def create_goal(
     body: CreateGoalRequest, member: CurrentMember, session: SessionDep
 ) -> SavingsGoalResponse:
     goal = await savings_service.create_goal(
-        session, member, body.name, body.target_amount_minor, body.target_date
+        session, member, body.name, body.target_amount_minor, body.target_date, body.priority
     )
     await session.commit()
-    return SavingsGoalResponse(
-        id=goal.id, name=goal.name, target_amount_minor=goal.target_amount_minor,
-        target_date=goal.target_date, balance_minor=0, progress=0.0,
-        currency=await _currency(session, member.household_id),
-    )
+    return _goal_response(goal, 0, await _currency(session, member.household_id))
 
 
 @router.get("/savings-goals/{goal_id}/entries")
@@ -207,12 +208,7 @@ async def add_entry(
     await session.commit()
     rows = await savings_service.list_goals_with_balances(session, member.id)
     goal, balance = next((g, b) for g, b in rows if g.id == goal_id)
-    return SavingsGoalResponse(
-        id=goal.id, name=goal.name, target_amount_minor=goal.target_amount_minor,
-        target_date=goal.target_date, balance_minor=balance,
-        progress=savings_service.progress(balance, goal.target_amount_minor),
-        currency=await _currency(session, member.household_id),
-    )
+    return _goal_response(goal, balance, await _currency(session, member.household_id))
 
 
 def _debt_response(

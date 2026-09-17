@@ -5,6 +5,7 @@ route here without one, tests/visibility/test_route_coverage.py fails the
 build. That is deliberate.
 """
 
+from datetime import date
 from typing import Annotated
 from uuid import UUID
 
@@ -102,15 +103,21 @@ async def member_savings(
         )
 
     rows = await savings_service.list_goals_with_balances(session, scope.owner.id)
-    return [
-        SavingsGoalResponse(
-            id=g.id, name=g.name, target_amount_minor=g.target_amount_minor,
-            target_date=g.target_date, balance_minor=balance,
-            progress=savings_service.progress(balance, g.target_amount_minor),
-            currency=household.currency,
+    responses = []
+    for g, balance in rows:
+        state, days_remaining, is_overdue = savings_service.goal_state(
+            balance, g.target_amount_minor, g.target_date, date.today()
         )
-        for g, balance in rows
-    ]
+        responses.append(
+            SavingsGoalResponse(
+                id=g.id, name=g.name, target_amount_minor=g.target_amount_minor,
+                target_date=g.target_date, priority=g.priority, balance_minor=balance,
+                progress=savings_service.progress(balance, g.target_amount_minor),
+                currency=household.currency, days_remaining=days_remaining,
+                is_overdue=is_overdue, state=state,
+            )
+        )
+    return responses
 
 
 @router.get("/{member_id}/debts")

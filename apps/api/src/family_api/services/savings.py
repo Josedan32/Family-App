@@ -21,10 +21,12 @@ async def create_goal(
     name: str,
     target_amount_minor: int,
     target_date: date | None,
+    priority: str = "media",
 ) -> SavingsGoal:
     goal = SavingsGoal(
         id=new_id(), household_id=member.household_id, member_id=member.id,
         name=name, target_amount_minor=target_amount_minor, target_date=target_date,
+        priority=priority,
     )
     session.add(goal)
     await session.flush()
@@ -104,3 +106,27 @@ def progress(balance_minor: int, target_amount_minor: int) -> float:
     if target_amount_minor <= 0:
         return 0.0
     return balance_minor / target_amount_minor
+
+
+def goal_state(
+    balance_minor: int,
+    target_amount_minor: int,
+    target_date: date | None,
+    today: date,
+) -> tuple[str, int | None, bool]:
+    """Derive (state, days_remaining, is_overdue). Never stored.
+
+    Precedence: goal achieved > deadline passed > "N days left". `state` is
+    `completado` exactly when the balance meets the target, regardless of
+    the date — an achieved goal is never "overdue". `days_remaining` is the
+    raw signed day count against `target_date` (negative once it has
+    passed); `is_overdue` is only true for a goal that is both unmet and
+    past its deadline.
+    """
+    achieved = balance_minor >= target_amount_minor
+    state = "completado" if achieved else "en_progreso"
+    if target_date is None:
+        return state, None, False
+    days_remaining = (target_date - today).days
+    is_overdue = not achieved and days_remaining < 0
+    return state, days_remaining, is_overdue
