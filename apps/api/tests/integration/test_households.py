@@ -61,7 +61,7 @@ async def test_creation_seeds_the_spec_categories(
     assert income == {"Salario", "Negocio", "Regalos", "Otros"}
     assert expense == {
         "Transporte", "Comida", "Educación", "Entretenimiento", "Salud", "Otros",
-        "Internet", "Servicios", "Arriendo",
+        "Internet", "Servicios", "Arriendo", "Ahorro familiar",
         "Trabajo", "Viaje", "Regalo", "Banco", "Lujo", "Inversión",
         "Responsabilidad", "Casa", "Ropa", "Aseo Personal", "Deudas - Préstamos", "Gym",
         "Aporte al hogar",

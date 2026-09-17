@@ -17,7 +17,9 @@ from family_api.services.chores import seed_chores
 _BASE_EXPENSE_CATEGORIES = (
     "Transporte", "Comida", "Educación", "Entretenimiento", "Salud", "Otros",
 )
-_NEW_HOUSEHOLD_EXPENSE_CATEGORIES = ("Internet", "Servicios", "Arriendo", "Comida")
+_NEW_HOUSEHOLD_EXPENSE_CATEGORIES = (
+    "Internet", "Servicios", "Arriendo", "Comida", "Ahorro familiar",
+)
 _NEW_PERSONAL_EXPENSE_CATEGORIES = (
     "Trabajo", "Viaje", "Regalo", "Banco", "Salud", "Lujo", "Inversión",
     "Responsabilidad", "Casa", "Ropa", "Aseo Personal", "Deudas - Préstamos", "Gym",

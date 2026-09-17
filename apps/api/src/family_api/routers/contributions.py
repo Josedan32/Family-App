@@ -180,6 +180,7 @@ async def list_own_contributions(
             id=c.id, member_id=c.member_id, amount_minor=c.amount_minor,
             currency=currency, paid_on=c.paid_on, note=c.note,
             expense_transaction_id=c.expense_transaction_id,
+            category_id=c.category_id,
         )
         for c in contributions
     ]
@@ -193,7 +194,8 @@ async def record_contribution(
     session: SessionDep,
 ) -> ContributionResponse:
     contribution = await contribution_service.record_contribution(
-        session, member, period_id, body.amount_minor, body.paid_on, body.note
+        session, member, period_id, body.amount_minor, body.paid_on, body.note,
+        body.category_id,
     )
     await session.commit()
     return ContributionResponse(
@@ -202,6 +204,7 @@ async def record_contribution(
         currency=await _currency(session, member.household_id),
         paid_on=contribution.paid_on, note=contribution.note,
         expense_transaction_id=contribution.expense_transaction_id,
+        category_id=contribution.category_id,
     )
 
 
@@ -222,6 +225,7 @@ async def update_contribution(
         currency=await _currency(session, member.household_id),
         paid_on=contribution.paid_on, note=contribution.note,
         expense_transaction_id=contribution.expense_transaction_id,
+        category_id=contribution.category_id,
     )
 
 
