@@ -12,6 +12,11 @@ class CreateGoalRequest(BaseModel):
     priority: Literal["alta", "media", "baja"] = "media"
 
 
+class UseGoalRequest(BaseModel):
+    # Defaults to today: most people mark it right after spending.
+    used_on: date | None = None
+
+
 class CreateEntryRequest(BaseModel):
     kind: Literal["deposit", "withdrawal"]
     amount_minor: int = Field(gt=0)
@@ -39,7 +44,8 @@ class SavingsGoalResponse(BaseModel):
     currency: str
     days_remaining: int | None
     is_overdue: bool
-    state: Literal["completado", "en_progreso"]
+    state: Literal["completado", "en_progreso", "usada"]
+    used_on: date | None
 
 
 class SavingsSummaryResponse(BaseModel):

@@ -15,6 +15,7 @@ const base: Goal = {
   days_remaining: null,
   is_overdue: false,
   state: "en_progreso",
+  used_on: null,
 };
 
 describe("GoalCard", () => {
@@ -58,5 +59,17 @@ describe("GoalCard", () => {
   it("keeps the real priority when merely overdue, not completed", () => {
     render(<GoalCard goal={{ ...base, priority: "alta", is_overdue: true }} />);
     expect(screen.getByText("Prioridad Alta")).toBeInTheDocument();
+  });
+
+  it("shows a used goal as used, with the date, instead of as reached", () => {
+    render(
+      <GoalCard
+        goal={{ ...base, balance_minor: 100_000, progress: 1, state: "usada", used_on: "2026-08-20" }}
+      />,
+    );
+    expect(screen.getByText("Usada el 20 ago 2026")).toBeInTheDocument();
+    expect(screen.queryByText("Meta alcanzada")).not.toBeInTheDocument();
+    // It no longer competes for attention: no priority pill at all.
+    expect(screen.queryByText(/Prioridad/)).not.toBeInTheDocument();
   });
 });
