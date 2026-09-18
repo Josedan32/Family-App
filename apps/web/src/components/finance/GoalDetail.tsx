@@ -53,12 +53,19 @@ function ActivityList({ goalId }: { goalId: string }) {
   );
 }
 
-export function GoalDetail({ goal }: { goal: Goal }) {
+export function GoalDetail({
+  goal,
+  activityOpen = false,
+}: {
+  goal: Goal;
+  /** On the goal's own page the history is the point, so it starts open. */
+  activityOpen?: boolean;
+}) {
   const queryClient = useQueryClient();
   const [kind, setKind] = useState<"deposit" | "withdrawal">("deposit");
   const [amount, setAmount] = useState(0);
   const [occurredOn, setOccurredOn] = useState(new Date().toISOString().slice(0, 10));
-  const [showActivity, setShowActivity] = useState(false);
+  const [showActivity, setShowActivity] = useState(activityOpen);
 
   async function refreshSavings() {
     await queryClient.invalidateQueries({ queryKey: ["savings-goals"] });
