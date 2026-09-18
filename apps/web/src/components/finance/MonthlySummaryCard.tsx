@@ -48,8 +48,16 @@ function SummaryRow({ label, amountMinor, currency, className = "" }: Row & { cu
 /** Fetches from a caller-supplied path so this same card serves both
  * `/me/monthly-summary` (own data) and `/members/{id}/monthly-summary`
  * (another member's, subject to visibility gating server-side). */
-export function MonthlySummaryCard({ endpoint }: { endpoint: string }) {
-  const [period, setPeriod] = useState(currentPeriod());
+export function MonthlySummaryCard({
+  endpoint,
+  period: controlledPeriod,
+}: {
+  endpoint: string;
+  /** When the page picks the month (Finanzas), the card follows it and hides its own picker. */
+  period?: string;
+}) {
+  const [ownPeriod, setOwnPeriod] = useState(currentPeriod());
+  const period = controlledPeriod ?? ownPeriod;
   // Collapsed by default on narrow viewports so it doesn't push the rest of
   // the page below the fold — expanded is the right default on desktop,
   // where there's room for it beside everything else. Until the member
@@ -79,7 +87,7 @@ export function MonthlySummaryCard({ endpoint }: { endpoint: string }) {
           </span>
           <h2 className="text-base font-semibold">Resumen mensual</h2>
         </span>
-        {expanded ? (
+        {expanded && controlledPeriod === undefined ? (
           <label
             className="flex items-center gap-1.5 text-xs text-text-muted"
             onClick={(event) => event.stopPropagation()}
@@ -88,11 +96,11 @@ export function MonthlySummaryCard({ endpoint }: { endpoint: string }) {
             <input
               type="month"
               value={period}
-              onChange={(event) => setPeriod(event.target.value)}
+              onChange={(event) => setOwnPeriod(event.target.value)}
               className="min-h-[36px] rounded-lg border border-border bg-surface px-2 text-xs"
             />
           </label>
-        ) : summary.data ? (
+        ) : summary.data && !expanded ? (
           <span className="tabular text-sm font-semibold">
             {formatMoney(summary.data.remaining_minor, summary.data.currency)}
           </span>
