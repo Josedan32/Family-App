@@ -20,6 +20,9 @@ from family_api.db.base import Base, TimestampMixin
 savings_entry_kind = PgEnum(
     "deposit", "withdrawal", name="savings_entry_kind", create_type=False
 )
+savings_priority = PgEnum(
+    "alta", "media", "baja", name="savings_priority", create_type=False
+)
 
 
 class SavingsGoal(Base, TimestampMixin):
@@ -46,6 +49,9 @@ class SavingsGoal(Base, TimestampMixin):
     name: Mapped[str] = mapped_column(String(80), nullable=False)
     target_amount_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
     target_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    priority: Mapped[str] = mapped_column(
+        savings_priority, nullable=False, server_default="media"
+    )
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 

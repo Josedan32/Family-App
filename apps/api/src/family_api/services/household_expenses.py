@@ -61,6 +61,31 @@ async def pot_figures(session: AsyncSession, household_id: UUID) -> PotFigures:
     )
 
 
+async def category_breakdown(
+    session: AsyncSession, household_id: UUID, start: date, end: date
+) -> list[tuple[str, int]]:
+    """Household-ledger expenses summed per category.
+
+    Household expenses stay single-category by design (see the
+    `TransactionCategory` model docstring), so this is a plain group-by with
+    no multi-category fan-out.
+    """
+    rows = (
+        await session.execute(
+            select(Category.name, func.coalesce(func.sum(HouseholdExpense.amount_minor), 0))
+            .join(Category, Category.id == HouseholdExpense.category_id)
+            .where(
+                HouseholdExpense.household_id == household_id,
+                HouseholdExpense.occurred_on >= start,
+                HouseholdExpense.occurred_on <= end,
+            )
+            .group_by(Category.name)
+            .order_by(func.sum(HouseholdExpense.amount_minor).desc())
+        )
+    ).all()
+    return [(name, int(total)) for name, total in rows]
+
+
 async def create_expense(
     session: AsyncSession,
     member: HouseholdMember,

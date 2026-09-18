@@ -181,12 +181,18 @@ async def record_contribution(
     amount_minor: int,
     paid_on: date,
     note: str | None,
+    category_id: UUID | None = None,
 ) -> Contribution:
     """Write the contribution AND the contributor's personal expense atomically.
 
     INV-D-01 / FR-M4-05: either both rows exist or neither does. The caller
     commits; every write below is inside that one transaction, so an error
     anywhere rolls back both.
+
+    `category_id`, when given, is the member's OPTIONAL, ADDITIONAL category
+    — it is attached via `TransactionCategory` alongside the fixed system
+    category, never replacing it as the transaction's own `category_id` or
+    as the first `TransactionCategory` row.
     """
     if member.role == "guest":
         raise ForbiddenRoleError
@@ -205,6 +211,18 @@ async def record_contribution(
     if category is None:
         raise NotFoundError
 
+    chosen_category = None
+    if category_id is not None:
+        chosen_category = await session.scalar(
+            select(Category).where(
+                Category.id == category_id,
+                Category.household_id == member.household_id,
+                Category.kind == "expense",
+            )
+        )
+        if chosen_category is None:
+            raise NotFoundError
+
     contribution_id = new_id()
     transaction = Transaction(
         id=new_id(), household_id=member.household_id, member_id=member.id,
@@ -220,12 +238,20 @@ async def record_contribution(
             transaction_id=transaction.id, category_id=category.id,
         )
     )
+    if chosen_category is not None and chosen_category.id != category.id:
+        session.add(
+            TransactionCategory(
+                id=new_id(), household_id=member.household_id,
+                transaction_id=transaction.id, category_id=chosen_category.id,
+            )
+        )
     await session.flush()
 
     contribution = Contribution(
         id=contribution_id, household_id=member.household_id, period_id=period.id,
         member_id=member.id, amount_minor=amount_minor, paid_on=paid_on, note=note,
         expense_transaction_id=transaction.id,
+        category_id=chosen_category.id if chosen_category is not None else None,
     )
     session.add(contribution)
     await session.flush()

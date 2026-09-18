@@ -4,10 +4,12 @@ import { MoneyDisplay } from "./MoneyDisplay";
 
 export interface Debt {
   id: string;
+  name: string;
   creditor_type: string;
   creditor_label: string;
   principal_minor: number;
   outstanding_minor: number;
+  paid_total_minor: number;
   due_day: number | null;
   status: string;
   currency: string;
@@ -16,13 +18,17 @@ export interface Debt {
   installments_remaining: number | null;
   next_installment_on: string | null;
   next_installment_amount_minor: number | null;
+  minimum_payment_minor: number | null;
   is_overdue: boolean | null;
 }
 
 export function DebtCard({ debt }: { debt: Debt }) {
   return (
     <Card className="flex flex-col gap-2">
-      <span className="font-bold">{debt.creditor_label}</span>
+      <span className="font-bold">{debt.name}</span>
+      {debt.creditor_label !== debt.name ? (
+        <span className="-mt-2 text-xs text-text-muted">{debt.creditor_label}</span>
+      ) : null}
       <div className="flex items-end justify-between gap-3">
         <span className="text-xs text-text-muted">
           {debt.due_day ? `Vence el día ${debt.due_day}` : "Sin fecha de corte"}

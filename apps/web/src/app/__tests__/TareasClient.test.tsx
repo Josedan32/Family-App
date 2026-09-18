@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, waitFor } from "@testing-library/react";
+import { fireEvent, render, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { Assignment, AssignmentMember } from "@/components/chores/AssignmentRow";
@@ -36,11 +36,19 @@ function jsonResponse(body: unknown, status = 200) {
   return { ok: status < 400, status, json: async () => body };
 }
 
-function renderClient(cycle: Parameters<typeof TareasClient>[0]["cycle"]) {
+function renderClient(
+  cycle: Parameters<typeof TareasClient>[0]["cycle"],
+  opts: { isAdmin?: boolean } = {},
+) {
   const client = new QueryClient();
   return render(
     <QueryClientProvider client={client}>
-      <TareasClient cycle={cycle} members={MEMBERS} myMemberId="m1" />
+      <TareasClient
+        cycle={cycle}
+        members={MEMBERS}
+        myMemberId="m1"
+        isAdmin={opts.isAdmin ?? false}
+      />
     </QueryClientProvider>,
   );
 }
@@ -76,5 +84,101 @@ describe("TareasClient — sorteo visto", () => {
 
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("TareasClient — filtro de estado", () => {
+  it("shows an empty-state message when the status filter matches neither pending nor done", async () => {
+    const fetchMock = vi.fn(async () => jsonResponse(null, 204));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { getByLabelText, findByText } = renderClient({
+      id: "cycle-1", starts_on: "2026-09-01", ends_on: "2026-09-28",
+      seed: 1, seen: true, assignments: [assignment({ status: "skipped" })],
+    });
+
+    fireEvent.change(getByLabelText("Estado"), { target: { value: "skipped" } });
+
+    expect(await findByText("No hay tareas omitidas en este periodo.")).toBeInTheDocument();
+  });
+
+  it("does not show the empty-state message when pending items are visible", async () => {
+    const fetchMock = vi.fn(async () => jsonResponse(null, 204));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { queryByText } = renderClient({
+      id: "cycle-1", starts_on: "2026-09-01", ends_on: "2026-09-28",
+      seed: 1, seen: true, assignments: [assignment({ status: "pending" })],
+    });
+
+    expect(queryByText(/No hay tareas/)).not.toBeInTheDocument();
+  });
+});
+
+describe("TareasClient — vista de administrador", () => {
+  it("does not show the scope tabs to a non-admin", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse(null, 204)));
+
+    const { queryByRole } = renderClient({
+      id: "cycle-1", starts_on: "2026-09-01", ends_on: "2026-09-28",
+      seed: 1, seen: true, assignments: [assignment()],
+    });
+
+    expect(queryByRole("tablist", { name: "Alcance de la vista" })).not.toBeInTheDocument();
+  });
+
+  it("shows a distinct Todas/Mis tareas toggle for an admin", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse(null, 204)));
+
+    const { getByRole } = renderClient(
+      {
+        id: "cycle-1", starts_on: "2026-09-01", ends_on: "2026-09-28",
+        seed: 1, seen: true, assignments: [assignment()],
+      },
+      { isAdmin: true },
+    );
+
+    expect(getByRole("tab", { name: "Todas las tareas" })).toBeInTheDocument();
+    expect(getByRole("tab", { name: "Mis tareas" })).toBeInTheDocument();
+  });
+
+  it("an admin's Mis tareas tab filters to their own assignments only", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse(null, 204)));
+
+    const { getByRole, getByText, queryByText } = renderClient(
+      {
+        id: "cycle-1", starts_on: "2026-09-01", ends_on: "2026-09-28",
+        seed: 1, seen: true,
+        assignments: [
+          assignment({ id: "a1", member_id: "m1", member_name: "Daniel", chore_name: "Sacar la basura" }),
+          assignment({ id: "a2", member_id: "m2", member_name: "Papá", chore_name: "Lavar platos" }),
+        ],
+      },
+      { isAdmin: true },
+    );
+
+    expect(getByText("Sacar la basura")).toBeInTheDocument();
+    expect(getByText("Lavar platos")).toBeInTheDocument();
+
+    fireEvent.click(getByRole("tab", { name: "Mis tareas" }));
+
+    expect(getByText("Sacar la basura")).toBeInTheDocument();
+    expect(queryByText("Lavar platos")).not.toBeInTheDocument();
+  });
+
+  it("the Mis tareas tab overrides and disables the generic member dropdown", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse(null, 204)));
+
+    const { getByRole, getByLabelText } = renderClient(
+      {
+        id: "cycle-1", starts_on: "2026-09-01", ends_on: "2026-09-28",
+        seed: 1, seen: true, assignments: [assignment()],
+      },
+      { isAdmin: true },
+    );
+
+    fireEvent.click(getByRole("tab", { name: "Mis tareas" }));
+
+    expect(getByLabelText("Ver")).toBeDisabled();
   });
 });

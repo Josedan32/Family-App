@@ -21,10 +21,12 @@ async def create_goal(
     name: str,
     target_amount_minor: int,
     target_date: date | None,
+    priority: str = "media",
 ) -> SavingsGoal:
     goal = SavingsGoal(
         id=new_id(), household_id=member.household_id, member_id=member.id,
         name=name, target_amount_minor=target_amount_minor, target_date=target_date,
+        priority=priority,
     )
     session.add(goal)
     await session.flush()
@@ -42,6 +44,26 @@ async def list_goals_with_balances(
         .order_by(SavingsGoal.name)
     )
     return [(goal, int(balance or 0)) for goal, balance in (await session.execute(stmt)).all()]
+
+
+async def deposits_in_period(
+    session: AsyncSession, member_id: UUID, start: date, end: date
+) -> int:
+    """Sum of deposit entries within the period, never netted against
+    withdrawals — "total saved that month" is what went in, not the running
+    balance (that is `total_balance`)."""
+    total = await session.scalar(
+        select(func.coalesce(func.sum(SavingsEntry.amount_minor), 0))
+        .select_from(SavingsEntry)
+        .join(SavingsGoal, SavingsGoal.id == SavingsEntry.goal_id)
+        .where(
+            SavingsGoal.member_id == member_id,
+            SavingsEntry.kind == "deposit",
+            SavingsEntry.occurred_on >= start,
+            SavingsEntry.occurred_on <= end,
+        )
+    )
+    return int(total or 0)
 
 
 async def total_balance(session: AsyncSession, member_id: UUID) -> int:
@@ -104,3 +126,27 @@ def progress(balance_minor: int, target_amount_minor: int) -> float:
     if target_amount_minor <= 0:
         return 0.0
     return balance_minor / target_amount_minor
+
+
+def goal_state(
+    balance_minor: int,
+    target_amount_minor: int,
+    target_date: date | None,
+    today: date,
+) -> tuple[str, int | None, bool]:
+    """Derive (state, days_remaining, is_overdue). Never stored.
+
+    Precedence: goal achieved > deadline passed > "N days left". `state` is
+    `completado` exactly when the balance meets the target, regardless of
+    the date — an achieved goal is never "overdue". `days_remaining` is the
+    raw signed day count against `target_date` (negative once it has
+    passed); `is_overdue` is only true for a goal that is both unmet and
+    past its deadline.
+    """
+    achieved = balance_minor >= target_amount_minor
+    state = "completado" if achieved else "en_progreso"
+    if target_date is None:
+        return state, None, False
+    days_remaining = (target_date - today).days
+    is_overdue = not achieved and days_remaining < 0
+    return state, days_remaining, is_overdue

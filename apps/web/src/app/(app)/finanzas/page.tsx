@@ -8,6 +8,7 @@ import { DebtCard, type Debt } from "@/components/finance/DebtCard";
 import { DebtDetail } from "@/components/finance/DebtDetail";
 import { GoalCard, type Goal } from "@/components/finance/GoalCard";
 import { GoalDetail } from "@/components/finance/GoalDetail";
+import { MonthlySummaryCard } from "@/components/finance/MonthlySummaryCard";
 import { TransactionForm } from "@/components/finance/TransactionForm";
 import { TransactionRow, type Transaction } from "@/components/finance/TransactionRow";
 import { Button } from "@/components/ui/Button";
@@ -61,12 +62,19 @@ const EMPTY_COPY: Record<TabId, { message: string; action: string; sheetTitle: s
 
 const CURRENCY = "COP";
 
+const PRIORITY_OPTIONS: { value: "alta" | "media" | "baja"; label: string }[] = [
+  { value: "alta", label: "Alta" },
+  { value: "media", label: "Media" },
+  { value: "baja", label: "Baja" },
+];
+
 function SavingsGoalForm({ onDone }: { onDone: () => void }) {
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
   const [nameTouched, setNameTouched] = useState(false);
   const [target, setTarget] = useState(0);
   const [targetTouched, setTargetTouched] = useState(false);
+  const [priority, setPriority] = useState<"alta" | "media" | "baja">("media");
 
   const nameError = nameTouched && !name ? "Ponle un nombre a la meta" : undefined;
   const targetError = targetTouched && target <= 0 ? "Ingresa un monto mayor a cero" : undefined;
@@ -76,7 +84,7 @@ function SavingsGoalForm({ onDone }: { onDone: () => void }) {
     mutationFn: () =>
       clientFetch("/me/savings-goals", {
         method: "POST",
-        body: JSON.stringify({ name, target_amount_minor: target }),
+        body: JSON.stringify({ name, target_amount_minor: target, priority }),
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["savings-goals"] });
@@ -113,6 +121,25 @@ function SavingsGoalForm({ onDone }: { onDone: () => void }) {
         error={targetError}
         required
       />
+      <div role="radiogroup" aria-label="Prioridad" className="flex flex-col gap-1.5">
+        <span className="text-sm font-medium">Prioridad</span>
+        <div className="grid grid-cols-3 gap-1 rounded-xl border border-border bg-surface p-1">
+          {PRIORITY_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              role="radio"
+              aria-checked={priority === option.value}
+              onClick={() => setPriority(option.value)}
+              className={`min-h-[44px] rounded-lg text-sm font-semibold ${
+                priority === option.value ? "bg-brand text-brand-contrast" : "text-text-muted"
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </div>
       {create.isError ? (
         <p role="alert" className="text-sm text-danger">
           {(create.error as Error).message}
@@ -127,11 +154,14 @@ function SavingsGoalForm({ onDone }: { onDone: () => void }) {
 
 function DebtForm({ onDone }: { onDone: () => void }) {
   const queryClient = useQueryClient();
+  const [name, setName] = useState("");
+  const [nameTouched, setNameTouched] = useState(false);
   const [creditorLabel, setCreditorLabel] = useState("");
   const [creditorTouched, setCreditorTouched] = useState(false);
   const [principal, setPrincipal] = useState(0);
   const [principalTouched, setPrincipalTouched] = useState(false);
   const [dueDay, setDueDay] = useState("");
+  const [minimumPayment, setMinimumPayment] = useState(0);
   const [hasPlan, setHasPlan] = useState(false);
   const [installmentsTotal, setInstallmentsTotal] = useState("");
   const [installmentAmount, setInstallmentAmount] = useState(0);
@@ -144,10 +174,12 @@ function DebtForm({ onDone }: { onDone: () => void }) {
       clientFetch("/me/debts", {
         method: "POST",
         body: JSON.stringify({
+          name,
           creditor_type: "other",
           creditor_label: creditorLabel,
           principal_minor: principal,
           due_day: dueDay ? Number(dueDay) : null,
+          minimum_payment_minor: minimumPayment > 0 ? minimumPayment : null,
           ...(hasPlan
             ? {
                 installments_total: Number(installmentsTotal),
@@ -166,21 +198,31 @@ function DebtForm({ onDone }: { onDone: () => void }) {
 
   const planIncomplete =
     hasPlan && (!installmentsTotal || Number(installmentsTotal) <= 0 || installmentAmount <= 0);
+  const nameError = nameTouched && !name ? "Dale un nombre a esta deuda" : undefined;
   const creditorError = creditorTouched && !creditorLabel ? "Dinos a quién le debes" : undefined;
   const principalError =
     principalTouched && principal <= 0 ? "Ingresa un monto mayor a cero" : undefined;
-  const canSubmit = !!creditorLabel && principal > 0 && !planIncomplete;
+  const canSubmit = !!name && !!creditorLabel && principal > 0 && !planIncomplete;
 
   return (
     <form
       className="flex flex-col gap-5"
       onSubmit={(event) => {
         event.preventDefault();
+        setNameTouched(true);
         setCreditorTouched(true);
         setPrincipalTouched(true);
         if (canSubmit) create.mutate();
       }}
     >
+      <Input
+        label="Nombre"
+        required
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        onBlur={() => setNameTouched(true)}
+        error={nameError}
+      />
       <Input
         label="Acreedor"
         required
@@ -206,6 +248,13 @@ function DebtForm({ onDone }: { onDone: () => void }) {
         max={31}
         value={dueDay}
         onChange={(e) => setDueDay(e.target.value)}
+      />
+      <MoneyInput
+        label="Pago mínimo mensual (opcional)"
+        value={minimumPayment}
+        onChange={setMinimumPayment}
+        currency={CURRENCY}
+        kind="debt"
       />
 
       <label className="flex items-center gap-2.5 text-sm font-medium">
@@ -314,6 +363,8 @@ export default function FinanzasPage() {
         <h1 className="text-[1.75rem] font-bold tracking-tight">Finanzas</h1>
         <span className="text-xs capitalize text-text-muted">{month}</span>
       </div>
+
+      <MonthlySummaryCard endpoint="/me/monthly-summary" />
 
       <Tabs tabs={TABS} active={tab} onChange={(id) => setTab(id as TabId)} />
 

@@ -104,3 +104,9 @@ class Contribution(Base, TimestampMixin):
     in_kind: Mapped[bool] = mapped_column(
         Boolean, nullable=False, server_default="false"
     )
+    # Optional, member-chosen category in ADDITION to the fixed system
+    # category ("Aporte al hogar") on the mirrored expense — never replaces
+    # it. NULL means the contributor didn't pick one.
+    category_id: Mapped[UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("categories.id", ondelete="RESTRICT"), nullable=True
+    )

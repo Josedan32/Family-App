@@ -93,6 +93,7 @@ async def _give_papa_data(client: AsyncClient, papa: dict) -> None:
     await client.post(
         "/api/v1/me/debts",
         json={
+            "name": "Celular",
             "creditor_type": "addi", "creditor_label": "Addi",
             "principal_minor": 1_200_000,
         },

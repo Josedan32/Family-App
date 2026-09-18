@@ -72,19 +72,19 @@ export default async function TareasPage() {
         ) : null}
       </div>
 
-      {isAdmin ? (
-        <Link href="/tareas/admin">
-          <Card className="flex items-center gap-3">
-            <span aria-hidden="true" className="flex-none text-brand">
-              <IconSettings />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="font-semibold">Administrar tareas</p>
-              <p className="text-xs text-text-muted">Catálogo y puntos de esfuerzo</p>
-            </div>
-          </Card>
-        </Link>
-      ) : null}
+      <Link href="/tareas/admin">
+        <Card className="flex items-center gap-3">
+          <span aria-hidden="true" className="flex-none text-brand">
+            <IconSettings />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold">{isAdmin ? "Administrar tareas" : "Catálogo de tareas"}</p>
+            <p className="text-xs text-text-muted">
+              {isAdmin ? "Catálogo y puntos de esfuerzo" : "Consulta el catálogo y los puntos de esfuerzo"}
+            </p>
+          </div>
+        </Card>
+      </Link>
 
       <Link href="/ajustes/ausencias">
         <Card className="flex items-center gap-3">
@@ -107,6 +107,7 @@ export default async function TareasPage() {
             cycle={cycle}
             members={assignableMembers}
             myMemberId={household.my_member_id}
+            isAdmin={isAdmin}
           />
         </>
       ) : (

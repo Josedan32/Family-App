@@ -17,6 +17,7 @@ from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from family_api.db.base import Base, TimestampMixin
+from family_api.db.models.transaction import transaction_payment_method
 
 debt_creditor_type = PgEnum(
     "bank", "family", "credit_card", "addi", "other",
@@ -53,6 +54,10 @@ class Debt(Base, TimestampMixin):
             "installment_amount_minor IS NULL OR installment_amount_minor > 0",
             name="ck_debt_installment_amount_positive",
         ),
+        CheckConstraint(
+            "minimum_payment_minor IS NULL OR minimum_payment_minor > 0",
+            name="ck_debt_minimum_payment_positive",
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True)
@@ -64,6 +69,7 @@ class Debt(Base, TimestampMixin):
         ForeignKey("household_members.id", ondelete="RESTRICT"),
         nullable=False,
     )
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
     creditor_type: Mapped[str] = mapped_column(debt_creditor_type, nullable=False)
     creditor_label: Mapped[str] = mapped_column(String(120), nullable=False)
     principal_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
@@ -73,6 +79,7 @@ class Debt(Base, TimestampMixin):
     installments_total: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
     installment_amount_minor: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     first_installment_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+    minimum_payment_minor: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
 
 
 class DebtPayment(Base, TimestampMixin):
@@ -90,3 +97,6 @@ class DebtPayment(Base, TimestampMixin):
     amount_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
     paid_on: Mapped[date] = mapped_column(Date, nullable=False)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    payment_method: Mapped[str] = mapped_column(
+        transaction_payment_method, nullable=False, server_default="cash"
+    )

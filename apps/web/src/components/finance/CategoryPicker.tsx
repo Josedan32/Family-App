@@ -11,12 +11,14 @@ type Props =
       mode?: "single";
       value: string;
       onChange: (id: string) => void;
+      label?: string;
     }
   | {
       categories: Category[] | undefined;
       mode: "multi";
       value: string[];
       onChange: (ids: string[]) => void;
+      label?: string;
     };
 
 /**
@@ -55,7 +57,7 @@ export function CategoryPicker(props: Props) {
   return (
     <div className="flex flex-col gap-2">
       <span className="text-xs font-semibold uppercase tracking-wide text-text-muted">
-        Categoría{multi ? " (elige una o más)" : ""}
+        {props.label ?? `Categoría${multi ? " (elige una o más)" : ""}`}
       </span>
       <div
         role={multi ? "group" : "radiogroup"}

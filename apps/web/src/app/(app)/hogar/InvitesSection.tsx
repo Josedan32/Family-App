@@ -8,6 +8,10 @@ import { Card } from "@/components/ui/Card";
 import { clientFetch } from "@/lib/api/client";
 import { pushToast } from "@/lib/toast";
 
+export function buildShareMessage(code: string): string {
+  return `Únete a mi hogar con este código: ${code}`;
+}
+
 interface Invite {
   id: string;
   code: string;
@@ -38,6 +42,51 @@ function expiryLabel(invite: Invite) {
   return `${ROLE_LABEL[invite.role_granted] ?? invite.role_granted} · vence ${new Date(
     invite.expires_at,
   ).toLocaleString("es-CO", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}`;
+}
+
+export async function copyToClipboard(text: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+    pushToast({ message: "Copiado", type: "success" });
+    return true;
+  } catch (error) {
+    console.error("Failed to copy:", error);
+    pushToast({ message: "Error al copiar", type: "danger" });
+    return false;
+  }
+}
+
+export async function handleShare(code: string) {
+  const message = buildShareMessage(code);
+
+  // Try Web Share API first
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        text: message,
+      });
+      pushToast({ message: "Compartido", type: "success" });
+      return;
+    } catch (error) {
+      const errorName = (error as Error).name;
+      // User cancelled (AbortError) — do NOT fall through to wa.me
+      if (errorName === "AbortError") {
+        return;
+      }
+      // Share API failed for other reason, fall through to wa.me
+      console.error("Share failed:", error);
+    }
+  }
+
+  // Fall back to WhatsApp link
+  const encodedMessage = encodeURIComponent(message);
+  const whatsappUrl = `https://wa.me/?text=${encodedMessage}`;
+  const opened = window.open(whatsappUrl, "_blank");
+
+  // If wa.me link was blocked (popup blocked), fall back to clipboard
+  if (!opened) {
+    await copyToClipboard(message);
+  }
 }
 
 export function InvitesSection() {
@@ -120,10 +169,27 @@ export function InvitesSection() {
           {create.isPending ? "Generando…" : "Crear invitación"}
         </Button>
         {create.isSuccess ? (
-          <div className="rounded-xl border border-brand bg-surface-sunken p-3 text-center">
-            <p data-testid="invite-code" className="tabular text-2xl font-bold tracking-[0.14em]">
-              {(create.data as Invite).code}
-            </p>
+          <div className="flex gap-2">
+            <div className="flex-1 rounded-xl border border-brand bg-surface-sunken p-3 text-center">
+              <p data-testid="invite-code" className="tabular text-2xl font-bold tracking-[0.14em]">
+                {(create.data as Invite).code}
+              </p>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Button
+                onClick={() => handleShare((create.data as Invite).code)}
+                className="whitespace-nowrap"
+              >
+                Compartir
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => copyToClipboard((create.data as Invite).code)}
+                className="whitespace-nowrap"
+              >
+                Copiar código
+              </Button>
+            </div>
           </div>
         ) : null}
       </div>

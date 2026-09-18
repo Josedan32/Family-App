@@ -4,8 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { TABS } from "./BottomTabBar";
+import type { CurrentUser } from "./types";
 
-export function Sidebar() {
+export function Sidebar({ user }: { user: CurrentUser }) {
   const pathname = usePathname();
   return (
     <nav
@@ -39,6 +40,24 @@ export function Sidebar() {
           );
         })}
       </ul>
+      <div className="mt-auto flex items-center gap-2.5 border-t border-border px-3 pt-4">
+        {user.photo_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={user.photo_url}
+            alt=""
+            className="h-8 w-8 rounded-full object-cover"
+          />
+        ) : (
+          <div
+            aria-hidden="true"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-surface-sunken text-sm font-semibold text-text-muted"
+          >
+            {user.display_name.charAt(0).toUpperCase()}
+          </div>
+        )}
+        <span className="truncate text-sm font-medium">{user.display_name}</span>
+      </div>
     </nav>
   );
 }

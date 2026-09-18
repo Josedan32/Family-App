@@ -40,3 +40,8 @@ class UpdateProfileRequest(BaseModel):
     display_name: str | None = Field(default=None, min_length=1, max_length=120)
     photo_url: str | None = None
     birth_date: date | None = None
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=12, max_length=128)

@@ -49,3 +49,33 @@ async def test_age_is_derived_from_birth_date(client: AsyncClient) -> None:
 async def test_profile_edit_requires_authentication(client: AsyncClient) -> None:
     response = await client.patch("/api/v1/me/profile", json={"display_name": "X"})
     assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_photo_url_within_cap_is_saved(client: AsyncClient) -> None:
+    token = await _register(client)
+    headers = {"Authorization": f"Bearer {token}"}
+    photo_url = "data:image/jpeg;base64," + ("a" * 1000)
+
+    response = await client.patch(
+        "/api/v1/me/profile", json={"photo_url": photo_url}, headers=headers
+    )
+
+    assert response.status_code == 200
+    assert response.json()["photo_url"] == photo_url
+
+
+@pytest.mark.asyncio
+async def test_oversized_photo_url_is_rejected(client: AsyncClient) -> None:
+    """A stray huge payload must not bloat the users table (task-2 brief)."""
+    token = await _register(client)
+    headers = {"Authorization": f"Bearer {token}"}
+    photo_url = "data:image/jpeg;base64," + ("a" * 260_000)
+
+    response = await client.patch(
+        "/api/v1/me/profile", json={"photo_url": photo_url}, headers=headers
+    )
+
+    assert response.status_code == 400
+    body = response.json()
+    assert body["type"] == "photo_too_large"

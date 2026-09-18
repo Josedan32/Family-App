@@ -13,8 +13,11 @@ class TransactionCategory(Base, TimestampMixin):
     `transactions.category_id` still exists and is kept as the first entry
     here — every other reader of that column is unaffected. This table is
     additive: it is what lets a manually-created transaction carry more than
-    one category (household expenses and the contribution mirror stay
-    single-category by design, see spec §8.4).
+    one category. Household expenses stay single-category by design. A
+    contribution's mirrored expense stays fixed to the system "Aporte al
+    hogar" category as its first entry, but MAY carry one additional,
+    member-chosen category on top of it — see `Contribution.category_id` and
+    `record_contribution`.
     """
 
     __tablename__ = "transaction_categories"

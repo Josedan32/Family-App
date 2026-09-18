@@ -62,6 +62,12 @@ class DerivedRecordError(DomainError):
     title = "Este movimiento se gestiona desde su origen"
 
 
+class InvalidDateRangeError(DomainError):
+    type_slug = "invalid_date_range"
+    status = 422
+    title = "El rango de fechas no es válido"
+
+
 class InviteNotFoundError(DomainError):
     type_slug = "invite_not_found"
     status = 400
@@ -90,6 +96,18 @@ class InvalidCredentialsError(DomainError):
     type_slug = "invalid_credentials"
     status = 401
     title = "Correo o contraseña incorrectos"
+
+
+class IncorrectPasswordError(DomainError):
+    type_slug = "incorrect_password"
+    status = 400
+    title = "La contraseña actual no es correcta"
+
+
+class PhotoTooLargeError(DomainError):
+    type_slug = "photo_too_large"
+    status = 400
+    title = "La foto es demasiado grande"
 
 
 class TokenExpiredError(DomainError):

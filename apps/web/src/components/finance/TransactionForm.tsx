@@ -25,6 +25,24 @@ interface EditableTransaction {
   note: string | null;
 }
 
+const FREQUENCIES = ["monthly", "once", "biweekly"] as const;
+type Frequency = (typeof FREQUENCIES)[number];
+
+const FREQUENCY_LABEL: Record<Frequency, string> = {
+  monthly: "Mensual",
+  once: "Único",
+  biweekly: "Quincenal",
+};
+
+const PAYMENT_METHODS = ["cash", "nequi", "bancolombia"] as const;
+type PaymentMethod = (typeof PAYMENT_METHODS)[number];
+
+const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
+  cash: "Efectivo",
+  nequi: "Nequi",
+  bancolombia: "Bancolombia",
+};
+
 export function TransactionForm({
   kind,
   currency,
@@ -49,6 +67,9 @@ export function TransactionForm({
   );
   const [name, setName] = useState(transaction?.name ?? "");
   const [note, setNote] = useState(transaction?.note ?? "");
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [frequency, setFrequency] = useState<Frequency>("monthly");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
 
   const amountError =
     amountTouched && amount <= 0 ? "Ingresa un monto mayor a cero" : undefined;
@@ -83,6 +104,9 @@ export function TransactionForm({
               occurred_on: occurredOn,
               name: name || null,
               note: note || null,
+              is_recurring: isRecurring,
+              frequency: isRecurring ? frequency : null,
+              payment_method: paymentMethod,
             }),
           }),
     onSuccess: async () => {
@@ -142,6 +166,75 @@ export function TransactionForm({
         value={note}
         onChange={(event) => setNote(event.target.value)}
       />
+
+      <div className="flex flex-col gap-2">
+        <span className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+          Método de pago
+        </span>
+        <div role="radiogroup" aria-label="Método de pago" className="grid grid-cols-3 gap-2">
+          {PAYMENT_METHODS.map((value) => {
+            const selected = paymentMethod === value;
+            return (
+              <button
+                key={value}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                onClick={() => setPaymentMethod(value)}
+                className={`min-h-[48px] rounded-xl border px-1 text-sm font-medium ${
+                  selected
+                    ? "border-brand bg-brand font-bold text-brand-contrast"
+                    : "border-border bg-surface text-text active:bg-surface-sunken"
+                }`}
+              >
+                {PAYMENT_METHOD_LABEL[value]}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <label className="flex items-start gap-3 rounded-xl border border-border bg-surface p-3.5">
+        <input
+          type="checkbox"
+          checked={isRecurring}
+          onChange={(event) => setIsRecurring(event.target.checked)}
+          className="mt-0.5 h-5 w-5 flex-none"
+        />
+        <span className="flex flex-col gap-0.5">
+          <span className="text-sm font-semibold">Es un movimiento recurrente</span>
+          <span className="text-xs text-text-muted">Se repite con la frecuencia que elijas.</span>
+        </span>
+      </label>
+
+      {isRecurring ? (
+        <div className="flex flex-col gap-2">
+          <span className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+            Frecuencia
+          </span>
+          <div role="radiogroup" aria-label="Frecuencia" className="grid grid-cols-3 gap-2">
+            {FREQUENCIES.map((value) => {
+              const selected = frequency === value;
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  onClick={() => setFrequency(value)}
+                  className={`min-h-[48px] rounded-xl border px-1 text-sm font-medium ${
+                    selected
+                      ? "border-brand bg-brand font-bold text-brand-contrast"
+                      : "border-border bg-surface text-text active:bg-surface-sunken"
+                  }`}
+                >
+                  {FREQUENCY_LABEL[value]}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
 
       {save.isError ? (
         <p role="alert" className="text-sm text-danger">

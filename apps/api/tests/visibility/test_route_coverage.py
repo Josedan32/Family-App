@@ -88,7 +88,7 @@ def test_member_finance_routes_are_not_accidentally_exempt() -> None:
         context for context in _effective_routes()
         if context.path.startswith("/api/v1/members") and "GET" in context.methods
     ]
-    assert len(member_routes) == 4
+    assert len(member_routes) == 5
     assert all(
         isinstance(context.original_route, APIRoute)
         and _declares_policy(context.original_route.dependant)

@@ -60,6 +60,9 @@ async def create_transaction(
     occurred_on: date,
     name: str | None = None,
     note: str | None = None,
+    is_recurring: bool = False,
+    frequency: str | None = None,
+    payment_method: str = "cash",
 ) -> Transaction:
     """The owner is always the caller. A member cannot write into another's ledger."""
     categories = await _resolve_categories(session, member, category_ids, kind)
@@ -67,6 +70,7 @@ async def create_transaction(
         id=new_id(), household_id=member.household_id, member_id=member.id,
         kind=kind, category_id=categories[0].id, amount_minor=amount_minor,
         occurred_on=occurred_on, name=name, note=note, source="manual",
+        is_recurring=is_recurring, frequency=frequency, payment_method=payment_method,
     )
     session.add(transaction)
     await session.flush()
@@ -141,6 +145,43 @@ async def total_for(
         )
     )
     return int(total or 0)
+
+
+async def category_breakdown_for(
+    session: AsyncSession, member_id: UUID, kind: str, start: date, end: date
+) -> list[tuple[str, int]]:
+    """One member's transactions of `kind`, summed per category.
+
+    A transaction carrying more than one category contributes its full
+    amount to EACH of its categories, so rows here can sum to more than
+    `total_for(...)`. This is a deliberate choice, made on its own merits,
+    not because some other query already does it this way:
+
+    - The alternative — splitting the amount across categories — would
+      invent an allocation the data does not record. A $100 transaction
+      tagged "Comida" and "Hogar" was never split 50/50, or any other ratio;
+      manufacturing one would misrepresent the household's spending.
+    - This is a breakdown that answers "how much went toward category X",
+      not a partition of the total that must reconcile to it. The caller
+      (the dashboard) surfaces this to the viewer alongside the plain total,
+      so the discrepancy is visible rather than silently absorbed here.
+    """
+    rows = (
+        await session.execute(
+            select(Category.name, func.coalesce(func.sum(Transaction.amount_minor), 0))
+            .join(TransactionCategory, TransactionCategory.transaction_id == Transaction.id)
+            .join(Category, Category.id == TransactionCategory.category_id)
+            .where(
+                Transaction.member_id == member_id,
+                Transaction.kind == kind,
+                Transaction.occurred_on >= start,
+                Transaction.occurred_on <= end,
+            )
+            .group_by(Category.name)
+            .order_by(func.sum(Transaction.amount_minor).desc())
+        )
+    ).all()
+    return [(name, int(total)) for name, total in rows]
 
 
 async def _own_transaction(

@@ -96,6 +96,58 @@ async def test_the_mirrored_expense_uses_the_aporte_al_hogar_category(
 
 
 @pytest.mark.asyncio
+async def test_a_chosen_category_is_attached_alongside_the_system_one(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """Task 9: the mirrored expense keeps 'Aporte al hogar' AND gains the
+    member's chosen category via TransactionCategory — never replacing it."""
+    _, papa, period_id = await _household_with_period(client)
+
+    categories = await client.get("/api/v1/categories?kind=expense", headers=papa)
+    ahorro = next(c for c in categories.json() if c["name"] == "Ahorro familiar")
+
+    response = await client.post(
+        f"/api/v1/contribution-periods/{period_id}/contributions",
+        json={
+            "amount_minor": 1_000_000,
+            "paid_on": "2026-09-05",
+            "category_id": ahorro["id"],
+        },
+        headers=papa,
+    )
+    assert response.status_code == 201
+    assert response.json()["category_id"] == ahorro["id"]
+
+    ledger = await client.get(
+        "/api/v1/me/transactions?kind=expense&period=2026-09", headers=papa
+    )
+    category_names = {c["name"] for c in ledger.json()["items"][0]["categories"]}
+    assert category_names == {"Aporte al hogar", "Ahorro familiar"}
+
+
+@pytest.mark.asyncio
+async def test_omitting_a_category_keeps_only_the_system_one(
+    client: AsyncClient,
+) -> None:
+    """Task 9: today's behavior stays intact when no category is chosen."""
+    _, papa, period_id = await _household_with_period(client)
+
+    response = await client.post(
+        f"/api/v1/contribution-periods/{period_id}/contributions",
+        json={"amount_minor": 1_000_000, "paid_on": "2026-09-05"},
+        headers=papa,
+    )
+    assert response.status_code == 201
+    assert response.json()["category_id"] is None
+
+    ledger = await client.get(
+        "/api/v1/me/transactions?kind=expense&period=2026-09", headers=papa
+    )
+    category_names = {c["name"] for c in ledger.json()["items"][0]["categories"]}
+    assert category_names == {"Aporte al hogar"}
+
+
+@pytest.mark.asyncio
 async def test_the_mirrored_expense_cannot_be_edited_or_deleted_directly(
     client: AsyncClient,
 ) -> None:

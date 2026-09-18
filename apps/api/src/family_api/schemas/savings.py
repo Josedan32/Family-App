@@ -9,6 +9,7 @@ class CreateGoalRequest(BaseModel):
     name: str = Field(min_length=1, max_length=80)
     target_amount_minor: int = Field(gt=0)
     target_date: date | None = None
+    priority: Literal["alta", "media", "baja"] = "media"
 
 
 class CreateEntryRequest(BaseModel):
@@ -32,9 +33,13 @@ class SavingsGoalResponse(BaseModel):
     name: str
     target_amount_minor: int
     target_date: date | None
+    priority: Literal["alta", "media", "baja"]
     balance_minor: int
     progress: float
     currency: str
+    days_remaining: int | None
+    is_overdue: bool
+    state: Literal["completado", "en_progreso"]
 
 
 class SavingsSummaryResponse(BaseModel):
