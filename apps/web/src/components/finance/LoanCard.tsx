@@ -15,7 +15,8 @@ export interface Loan {
   due_on: string | null;
   status: string;
   note: string | null;
-  /** Three-valued after Plan 3 Task 7. */
+  /** Three-valued to support a household member who is neither the lender
+   * nor the borrower viewing this loan. */
   perspective: "lender" | "borrower" | "observer";
 }
 

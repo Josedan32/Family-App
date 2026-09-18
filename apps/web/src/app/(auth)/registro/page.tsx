@@ -5,9 +5,9 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { PasswordStrengthMeter } from "@/components/ui/PasswordStrengthMeter";
+import { MIN_PASSWORD_LENGTH } from "@/lib/passwordStrength";
 import { pushToast } from "@/lib/toast";
-
-const MIN_PASSWORD_LENGTH = 12;
 
 export default function RegistroPage() {
   const router = useRouter();
@@ -76,12 +76,8 @@ export default function RegistroPage() {
             minLength={MIN_PASSWORD_LENGTH}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            helperText={
-              passwordReady
-                ? `Mínimo ${MIN_PASSWORD_LENGTH} caracteres`
-                : `Mínimo ${MIN_PASSWORD_LENGTH} caracteres · llevas ${password.length}`
-            }
           />
+          <PasswordStrengthMeter password={password} />
         </div>
         {error ? (
           <p role="alert" className="text-sm text-danger">

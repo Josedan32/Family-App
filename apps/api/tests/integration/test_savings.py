@@ -30,6 +30,44 @@ async def test_member_can_create_a_goal(client: AsyncClient) -> None:
     assert body["name"] == "Moto"
     assert body["balance_minor"] == 0
     assert body["progress"] == 0.0
+    assert body["priority"] == "media"
+    assert body["state"] == "en_progreso"
+    assert body["days_remaining"] is None
+    assert body["is_overdue"] is False
+
+
+@pytest.mark.asyncio
+async def test_member_can_set_priority_on_a_goal(client: AsyncClient) -> None:
+    headers = await _member(client)
+    response = await client.post(
+        "/api/v1/me/savings-goals",
+        json={"name": "Moto", "target_amount_minor": 8000000, "priority": "alta"},
+        headers=headers,
+    )
+
+    assert response.status_code == 201
+    assert response.json()["priority"] == "alta"
+
+
+@pytest.mark.asyncio
+async def test_goal_state_is_completado_once_target_is_met(client: AsyncClient) -> None:
+    headers = await _member(client)
+    created = await client.post(
+        "/api/v1/me/savings-goals",
+        json={"name": "Viaje", "target_amount_minor": 100000},
+        headers=headers,
+    )
+    goal_id = created.json()["id"]
+
+    await client.post(
+        f"/api/v1/me/savings-goals/{goal_id}/entries",
+        json={"kind": "deposit", "amount_minor": 100000, "occurred_on": "2026-09-02"},
+        headers=headers,
+    )
+
+    listed = await client.get("/api/v1/me/savings-goals", headers=headers)
+    assert listed.json()[0]["state"] == "completado"
+    assert listed.json()[0]["is_overdue"] is False
 
 
 @pytest.mark.asyncio

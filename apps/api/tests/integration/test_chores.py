@@ -141,6 +141,27 @@ async def test_any_member_can_read_chores(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
+async def test_assignments_carry_the_member_photo_for_the_avatar(
+    client: AsyncClient,
+) -> None:
+    admin, _ = await _admin_and_adult(client)
+    today = date.today()
+    await client.post(
+        "/api/v1/chore-cycles",
+        json={
+            "starts_on": (today - timedelta(days=3)).isoformat(),
+            "ends_on": (today + timedelta(days=10)).isoformat(),
+        },
+        headers=admin,
+    )
+
+    assignments = await client.get("/api/v1/chore-assignments", headers=admin)
+
+    assert assignments.status_code == 200
+    assert all("member_photo_url" in a for a in assignments.json())
+
+
+@pytest.mark.asyncio
 async def test_assignments_can_be_filtered_to_one_member(client: AsyncClient) -> None:
     admin, papa = await _admin_and_adult(client)
     today = date.today()
@@ -190,3 +211,205 @@ async def test_filtering_by_a_member_outside_the_household_returns_nothing(
 
     assert response.status_code == 200
     assert response.json() == []
+
+
+@pytest.mark.asyncio
+async def test_assignments_can_be_filtered_by_status(client: AsyncClient) -> None:
+    admin, _ = await _admin_and_adult(client)
+    today = date.today()
+    await client.post(
+        "/api/v1/chore-cycles",
+        json={
+            "starts_on": (today - timedelta(days=3)).isoformat(),
+            "ends_on": (today + timedelta(days=10)).isoformat(),
+        },
+        headers=admin,
+    )
+
+    all_assignments = (
+        await client.get("/api/v1/chore-assignments", headers=admin)
+    ).json()
+    to_complete = all_assignments[0]["id"]
+    await client.post(f"/api/v1/chore-assignments/{to_complete}/complete", headers=admin)
+
+    done = await client.get("/api/v1/chore-assignments?status=done", headers=admin)
+    pending = await client.get("/api/v1/chore-assignments?status=pending", headers=admin)
+
+    assert done.status_code == 200
+    assert [a["id"] for a in done.json()] == [to_complete]
+    assert all(a["status"] == "pending" for a in pending.json())
+    assert to_complete not in [a["id"] for a in pending.json()]
+    assert len(done.json()) + len(pending.json()) == len(all_assignments)
+
+
+@pytest.mark.asyncio
+async def test_assignments_reject_an_invalid_status_value(client: AsyncClient) -> None:
+    admin, _ = await _admin_and_adult(client)
+
+    response = await client.get(
+        "/api/v1/chore-assignments?status=not-a-real-status", headers=admin
+    )
+
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_assignments_reject_from_after_to(client: AsyncClient) -> None:
+    admin, _ = await _admin_and_adult(client)
+    today = date.today()
+
+    response = await client.get(
+        "/api/v1/chore-assignments"
+        f"?from={(today + timedelta(days=3)).isoformat()}&to={today.isoformat()}",
+        headers=admin,
+    )
+
+    assert response.status_code == 422
+    assert response.json()["type"] == "invalid_date_range"
+
+
+@pytest.mark.asyncio
+async def test_assignments_can_be_filtered_by_due_date_range(client: AsyncClient) -> None:
+    admin, _ = await _admin_and_adult(client)
+    today = date.today()
+    await client.post(
+        "/api/v1/chore-cycles",
+        json={
+            "starts_on": (today - timedelta(days=3)).isoformat(),
+            "ends_on": (today + timedelta(days=10)).isoformat(),
+        },
+        headers=admin,
+    )
+
+    all_assignments = (
+        await client.get("/api/v1/chore-assignments", headers=admin)
+    ).json()
+    assert all_assignments, "cycle should generate at least one assignment"
+
+    from_date = today.isoformat()
+    to_date = (today + timedelta(days=3)).isoformat()
+    ranged = await client.get(
+        f"/api/v1/chore-assignments?from={from_date}&to={to_date}", headers=admin
+    )
+
+    assert ranged.status_code == 200
+    assert all(from_date <= a["due_on"] <= to_date for a in ranged.json())
+    assert len(ranged.json()) <= len(all_assignments)
+
+
+@pytest.mark.asyncio
+async def test_assignments_can_be_filtered_by_from_alone(client: AsyncClient) -> None:
+    admin, _ = await _admin_and_adult(client)
+    today = date.today()
+    await client.post(
+        "/api/v1/chore-cycles",
+        json={
+            "starts_on": (today - timedelta(days=3)).isoformat(),
+            "ends_on": (today + timedelta(days=10)).isoformat(),
+        },
+        headers=admin,
+    )
+
+    all_assignments = (
+        await client.get("/api/v1/chore-assignments", headers=admin)
+    ).json()
+    assert all_assignments, "cycle should generate at least one assignment"
+
+    from_date = today.isoformat()
+    response = await client.get(
+        f"/api/v1/chore-assignments?from={from_date}", headers=admin
+    )
+
+    assert response.status_code == 200
+    assert all(a["due_on"] >= from_date for a in response.json())
+    assert len(response.json()) <= len(all_assignments)
+
+
+@pytest.mark.asyncio
+async def test_assignments_can_be_filtered_by_to_alone(client: AsyncClient) -> None:
+    admin, _ = await _admin_and_adult(client)
+    today = date.today()
+    await client.post(
+        "/api/v1/chore-cycles",
+        json={
+            "starts_on": (today - timedelta(days=3)).isoformat(),
+            "ends_on": (today + timedelta(days=10)).isoformat(),
+        },
+        headers=admin,
+    )
+
+    all_assignments = (
+        await client.get("/api/v1/chore-assignments", headers=admin)
+    ).json()
+    assert all_assignments, "cycle should generate at least one assignment"
+
+    to_date = (today + timedelta(days=3)).isoformat()
+    response = await client.get(f"/api/v1/chore-assignments?to={to_date}", headers=admin)
+
+    assert response.status_code == 200
+    assert all(a["due_on"] <= to_date for a in response.json())
+    assert len(response.json()) <= len(all_assignments)
+
+
+@pytest.mark.asyncio
+async def test_assignments_can_be_filtered_by_status_and_member_combined(
+    client: AsyncClient,
+) -> None:
+    admin, _ = await _admin_and_adult(client)
+    today = date.today()
+    await client.post(
+        "/api/v1/chore-cycles",
+        json={
+            "starts_on": (today - timedelta(days=3)).isoformat(),
+            "ends_on": (today + timedelta(days=10)).isoformat(),
+        },
+        headers=admin,
+    )
+
+    members = await client.get("/api/v1/households/current", headers=admin)
+    papa_id = next(
+        m["id"] for m in members.json()["members"] if m["display_name"] == "Papá"
+    )
+
+    response = await client.get(
+        f"/api/v1/chore-assignments?member_id={papa_id}&status=pending", headers=admin
+    )
+
+    assert response.status_code == 200
+    assert all(
+        a["member_id"] == papa_id and a["status"] == "pending" for a in response.json()
+    )
+
+
+@pytest.mark.asyncio
+async def test_assignments_can_be_filtered_by_date_range_and_member_combined(
+    client: AsyncClient,
+) -> None:
+    admin, _ = await _admin_and_adult(client)
+    today = date.today()
+    await client.post(
+        "/api/v1/chore-cycles",
+        json={
+            "starts_on": (today - timedelta(days=3)).isoformat(),
+            "ends_on": (today + timedelta(days=10)).isoformat(),
+        },
+        headers=admin,
+    )
+
+    members = await client.get("/api/v1/households/current", headers=admin)
+    papa_id = next(
+        m["id"] for m in members.json()["members"] if m["display_name"] == "Papá"
+    )
+
+    from_date = today.isoformat()
+    to_date = (today + timedelta(days=3)).isoformat()
+    response = await client.get(
+        f"/api/v1/chore-assignments?member_id={papa_id}&from={from_date}&to={to_date}",
+        headers=admin,
+    )
+
+    assert response.status_code == 200
+    assert all(
+        a["member_id"] == papa_id and from_date <= a["due_on"] <= to_date
+        for a in response.json()
+    )

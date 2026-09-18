@@ -14,6 +14,9 @@ const expense: Transaction = {
   name: null,
   note: "Arroz 2kg",
   source: "manual",
+  is_recurring: false,
+  frequency: null,
+  payment_method: "cash",
 };
 
 function renderRow(transaction: Transaction) {

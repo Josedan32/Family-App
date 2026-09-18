@@ -1,14 +1,14 @@
 from datetime import date
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from family_api.db.models.chore import ChoreCycle
 from family_api.db.models.household import Household, HouseholdMember
 from family_api.db.session import get_session
-from family_api.errors import NotFoundError
+from family_api.errors import InvalidDateRangeError, NotFoundError
 from family_api.schemas.chore import (
     AbsenceResponse,
     AssignmentResponse,
@@ -142,12 +142,27 @@ async def mark_chore_cycle_seen(
 
 @router.get("/chore-assignments")
 async def list_chore_assignments(
-    member: CurrentMember, session: SessionDep, member_id: UUID | None = None
+    member: CurrentMember,
+    session: SessionDep,
+    member_id: UUID | None = None,
+    # `status`/`from`/`to` exist for future/API-only/mobile consumers. The
+    # current web UI (TareasClient) filters client-side over the already
+    # fetched cycle data via its own `filterAssignments` helper instead of
+    # calling these params — that's intentional, not an oversight.
+    status_filter: Annotated[
+        Literal["pending", "done", "skipped", "reassigned"] | None, Query(alias="status")
+    ] = None,
+    due_from: Annotated[date | None, Query(alias="from")] = None,
+    due_to: Annotated[date | None, Query(alias="to")] = None,
 ) -> list[AssignmentResponse]:
+    if due_from is not None and due_to is not None and due_from > due_to:
+        raise InvalidDateRangeError
     cycle = await assignment_service.current_cycle(session, member.household_id)
     if cycle is None:
         return []
-    assignments = await assignment_service.list_cycle_assignments(session, cycle.id, member_id)
+    assignments = await assignment_service.list_cycle_assignments(
+        session, cycle.id, member_id, status=status_filter, due_from=due_from, due_to=due_to
+    )
     return await assignment_service.to_assignment_responses(session, assignments)
 
 

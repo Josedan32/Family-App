@@ -26,6 +26,7 @@ class CreateContributionRequest(BaseModel):
     amount_minor: int = Field(gt=0)
     paid_on: date
     note: str | None = None
+    category_id: UUID | None = None
 
 
 class UpdateContributionRequest(BaseModel):
@@ -74,3 +75,4 @@ class ContributionResponse(BaseModel):
     paid_on: date
     note: str | None
     expense_transaction_id: UUID
+    category_id: UUID | None

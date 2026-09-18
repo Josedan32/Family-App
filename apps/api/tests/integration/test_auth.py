@@ -106,3 +106,83 @@ async def test_me_returns_the_authenticated_user(client: AsyncClient) -> None:
     body = response.json()
     assert body["email"] == REGISTRATION["email"]
     assert "password_hash" not in body
+
+
+@pytest.mark.asyncio
+async def test_change_password_succeeds_with_correct_current_password(
+    client: AsyncClient,
+) -> None:
+    registered = await client.post("/api/v1/auth/register", json=REGISTRATION)
+    token = registered.json()["access_token"]
+
+    response = await client.post(
+        "/api/v1/auth/change-password",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "current_password": REGISTRATION["password"],
+            "new_password": "a-brand-new-password",
+        },
+    )
+
+    assert response.status_code == 204
+
+
+@pytest.mark.asyncio
+async def test_change_password_rejects_wrong_current_password(client: AsyncClient) -> None:
+    registered = await client.post("/api/v1/auth/register", json=REGISTRATION)
+    token = registered.json()["access_token"]
+
+    response = await client.post(
+        "/api/v1/auth/change-password",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"current_password": "not-the-password", "new_password": "a-brand-new-password"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["type"] == "incorrect_password"
+
+
+@pytest.mark.asyncio
+async def test_change_password_allows_login_with_the_new_password(client: AsyncClient) -> None:
+    registered = await client.post("/api/v1/auth/register", json=REGISTRATION)
+    token = registered.json()["access_token"]
+
+    await client.post(
+        "/api/v1/auth/change-password",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "current_password": REGISTRATION["password"],
+            "new_password": "a-brand-new-password",
+        },
+    )
+
+    response = await client.post(
+        "/api/v1/auth/login",
+        json={"email": REGISTRATION["email"], "password": "a-brand-new-password"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["access_token"]
+
+
+@pytest.mark.asyncio
+async def test_change_password_revokes_existing_refresh_tokens(client: AsyncClient) -> None:
+    registered = await client.post("/api/v1/auth/register", json=REGISTRATION)
+    body = registered.json()
+    access_token = body["access_token"]
+    old_refresh_token = body["refresh_token"]
+
+    await client.post(
+        "/api/v1/auth/change-password",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={
+            "current_password": REGISTRATION["password"],
+            "new_password": "a-brand-new-password",
+        },
+    )
+
+    response = await client.post(
+        "/api/v1/auth/refresh", json={"refresh_token": old_refresh_token}
+    )
+
+    assert response.status_code == 401

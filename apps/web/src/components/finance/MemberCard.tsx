@@ -1,4 +1,9 @@
+"use client";
+
+import { useState } from "react";
+
 import { PrivateBlock } from "@/components/privacy/PrivateBlock";
+import { Avatar } from "@/components/ui/Avatar";
 import { Card } from "@/components/ui/Card";
 import {
   IconArrowDown,
@@ -7,6 +12,7 @@ import {
   IconDiamondFilled,
   IconLock,
 } from "@/components/ui/Icons";
+import { CategoryBreakdownList } from "./CategoryBreakdownList";
 import { MoneyDisplay } from "./MoneyDisplay";
 
 export interface ModuleCell {
@@ -20,6 +26,18 @@ export interface ModuleCell {
   total_minor?: number;
 }
 
+export interface CategoryAmount {
+  category_name: string;
+  amount_minor: number;
+}
+
+export interface CategoryBreakdown {
+  /** Same resolved-level semantics as `ModuleCell`. */
+  level: "full" | "summary" | "private";
+  /** Absent — not null, not an empty list — when the level is private. */
+  rows?: CategoryAmount[];
+}
+
 export interface DashboardMember {
   member_id: string;
   display_name: string;
@@ -29,6 +47,7 @@ export interface DashboardMember {
   expenses: ModuleCell;
   savings: ModuleCell;
   debts: ModuleCell;
+  expenses_by_category: CategoryBreakdown;
 }
 
 const MODULES = ["income", "expenses", "savings", "debts"] as const;
@@ -103,16 +122,12 @@ export function MemberCard({
   currency: string;
 }) {
   const allPrivate = MODULES.every((name) => member[name].level === "private");
+  const [showByPerson, setShowByPerson] = useState(false);
 
   return (
     <Card className="flex flex-col gap-3">
       <div className="flex items-center gap-3">
-        <div
-          aria-hidden="true"
-          className="flex h-10 w-10 flex-none items-center justify-center rounded-full border border-border bg-surface-sunken text-sm font-semibold text-text-muted"
-        >
-          {member.display_name.charAt(0)}
-        </div>
+        <Avatar displayName={member.display_name} photoUrl={member.photo_url} seed={member.member_id} />
         <div className="min-w-0">
           <p className="font-semibold">{member.display_name}</p>
           {member.relationship ? (
@@ -135,11 +150,45 @@ export function MemberCard({
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-3">
-          {MODULES.map((name) => (
-            <Cell key={name} name={name} cell={member[name]} currency={currency} />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-2 gap-3">
+            {MODULES.map((name) => (
+              <Cell key={name} name={name} cell={member[name]} currency={currency} />
+            ))}
+          </div>
+          {member.expenses_by_category.level !== "private" ? (
+            <div className="border-t border-border pt-3">
+              <button
+                type="button"
+                onClick={(event) => {
+                  // MemberCard sits inside a Link to the member's page
+                  // (dashboard) — without this the click bubbles up and
+                  // navigates away instead of toggling the section.
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setShowByPerson((value) => !value);
+                }}
+                aria-expanded={showByPerson}
+                className="flex min-h-9 w-full items-center justify-between gap-2 text-left"
+              >
+                <span className="text-xs font-medium text-text-muted">
+                  Gastos personales por categoría
+                </span>
+                <span aria-hidden="true" className="text-xs text-text-muted">
+                  {showByPerson ? "▾" : "▸"}
+                </span>
+              </button>
+              {showByPerson ? (
+                <div className="mt-2 flex flex-col gap-2">
+                  <CategoryBreakdownList
+                    rows={member.expenses_by_category.rows ?? []}
+                    currency={currency}
+                  />
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </>
       )}
     </Card>
   );

@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import type { CategoryAmount } from "@/components/finance/CategoryBreakdownList";
+import { CategoryBreakdownList } from "@/components/finance/CategoryBreakdownList";
 import { ContributionProgress } from "@/components/finance/ContributionProgress";
 import { MemberCard, type DashboardMember } from "@/components/finance/MemberCard";
 import { MoneyDisplay } from "@/components/finance/MoneyDisplay";
@@ -11,7 +13,12 @@ import { pageFetch } from "@/lib/api/server";
 interface Dashboard {
   period: string;
   currency: string;
-  household: { income_minor: number; expenses_minor: number; savings_minor: number };
+  household: {
+    income_minor: number;
+    expenses_minor: number;
+    savings_minor: number;
+    household_ledger_expenses_by_category: CategoryAmount[];
+  };
   contribution?: {
     goal_amount_minor: number;
     collected_minor: number;
@@ -91,11 +98,15 @@ export default async function DashboardPage() {
         </div>
       </Card>
 
-      {/* Spec §8.4: the totals above include every member, private ones
-          included. Saying so here is what makes the derivability acceptable. */}
-      <p className="-mt-2 text-xs text-text-muted">
-        Los totales del hogar incluyen a todos los miembros.
-      </p>
+      <Card>
+        <p className="mb-3.5 text-sm font-medium text-text-muted">
+          Gastos del hogar por categoría
+        </p>
+        <CategoryBreakdownList
+          rows={data.household.household_ledger_expenses_by_category}
+          currency={data.currency}
+        />
+      </Card>
 
       {data.contribution ? (
         <ContributionProgress

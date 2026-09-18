@@ -5,6 +5,7 @@ route here without one, tests/visibility/test_route_coverage.py fails the
 build. That is deliberate.
 """
 
+from datetime import date
 from typing import Annotated
 from uuid import UUID
 
@@ -15,6 +16,7 @@ from family_api.db.models.household import Household
 from family_api.db.session import get_session
 from family_api.periods import parse_period
 from family_api.schemas.debt import DebtResponse, DebtSummaryResponse
+from family_api.schemas.finance_summary import MonthlySummaryResponse
 from family_api.schemas.savings import SavingsGoalResponse, SavingsSummaryResponse
 from family_api.schemas.transaction import (
     CategoryRef,
@@ -23,6 +25,7 @@ from family_api.schemas.transaction import (
     TransactionResponse,
 )
 from family_api.services import debts as debt_service
+from family_api.services import finance_summary as finance_summary_service
 from family_api.services import savings as savings_service
 from family_api.services import transactions as transaction_service
 from family_api.services.visibility import Level, VisibilityScope, visibility_for
@@ -61,6 +64,8 @@ async def _transactions_view(
                 categories=[CategoryRef(id=cid, name=cname) for cid, cname in categories],
                 amount_minor=t.amount_minor, currency=household.currency,
                 occurred_on=t.occurred_on, name=t.name, note=t.note, source=t.source,
+                is_recurring=t.is_recurring, frequency=t.frequency,
+                payment_method=t.payment_method,
             )
             for t, categories in rows
         ],
@@ -100,15 +105,21 @@ async def member_savings(
         )
 
     rows = await savings_service.list_goals_with_balances(session, scope.owner.id)
-    return [
-        SavingsGoalResponse(
-            id=g.id, name=g.name, target_amount_minor=g.target_amount_minor,
-            target_date=g.target_date, balance_minor=balance,
-            progress=savings_service.progress(balance, g.target_amount_minor),
-            currency=household.currency,
+    responses = []
+    for g, balance in rows:
+        state, days_remaining, is_overdue = savings_service.goal_state(
+            balance, g.target_amount_minor, g.target_date, date.today()
         )
-        for g, balance in rows
-    ]
+        responses.append(
+            SavingsGoalResponse(
+                id=g.id, name=g.name, target_amount_minor=g.target_amount_minor,
+                target_date=g.target_date, priority=g.priority, balance_minor=balance,
+                progress=savings_service.progress(balance, g.target_amount_minor),
+                currency=household.currency, days_remaining=days_remaining,
+                is_overdue=is_overdue, state=state,
+            )
+        )
+    return responses
 
 
 @router.get("/{member_id}/debts")
@@ -129,8 +140,10 @@ async def member_debts(
     rows = await debt_service.list_debts_with_figures(session, scope.owner.id)
     return [
         DebtResponse(
-            id=d.id, creditor_type=d.creditor_type, creditor_label=d.creditor_label,
+            id=d.id, name=d.name,
+            creditor_type=d.creditor_type, creditor_label=d.creditor_label,
             principal_minor=d.principal_minor, outstanding_minor=out,
+            paid_total_minor=d.principal_minor - out,
             annual_interest_rate=float(d.annual_interest_rate)
             if d.annual_interest_rate is not None else None,
             due_day=d.due_day, status=d.status, currency=household.currency,
@@ -139,7 +152,40 @@ async def member_debts(
             installments_remaining=figures.remaining if figures else None,
             next_installment_on=figures.next_on if figures else None,
             next_installment_amount_minor=figures.next_amount_minor if figures else None,
+            minimum_payment_minor=d.minimum_payment_minor,
             is_overdue=figures.is_overdue if figures else None,
         )
         for d, out, figures in rows
     ]
+
+
+@router.get("/{member_id}/monthly-summary")
+async def member_monthly_summary(
+    income_scope: Annotated[VisibilityScope, Depends(visibility_for("income"))],
+    expenses_scope: Annotated[VisibilityScope, Depends(visibility_for("expenses"))],
+    savings_scope: Annotated[VisibilityScope, Depends(visibility_for("savings"))],
+    debts_scope: Annotated[VisibilityScope, Depends(visibility_for("debts"))],
+    session: SessionDep,
+    period: str | None = None,
+) -> MonthlySummaryResponse:
+    """The summary combines all four modules into one derived figure, so it
+    is only released when NONE of them is private for this viewer — a
+    remaining-balance figure computed from a hidden module would leak that
+    module's total by subtraction. This is stricter than any single-module
+    route (docs/visibility-rules.md §3), which is deliberate: a composite
+    that always used the least-restrictive of the four would defeat the
+    point of a per-module setting."""
+    owner = income_scope.owner
+    household = await _household(session, owner.household_id)
+    start, end = parse_period(period, household.timezone)
+    figures = await finance_summary_service.monthly_summary(session, owner.id, start, end)
+    return MonthlySummaryResponse(
+        period=f"{start.year:04d}-{start.month:02d}",
+        currency=household.currency,
+        income_minor=figures.income_minor,
+        expenses_minor=figures.expenses_minor,
+        saved_minor=figures.saved_minor,
+        debt_payments_minor=figures.debt_payments_minor,
+        remaining_minor=figures.remaining_minor,
+        status=figures.status,
+    )

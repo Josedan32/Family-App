@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/layout/PageHeader";
 import { pageFetch } from "@/lib/api/server";
 
 import { ChoreAdminClient, type Chore } from "./ChoreAdminClient";
@@ -32,8 +33,11 @@ export default async function TareasAdminPage() {
 
   return (
     <div className="flex flex-col gap-5 pb-20">
+      <PageHeader />
       <header className="flex flex-col gap-1">
-        <h1 className="text-[1.75rem] font-bold tracking-tight">Administrar tareas</h1>
+        <h1 className="text-[1.75rem] font-bold tracking-tight">
+          {isAdmin ? "Administrar tareas" : "Catálogo de tareas"}
+        </h1>
         <p className="text-sm text-text-muted">
           {chores.length} {chores.length === 1 ? "tarea" : "tareas"} · ordenadas de
           menor a mayor esfuerzo

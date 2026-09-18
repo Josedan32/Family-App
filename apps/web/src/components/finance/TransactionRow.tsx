@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/Button";
@@ -21,6 +22,9 @@ export interface Transaction {
   name: string | null;
   note: string | null;
   source: string;
+  is_recurring: boolean;
+  frequency: string | null;
+  payment_method: string;
 }
 
 export function TransactionRow({ transaction }: { transaction: Transaction }) {
@@ -34,6 +38,7 @@ export function TransactionRow({ transaction }: { transaction: Transaction }) {
     mutationFn: () => clientFetch(`/me/transactions/${transaction.id}`, { method: "DELETE" }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      await queryClient.invalidateQueries({ queryKey: ["monthly-summary"] });
       pushToast({ message: "Movimiento eliminado", type: "info" });
     },
   });
@@ -84,9 +89,9 @@ export function TransactionRow({ transaction }: { transaction: Transaction }) {
           <span className="text-xs text-text-muted">
             Se registra automáticamente desde Aportes.
           </span>
-          <a href="/aportes" className="whitespace-nowrap text-sm font-semibold text-brand">
+          <Link href="/aportes" className="whitespace-nowrap text-sm font-semibold text-brand">
             Ver aportes ›
-          </a>
+          </Link>
         </div>
       ) : (
         <div className="flex items-center gap-3 border-t border-border pt-2.5">

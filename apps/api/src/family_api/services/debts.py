@@ -27,6 +27,7 @@ class DebtHasPaymentsError(DomainError):
 async def create_debt(
     session: AsyncSession,
     member: HouseholdMember,
+    name: str,
     creditor_type: str,
     creditor_label: str,
     principal_minor: int,
@@ -35,15 +36,17 @@ async def create_debt(
     installments_total: int | None = None,
     installment_amount_minor: int | None = None,
     first_installment_on: date | None = None,
+    minimum_payment_minor: int | None = None,
 ) -> Debt:
     debt = Debt(
         id=new_id(), household_id=member.household_id, member_id=member.id,
-        creditor_type=creditor_type, creditor_label=creditor_label,
+        name=name, creditor_type=creditor_type, creditor_label=creditor_label,
         principal_minor=principal_minor, annual_interest_rate=annual_interest_rate,
         due_day=due_day, status="active",
         installments_total=installments_total,
         installment_amount_minor=installment_amount_minor,
         first_installment_on=first_installment_on,
+        minimum_payment_minor=minimum_payment_minor,
     )
     session.add(debt)
     await session.flush()
@@ -54,6 +57,23 @@ async def _paid_total(session: AsyncSession, debt_id: UUID) -> int:
     total = await session.scalar(
         select(func.coalesce(func.sum(DebtPayment.amount_minor), 0)).where(
             DebtPayment.debt_id == debt_id
+        )
+    )
+    return int(total or 0)
+
+
+async def payments_in_period(
+    session: AsyncSession, member_id: UUID, start: date_type, end: date_type
+) -> int:
+    """Sum of payments made across all of a member's debts within the period."""
+    total = await session.scalar(
+        select(func.coalesce(func.sum(DebtPayment.amount_minor), 0))
+        .select_from(DebtPayment)
+        .join(Debt, Debt.id == DebtPayment.debt_id)
+        .where(
+            Debt.member_id == member_id,
+            DebtPayment.paid_on >= start,
+            DebtPayment.paid_on <= end,
         )
     )
     return int(total or 0)
@@ -149,6 +169,7 @@ async def add_payment(
     amount_minor: int,
     paid_on: date,
     note: str | None,
+    payment_method: str = "cash",
 ) -> tuple[Debt, DebtPayment]:
     debt = await session.scalar(
         select(Debt).where(Debt.id == debt_id, Debt.member_id == member.id).with_for_update()
@@ -163,6 +184,7 @@ async def add_payment(
     payment = DebtPayment(
         id=new_id(), household_id=debt.household_id, debt_id=debt.id,
         amount_minor=amount_minor, paid_on=paid_on, note=note,
+        payment_method=payment_method,
     )
     session.add(payment)
     await session.flush()

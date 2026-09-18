@@ -125,6 +125,42 @@ async def test_a_member_with_no_records_returns_zero_not_a_denial(
 
 
 @pytest.mark.asyncio
+async def test_monthly_summary_denies_when_any_module_is_private(client: AsyncClient) -> None:
+    """FR-M3-03: debts defaults to private, so the composite summary must
+    deny even when income/expenses/savings are left at their public defaults."""
+    daniel, papa, papa_id = await _household_with_papa(client)
+    await _papa_earns(client, papa, 3_000_000)
+
+    response = await client.get(
+        f"/api/v1/members/{papa_id}/monthly-summary?period=2026-09", headers=daniel
+    )
+
+    assert response.status_code == 403
+    assert response.json()["type"] == "not_visible"
+
+
+@pytest.mark.asyncio
+async def test_monthly_summary_visible_once_every_module_is_shared(
+    client: AsyncClient,
+) -> None:
+    daniel, papa, papa_id = await _household_with_papa(client)
+    await _papa_earns(client, papa, 3_000_000)
+    await _set_visibility(client, papa, "debts", "summary")
+
+    response = await client.get(
+        f"/api/v1/members/{papa_id}/monthly-summary?period=2026-09", headers=daniel
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert set(body) == {
+        "period", "currency", "income_minor", "expenses_minor",
+        "saved_minor", "debt_payments_minor", "remaining_minor", "status",
+    }
+    assert body["income_minor"] == 3_000_000
+
+
+@pytest.mark.asyncio
 async def test_debt_detail_carries_installment_figures(client: AsyncClient) -> None:
     """The member-profile debt list needs the same derived figures as /me/debts."""
     daniel, papa, papa_id = await _household_with_papa(client)
@@ -132,6 +168,7 @@ async def test_debt_detail_carries_installment_figures(client: AsyncClient) -> N
     await client.post(
         "/api/v1/me/debts",
         json={
+            "name": "Celular",
             "creditor_type": "addi",
             "creditor_label": "Addi - Celular",
             "principal_minor": 1_200_000,

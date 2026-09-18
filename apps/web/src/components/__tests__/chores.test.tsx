@@ -13,6 +13,7 @@ const assignment: Assignment = {
   chore_expectation: null,
   member_id: "m1",
   member_name: "Daniel",
+  member_photo_url: null,
   due_on: "2026-09-03",
   status: "pending",
   effort_points: 1,

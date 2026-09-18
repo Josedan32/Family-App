@@ -2,7 +2,7 @@ from datetime import date
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class CategoryRef(BaseModel):
@@ -17,6 +17,17 @@ class CreateTransactionRequest(BaseModel):
     occurred_on: date
     name: str | None = Field(default=None, max_length=120)
     note: str | None = None
+    is_recurring: bool = False
+    frequency: Literal["monthly", "once", "biweekly"] | None = None
+    payment_method: Literal["cash", "nequi", "bancolombia"] = "cash"
+
+    @model_validator(mode="after")
+    def recurring_requires_frequency(self) -> "CreateTransactionRequest":
+        if self.is_recurring and self.frequency is None:
+            raise ValueError("A recurring transaction needs a frequency")
+        if not self.is_recurring and self.frequency is not None:
+            raise ValueError("frequency is only set on recurring transactions")
+        return self
 
 
 class UpdateTransactionRequest(BaseModel):
@@ -37,6 +48,9 @@ class TransactionResponse(BaseModel):
     name: str | None
     note: str | None
     source: str
+    is_recurring: bool
+    frequency: str | None
+    payment_method: str
 
 
 class TransactionListResponse(BaseModel):

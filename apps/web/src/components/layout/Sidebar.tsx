@@ -1,12 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
+
+import { Avatar } from "@/components/ui/Avatar";
+import { IconLogout } from "@/components/ui/Icons";
+import { logout } from "@/lib/auth";
 
 import { TABS } from "./BottomTabBar";
+import type { CurrentUser } from "./types";
 
-export function Sidebar() {
+export function Sidebar({ user }: { user: CurrentUser }) {
   const pathname = usePathname();
+  const router = useRouter();
+
+  async function handleLogout() {
+    await logout();
+    router.push("/login");
+    router.refresh();
+  }
+
   return (
     <nav
       aria-label="Navegación lateral"
@@ -39,6 +52,24 @@ export function Sidebar() {
           );
         })}
       </ul>
+      <div className="mt-auto flex items-center gap-1 border-t border-border pt-4">
+        <Link
+          href="/ajustes/perfil"
+          className="flex min-h-[44px] min-w-0 flex-1 items-center gap-2.5 rounded-[10px] px-3"
+        >
+          <Avatar displayName={user.display_name} photoUrl={user.photo_url} seed={user.id} size="sm" />
+          <span className="truncate text-sm font-medium">{user.display_name}</span>
+        </Link>
+        <button
+          type="button"
+          onClick={handleLogout}
+          aria-label="Cerrar sesión"
+          title="Cerrar sesión"
+          className="flex min-h-[44px] min-w-[44px] flex-none items-center justify-center rounded-[10px] text-text-muted active:bg-surface-sunken"
+        >
+          <IconLogout />
+        </button>
+      </div>
     </nav>
   );
 }

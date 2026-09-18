@@ -111,6 +111,15 @@ async def current_period(
     return await _detail(session, member, period)
 
 
+@router.get("/{period_id}")
+async def get_period(
+    period_id: UUID, member: CurrentMember, session: SessionDep
+) -> PeriodDetailResponse:
+    """Always visible to every household member (FR-M4-07)."""
+    period = await contribution_service._load_period(session, member, period_id)
+    return await _detail(session, member, period)
+
+
 @router.patch("/{period_id}")
 async def update_period(
     period_id: UUID,
@@ -134,6 +143,19 @@ async def close_period(
     period_id: UUID, member: CurrentMember, session: SessionDep
 ) -> PeriodResponse:
     period = await contribution_service.close_period(session, member, period_id)
+    await session.commit()
+    return PeriodResponse(
+        id=period.id, period_month=period.period_month,
+        goal_amount_minor=period.goal_amount_minor, status=period.status,
+        currency=await _currency(session, member.household_id),
+    )
+
+
+@router.post("/{period_id}/reopen")
+async def reopen_period(
+    period_id: UUID, member: CurrentMember, session: SessionDep
+) -> PeriodResponse:
+    period = await contribution_service.reopen_period(session, member, period_id)
     await session.commit()
     return PeriodResponse(
         id=period.id, period_month=period.period_month,
@@ -171,6 +193,7 @@ async def list_own_contributions(
             id=c.id, member_id=c.member_id, amount_minor=c.amount_minor,
             currency=currency, paid_on=c.paid_on, note=c.note,
             expense_transaction_id=c.expense_transaction_id,
+            category_id=c.category_id,
         )
         for c in contributions
     ]
@@ -184,7 +207,8 @@ async def record_contribution(
     session: SessionDep,
 ) -> ContributionResponse:
     contribution = await contribution_service.record_contribution(
-        session, member, period_id, body.amount_minor, body.paid_on, body.note
+        session, member, period_id, body.amount_minor, body.paid_on, body.note,
+        body.category_id,
     )
     await session.commit()
     return ContributionResponse(
@@ -193,6 +217,7 @@ async def record_contribution(
         currency=await _currency(session, member.household_id),
         paid_on=contribution.paid_on, note=contribution.note,
         expense_transaction_id=contribution.expense_transaction_id,
+        category_id=contribution.category_id,
     )
 
 
@@ -213,6 +238,7 @@ async def update_contribution(
         currency=await _currency(session, member.household_id),
         paid_on=contribution.paid_on, note=contribution.note,
         expense_transaction_id=contribution.expense_transaction_id,
+        category_id=contribution.category_id,
     )
 
 

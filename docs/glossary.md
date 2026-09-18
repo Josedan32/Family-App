@@ -47,6 +47,10 @@ Hermana, Abuelo, Abuela, Tío, Tía, Otro.
 | Meta de ahorro | `savings_goal` | One goal: Moto, Universidad, Viaje. |
 | Abono / Retiro | `savings_entry` (`deposit` / `withdrawal`) | |
 | Saldo | `balance_minor` | Always derived, never stored. |
+| Prioridad | `priority` | On a savings goal: `alta` / `media` / `baja`. Genuine user input, stored. |
+| Días restantes | `days_remaining` | Derived from `target_date`, never stored. Negative once the deadline has passed. |
+| Meta alcanzada | `state: "completado"` | `balance_minor >= target_amount_minor`. Takes priority over a passed deadline in the goal card's derived label. |
+| Plazo vencido | `is_overdue` | Derived: `target_date` has passed and the goal is not yet `completado`. |
 | Deuda | `debt` | Owed to an **external** creditor: bank, Addi, credit card. |
 | Acreedor | `creditor` | |
 | Pago | `payment` | Against a debt or a loan. |
@@ -57,6 +61,12 @@ Hermana, Abuelo, Abuela, Tío, Tía, Otro.
 | Prestamista | `lender` | |
 | Deudor | `borrower` | |
 | Pendiente / Pagado | `pending` / `paid` | |
+| Resumen mensual | `monthly_summary` | Composes income, expenses, savings deposits and debt payments for one period into a single derived figure. |
+| Restante | `remaining_minor` | `income_minor - expenses_minor - saved_minor - debt_payments_minor`. Derived, never stored. |
+| Saludable / Ajustado / En descubierto | `healthy` / `tight` / `overspent` | The monthly summary's derived `status`. |
+| Método de pago | `payment_method` | How a transaction or debt payment was paid: cash, transfer, card, etc. |
+| Recurrente | `is_recurring` | Whether a transaction repeats. |
+| Frecuencia (movimiento) | `frequency` (on `Transaction`) | `monthly` / `once` / `biweekly`, shown as Mensual / Único / Quincenal. Set only when `is_recurring` is true. **Not** the same enum as "Frecuencia (tarea)" in §5B — see the disambiguation note there. |
 
 ### The `debt` vs `member_loan` distinction
 
@@ -152,7 +162,7 @@ Fully specified in the spec §7.4, so these names are binding, not provisional.
 | Spanish (UI) | English (code) | Notes |
 | ------------ | -------------- | ----- |
 | Tarea del hogar | `chore` | **Never** `task` — `task` means a unit of implementation work, and confusing the two in a repo full of implementation plans would be genuinely painful. |
-| Frecuencia | `frequency` | `daily` / `weekly` / `biweekly` / `monthly` |
+| Frecuencia (tarea) | `frequency` (on `Chore`) | `daily` / `weekly` / `biweekly` / `monthly`. **Not** the same enum as "Frecuencia (movimiento)" below — see the disambiguation note. |
 | Diaria / Semanal / Quincenal / Mensual | the four values above | |
 | Esfuerzo | `effort_points` | 1–10. The currency of the fairness system. |
 | Asignación | `chore_assignment` | One chore, one member, one due date. |
@@ -168,6 +178,15 @@ Fully specified in the spec §7.4, so these names are binding, not provisional.
 round-robin, which is precisely the design that was rejected — the system
 assigns by lowest effort balance, and calling that a rotation invites someone
 to "simplify" it back into one.
+
+**"Frecuencia" collision.** Two unrelated enums both surface in the UI as
+plain "Frecuencia": the chore's repeat interval (`daily` / `weekly` /
+`biweekly` / `monthly`, §5B) and a transaction's recurrence interval
+(`monthly` / `once` / `biweekly`, §2). They live on different forms — the
+chore-creation form and the transaction form — so a user never sees both
+labels at once, which is why the UI copy is left as-is. In documentation and
+in any place where they might appear together (e.g. this glossary), use
+"Frecuencia (tarea)" and "Frecuencia (movimiento)" to keep them apart.
 
 ---
 

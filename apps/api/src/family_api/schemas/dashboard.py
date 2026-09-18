@@ -15,10 +15,35 @@ class ModuleCell(BaseModel):
     total_minor: int | None = None
 
 
+class CategoryAmount(BaseModel):
+    category_name: str
+    amount_minor: int
+
+
+class CategoryBreakdown(BaseModel):
+    """Same omission semantics as `ModuleCell`.
+
+    `rows` is ABSENT (not null, not an empty list) when the level is
+    `private` — an empty list would still disclose "no expenses", which is a
+    figure (docs/visibility-rules.md §3.2).
+    """
+
+    level: str
+    rows: list[CategoryAmount] | None = None
+
+
 class HouseholdTotals(BaseModel):
     income_minor: int
     expenses_minor: int
     savings_minor: int
+    # Household-ledger expenses (HouseholdExpense), not the sum of members'
+    # personal expense transactions above — see docstring on
+    # services.dashboard.build_dashboard. Always visible: this is a
+    # household-wide total, the same exemption as the totals it sits beside.
+    # Named distinctly from `MemberCard.expenses_by_category` (a different
+    # population: personal Transaction expenses) to keep the two from being
+    # confused at the schema level, not just in a UI caption.
+    household_ledger_expenses_by_category: list[CategoryAmount]
 
 
 class ContributionSummary(BaseModel):
@@ -42,6 +67,7 @@ class MemberCard(BaseModel):
     expenses: ModuleCell
     savings: ModuleCell
     debts: ModuleCell
+    expenses_by_category: CategoryBreakdown
 
 
 class DashboardResponse(BaseModel):

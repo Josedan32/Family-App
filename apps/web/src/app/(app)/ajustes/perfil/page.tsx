@@ -1,6 +1,7 @@
 import { pageFetch } from "@/lib/api/server";
 
 import { ProfileForm } from "./ProfileForm";
+import { SettingsTabs } from "../SettingsTabs";
 
 interface Me {
   id: string;
@@ -16,8 +17,10 @@ export default async function ProfilePage() {
 
   return (
     <div className="flex flex-col gap-5">
+      <h1 className="text-2xl font-bold">Ajustes</h1>
+      <SettingsTabs />
       <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-bold">Perfil</h1>
+        <h2 className="text-lg font-semibold">Perfil</h2>
         <p className="text-sm text-text-muted">{me.email}</p>
       </div>
       <ProfileForm initial={me} />

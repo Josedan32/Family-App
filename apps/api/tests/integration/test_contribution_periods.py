@@ -123,6 +123,77 @@ async def test_setting_pledges_replaces_the_previous_set(client: AsyncClient) ->
 
 
 @pytest.mark.asyncio
+async def test_get_period_by_id_returns_detail(client: AsyncClient) -> None:
+    admin, _, papa_id = await _admin_and_papa(client)
+    created = await client.post(
+        "/api/v1/contribution-periods", json=PERIOD, headers=admin
+    )
+    period_id = created.json()["id"]
+    await client.put(
+        f"/api/v1/contribution-periods/{period_id}/pledges",
+        json={"pledges": [{"member_id": papa_id, "expected_amount_minor": 1_000_000}]},
+        headers=admin,
+    )
+
+    response = await client.get(
+        f"/api/v1/contribution-periods/{period_id}", headers=admin
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["id"] == period_id
+    assert body["status"] == "open"
+    papa = next(m for m in body["members"] if m["member_id"] == papa_id)
+    assert papa["pledged_minor"] == 1_000_000
+
+
+@pytest.mark.asyncio
+async def test_get_period_by_id_not_found(client: AsyncClient) -> None:
+    admin, _, _ = await _admin_and_papa(client)
+    missing_id = "00000000-0000-0000-0000-000000000000"
+
+    response = await client.get(
+        f"/api/v1/contribution-periods/{missing_id}", headers=admin
+    )
+
+    assert response.status_code == 404
+    assert response.json()["type"] == "not_found"
+
+
+@pytest.mark.asyncio
+async def test_get_period_by_id_denies_cross_household_access(
+    client: AsyncClient,
+) -> None:
+    admin, _, _ = await _admin_and_papa(client)
+    created = await client.post(
+        "/api/v1/contribution-periods", json=PERIOD, headers=admin
+    )
+    period_id = created.json()["id"]
+
+    outsider_registered = await client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "outsider@example.com",
+            "password": "correct-horse-battery",
+            "display_name": "Vecina",
+        },
+    )
+    outsider = {
+        "Authorization": f"Bearer {outsider_registered.json()['access_token']}"
+    }
+    await client.post(
+        "/api/v1/households", json={"name": "Otra Familia"}, headers=outsider
+    )
+
+    response = await client.get(
+        f"/api/v1/contribution-periods/{period_id}", headers=outsider
+    )
+
+    assert response.status_code == 404
+    assert response.json()["type"] == "not_found"
+
+
+@pytest.mark.asyncio
 async def test_a_closed_period_rejects_target_changes(client: AsyncClient) -> None:
     """FR-M4-08."""
     admin, _, _ = await _admin_and_papa(client)
@@ -142,3 +213,68 @@ async def test_a_closed_period_rejects_target_changes(client: AsyncClient) -> No
 
     assert response.status_code == 409
     assert response.json()["type"] == "period_closed"
+
+
+@pytest.mark.asyncio
+async def test_admin_can_reopen_a_closed_period(client: AsyncClient) -> None:
+    admin, _, _ = await _admin_and_papa(client)
+    created = await client.post(
+        "/api/v1/contribution-periods", json=PERIOD, headers=admin
+    )
+    period_id = created.json()["id"]
+    await client.post(
+        f"/api/v1/contribution-periods/{period_id}/close", headers=admin
+    )
+
+    response = await client.post(
+        f"/api/v1/contribution-periods/{period_id}/reopen", headers=admin
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "open"
+
+
+@pytest.mark.asyncio
+async def test_non_admin_cannot_reopen_a_period(client: AsyncClient) -> None:
+    admin, papa, _ = await _admin_and_papa(client)
+    created = await client.post(
+        "/api/v1/contribution-periods", json=PERIOD, headers=admin
+    )
+    period_id = created.json()["id"]
+    await client.post(
+        f"/api/v1/contribution-periods/{period_id}/close", headers=admin
+    )
+
+    response = await client.post(
+        f"/api/v1/contribution-periods/{period_id}/reopen", headers=papa
+    )
+
+    assert response.status_code == 403
+    assert response.json()["type"] == "forbidden_role"
+
+
+@pytest.mark.asyncio
+async def test_reopening_a_period_fails_while_another_is_open(
+    client: AsyncClient,
+) -> None:
+    """Only one period is ever open at a time (`get_open_period` assumes it)."""
+    admin, _, _ = await _admin_and_papa(client)
+    first = await client.post(
+        "/api/v1/contribution-periods", json=PERIOD, headers=admin
+    )
+    first_id = first.json()["id"]
+    await client.post(f"/api/v1/contribution-periods/{first_id}/close", headers=admin)
+
+    second = await client.post(
+        "/api/v1/contribution-periods",
+        json={"period_month": "2026-10-01", "goal_amount_minor": 2_000_000},
+        headers=admin,
+    )
+    assert second.json()["status"] == "open"
+
+    response = await client.post(
+        f"/api/v1/contribution-periods/{first_id}/reopen", headers=admin
+    )
+
+    assert response.status_code == 409
+    assert response.json()["type"] == "period_already_open"

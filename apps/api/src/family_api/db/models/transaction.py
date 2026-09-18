@@ -3,6 +3,7 @@ from uuid import UUID
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     CheckConstraint,
     Date,
     ForeignKey,
@@ -23,6 +24,13 @@ transaction_source = PgEnum(
     "manual", "contribution", "household_expense",
     name="transaction_source", create_type=False,
 )
+transaction_frequency = PgEnum(
+    "monthly", "once", "biweekly", name="transaction_frequency", create_type=False
+)
+transaction_payment_method = PgEnum(
+    "cash", "nequi", "bancolombia",
+    name="transaction_payment_method", create_type=False,
+)
 
 
 class Transaction(Base, TimestampMixin):
@@ -33,6 +41,11 @@ class Transaction(Base, TimestampMixin):
             "(source = 'manual' AND source_id IS NULL) "
             "OR (source <> 'manual' AND source_id IS NOT NULL)",
             name="ck_transaction_source_id",
+        ),
+        CheckConstraint(
+            "(is_recurring = false AND frequency IS NULL) "
+            "OR (is_recurring = true AND frequency IS NOT NULL)",
+            name="ck_transaction_recurring_frequency",
         ),
         Index("ix_transaction_ledger", "household_id", "member_id", "occurred_on"),
         Index("ix_transaction_totals", "household_id", "member_id", "kind", "occurred_on"),
@@ -61,3 +74,10 @@ class Transaction(Base, TimestampMixin):
         transaction_source, nullable=False, server_default="manual"
     )
     source_id: Mapped[UUID | None] = mapped_column(PgUUID(as_uuid=True), nullable=True)
+    is_recurring: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default="false"
+    )
+    frequency: Mapped[str | None] = mapped_column(transaction_frequency, nullable=True)
+    payment_method: Mapped[str] = mapped_column(
+        transaction_payment_method, nullable=False, server_default="cash"
+    )

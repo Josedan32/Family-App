@@ -13,11 +13,21 @@ import { pushToast } from "@/lib/toast";
 import type { Debt } from "./DebtCard";
 import { MoneyDisplay } from "./MoneyDisplay";
 
+const PAYMENT_METHODS = ["cash", "nequi", "bancolombia"] as const;
+type PaymentMethod = (typeof PAYMENT_METHODS)[number];
+
+const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
+  cash: "Efectivo",
+  nequi: "Nequi",
+  bancolombia: "Bancolombia",
+};
+
 interface Payment {
   id: string;
   amount_minor: number;
   paid_on: string;
   note: string | null;
+  payment_method: PaymentMethod;
 }
 
 interface DebtDetailData extends Debt {
@@ -29,6 +39,7 @@ export function DebtDetail({ debt, onDeleted }: { debt: Debt; onDeleted: () => v
   const [amount, setAmount] = useState(0);
   const [paidOn, setPaidOn] = useState(new Date().toISOString().slice(0, 10));
   const [note, setNote] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
@@ -41,13 +52,20 @@ export function DebtDetail({ debt, onDeleted }: { debt: Debt; onDeleted: () => v
     mutationFn: () =>
       clientFetch(`/me/debts/${debt.id}/payments`, {
         method: "POST",
-        body: JSON.stringify({ amount_minor: amount, paid_on: paidOn, note: note || null }),
+        body: JSON.stringify({
+          amount_minor: amount,
+          paid_on: paidOn,
+          note: note || null,
+          payment_method: paymentMethod,
+        }),
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["debts"] });
       await queryClient.invalidateQueries({ queryKey: ["debt-detail", debt.id] });
+      await queryClient.invalidateQueries({ queryKey: ["monthly-summary"] });
       setAmount(0);
       setNote("");
+      setPaymentMethod("cash");
       pushToast({ message: "Abono registrado", type: "success" });
     },
   });
@@ -82,6 +100,22 @@ export function DebtDetail({ debt, onDeleted }: { debt: Debt; onDeleted: () => v
           <span className="text-text-muted">Saldo pendiente</span>
           <MoneyDisplay amountMinor={debt.outstanding_minor} currency={debt.currency} kind="debt" />
         </div>
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-text-muted">Total abonado</span>
+          <MoneyDisplay amountMinor={debt.paid_total_minor} currency={debt.currency} />
+        </div>
+        {debt.annual_interest_rate !== null ? (
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-text-muted">Tasa de interés anual</span>
+            <span>{debt.annual_interest_rate}%</span>
+          </div>
+        ) : null}
+        {debt.minimum_payment_minor ? (
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-text-muted">Pago mínimo mensual</span>
+            <MoneyDisplay amountMinor={debt.minimum_payment_minor} currency={debt.currency} />
+          </div>
+        ) : null}
         {debt.due_day ? (
           <div className="flex items-center justify-between gap-3">
             <span className="text-text-muted">Día de corte</span>
@@ -99,7 +133,7 @@ export function DebtDetail({ debt, onDeleted }: { debt: Debt; onDeleted: () => v
             {detail.data.payments.map((payment) => (
               <li key={payment.id} className="flex items-center justify-between text-sm">
                 <span className="text-text-muted">
-                  {payment.paid_on}
+                  {payment.paid_on} · {PAYMENT_METHOD_LABEL[payment.payment_method]}
                   {payment.note ? ` · ${payment.note}` : ""}
                 </span>
                 <MoneyDisplay amountMinor={payment.amount_minor} currency={debt.currency} />
@@ -131,6 +165,32 @@ export function DebtDetail({ debt, onDeleted }: { debt: Debt; onDeleted: () => v
             onChange={(event) => setPaidOn(event.target.value)}
           />
           <Input label="Nota (opcional)" value={note} onChange={(event) => setNote(event.target.value)} />
+          <div className="flex flex-col gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+              Método de pago
+            </span>
+            <div role="radiogroup" aria-label="Método de pago" className="grid grid-cols-3 gap-2">
+              {PAYMENT_METHODS.map((value) => {
+                const selected = paymentMethod === value;
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    onClick={() => setPaymentMethod(value)}
+                    className={`min-h-[48px] rounded-xl border px-1 text-sm font-medium ${
+                      selected
+                        ? "border-brand bg-brand font-bold text-brand-contrast"
+                        : "border-border bg-surface text-text active:bg-surface-sunken"
+                    }`}
+                  >
+                    {PAYMENT_METHOD_LABEL[value]}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
           {pay.isError ? (
             <p role="alert" className="text-sm text-danger">
               {(pay.error as Error).message}

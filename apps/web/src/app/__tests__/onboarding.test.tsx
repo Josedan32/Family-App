@@ -1,11 +1,19 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
+let searchParams = new URLSearchParams();
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+  useSearchParams: () => searchParams,
+}));
 
 import OnboardingPage from "../(onboarding)/onboarding/hogar/page";
 
 describe("onboarding", () => {
+  beforeEach(() => {
+    searchParams = new URLSearchParams();
+  });
+
   it("offers both creating and joining", () => {
     render(<OnboardingPage />);
     expect(screen.getByRole("tab", { name: "Crear hogar" })).toBeInTheDocument();
@@ -24,5 +32,13 @@ describe("onboarding", () => {
     render(<OnboardingPage />);
     fireEvent.click(screen.getByRole("tab", { name: "Unirme con código" }));
     expect(screen.getByLabelText("Código del hogar")).toHaveAttribute("maxLength", "8");
+  });
+
+  it("prefills the code and switches to join mode from a shared invite link", () => {
+    searchParams = new URLSearchParams({ code: "abcd1234" });
+    render(<OnboardingPage />);
+
+    expect(screen.getByRole("tab", { name: "Unirme con código", selected: true })).toBeInTheDocument();
+    expect(screen.getByLabelText("Código del hogar")).toHaveValue("ABCD1234");
   });
 });

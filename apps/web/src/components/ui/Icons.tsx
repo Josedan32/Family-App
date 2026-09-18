@@ -38,6 +38,16 @@ export function IconLock(props: IconProps) {
   );
 }
 
+export function IconLogout(props: IconProps) {
+  return (
+    <svg {...LINE_PROPS} {...props}>
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <path d="M16 17l5-5-5-5" />
+      <path d="M21 12H9" />
+    </svg>
+  );
+}
+
 export function IconEye(props: IconProps) {
   return (
     <svg {...LINE_PROPS} {...props}>
@@ -143,6 +153,14 @@ export function IconArrowUp(props: IconProps) {
   return (
     <svg {...LINE_PROPS} {...props}>
       <path d="M12 19V5M6 11l6-6 6 6" />
+    </svg>
+  );
+}
+
+export function IconArrowLeft(props: IconProps) {
+  return (
+    <svg {...LINE_PROPS} {...props}>
+      <path d="M19 12H5M11 6l-6 6 6 6" />
     </svg>
   );
 }

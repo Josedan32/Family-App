@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from family_api.db.models.debt import Debt
 from family_api.db.models.household import Household
+from family_api.db.models.savings import SavingsGoal
 from family_api.db.session import get_session
 from family_api.periods import parse_period
 from family_api.schemas.debt import (
@@ -16,6 +17,7 @@ from family_api.schemas.debt import (
     DebtPaymentResponse,
     DebtResponse,
 )
+from family_api.schemas.finance_summary import MonthlySummaryResponse
 from family_api.schemas.savings import (
     CreateEntryRequest,
     CreateGoalRequest,
@@ -30,6 +32,7 @@ from family_api.schemas.transaction import (
     UpdateTransactionRequest,
 )
 from family_api.services import debts as debt_service
+from family_api.services import finance_summary as finance_summary_service
 from family_api.services import savings as savings_service
 from family_api.services import transactions as transaction_service
 from family_api.services.installments import InstallmentFigures, compute_installments
@@ -73,6 +76,8 @@ async def list_transactions(
                 categories=[CategoryRef(id=cid, name=cname) for cid, cname in categories],
                 amount_minor=t.amount_minor, currency=currency,
                 occurred_on=t.occurred_on, name=t.name, note=t.note, source=t.source,
+                is_recurring=t.is_recurring, frequency=t.frequency,
+                payment_method=t.payment_method,
             )
             for t, categories in rows
         ],
@@ -88,6 +93,7 @@ async def create_transaction(
         transaction = await transaction_service.create_transaction(
             session, member, body.kind, body.category_ids,
             body.amount_minor, body.occurred_on, body.name, body.note,
+            body.is_recurring, body.frequency, body.payment_method,
         )
     except CategoryKindMismatchError:
         raise HTTPException(
@@ -105,7 +111,8 @@ async def create_transaction(
         amount_minor=transaction.amount_minor,
         currency=await _currency(session, member.household_id),
         occurred_on=transaction.occurred_on, name=transaction.name, note=transaction.note,
-        source=transaction.source,
+        source=transaction.source, is_recurring=transaction.is_recurring,
+        frequency=transaction.frequency, payment_method=transaction.payment_method,
     )
 
 
@@ -135,7 +142,8 @@ async def update_transaction(
         amount_minor=transaction.amount_minor,
         currency=await _currency(session, member.household_id),
         occurred_on=transaction.occurred_on, name=transaction.name, note=transaction.note,
-        source=transaction.source,
+        source=transaction.source, is_recurring=transaction.is_recurring,
+        frequency=transaction.frequency, payment_method=transaction.payment_method,
     )
 
 
@@ -147,19 +155,42 @@ async def delete_transaction(
     await session.commit()
 
 
+@router.get("/monthly-summary")
+async def monthly_summary(
+    member: CurrentMember, session: SessionDep, period: str | None = None
+) -> MonthlySummaryResponse:
+    start, end = parse_period(period, await _timezone(session, member.household_id))
+    currency = await _currency(session, member.household_id)
+    figures = await finance_summary_service.monthly_summary(session, member.id, start, end)
+    return MonthlySummaryResponse(
+        period=f"{start.year:04d}-{start.month:02d}",
+        currency=currency,
+        income_minor=figures.income_minor,
+        expenses_minor=figures.expenses_minor,
+        saved_minor=figures.saved_minor,
+        debt_payments_minor=figures.debt_payments_minor,
+        remaining_minor=figures.remaining_minor,
+        status=figures.status,
+    )
+
+
+def _goal_response(goal: SavingsGoal, balance: int, currency: str) -> SavingsGoalResponse:
+    state, days_remaining, is_overdue = savings_service.goal_state(
+        balance, goal.target_amount_minor, goal.target_date, date.today()
+    )
+    return SavingsGoalResponse(
+        id=goal.id, name=goal.name, target_amount_minor=goal.target_amount_minor,
+        target_date=goal.target_date, priority=goal.priority, balance_minor=balance,
+        progress=savings_service.progress(balance, goal.target_amount_minor),
+        currency=currency, days_remaining=days_remaining, is_overdue=is_overdue, state=state,
+    )
+
+
 @router.get("/savings-goals")
 async def list_goals(member: CurrentMember, session: SessionDep) -> list[SavingsGoalResponse]:
     currency = await _currency(session, member.household_id)
     rows = await savings_service.list_goals_with_balances(session, member.id)
-    return [
-        SavingsGoalResponse(
-            id=g.id, name=g.name, target_amount_minor=g.target_amount_minor,
-            target_date=g.target_date, balance_minor=balance,
-            progress=savings_service.progress(balance, g.target_amount_minor),
-            currency=currency,
-        )
-        for g, balance in rows
-    ]
+    return [_goal_response(g, balance, currency) for g, balance in rows]
 
 
 @router.post("/savings-goals", status_code=status.HTTP_201_CREATED)
@@ -167,14 +198,10 @@ async def create_goal(
     body: CreateGoalRequest, member: CurrentMember, session: SessionDep
 ) -> SavingsGoalResponse:
     goal = await savings_service.create_goal(
-        session, member, body.name, body.target_amount_minor, body.target_date
+        session, member, body.name, body.target_amount_minor, body.target_date, body.priority
     )
     await session.commit()
-    return SavingsGoalResponse(
-        id=goal.id, name=goal.name, target_amount_minor=goal.target_amount_minor,
-        target_date=goal.target_date, balance_minor=0, progress=0.0,
-        currency=await _currency(session, member.household_id),
-    )
+    return _goal_response(goal, 0, await _currency(session, member.household_id))
 
 
 @router.get("/savings-goals/{goal_id}/entries")
@@ -202,20 +229,17 @@ async def add_entry(
     await session.commit()
     rows = await savings_service.list_goals_with_balances(session, member.id)
     goal, balance = next((g, b) for g, b in rows if g.id == goal_id)
-    return SavingsGoalResponse(
-        id=goal.id, name=goal.name, target_amount_minor=goal.target_amount_minor,
-        target_date=goal.target_date, balance_minor=balance,
-        progress=savings_service.progress(balance, goal.target_amount_minor),
-        currency=await _currency(session, member.household_id),
-    )
+    return _goal_response(goal, balance, await _currency(session, member.household_id))
 
 
 def _debt_response(
     debt: Debt, outstanding: int, figures: InstallmentFigures | None, currency: str
 ) -> DebtResponse:
     return DebtResponse(
-        id=debt.id, creditor_type=debt.creditor_type, creditor_label=debt.creditor_label,
+        id=debt.id, name=debt.name,
+        creditor_type=debt.creditor_type, creditor_label=debt.creditor_label,
         principal_minor=debt.principal_minor, outstanding_minor=outstanding,
+        paid_total_minor=debt.principal_minor - outstanding,
         annual_interest_rate=float(debt.annual_interest_rate)
         if debt.annual_interest_rate is not None else None,
         due_day=debt.due_day, status=debt.status, currency=currency,
@@ -224,6 +248,7 @@ def _debt_response(
         installments_remaining=figures.remaining if figures else None,
         next_installment_on=figures.next_on if figures else None,
         next_installment_amount_minor=figures.next_amount_minor if figures else None,
+        minimum_payment_minor=debt.minimum_payment_minor,
         is_overdue=figures.is_overdue if figures else None,
     )
 
@@ -240,10 +265,10 @@ async def create_debt(
     body: CreateDebtRequest, member: CurrentMember, session: SessionDep
 ) -> DebtResponse:
     debt = await debt_service.create_debt(
-        session, member, body.creditor_type, body.creditor_label,
+        session, member, body.name, body.creditor_type, body.creditor_label,
         body.principal_minor, body.annual_interest_rate, body.due_day,
         body.installments_total, body.installment_amount_minor,
-        body.first_installment_on,
+        body.first_installment_on, body.minimum_payment_minor,
     )
     await session.commit()
     currency = await _currency(session, member.household_id)
@@ -267,7 +292,8 @@ async def get_debt(
         **base.model_dump(),
         payments=[
             DebtPaymentResponse(
-                id=p.id, amount_minor=p.amount_minor, paid_on=p.paid_on, note=p.note
+                id=p.id, amount_minor=p.amount_minor, paid_on=p.paid_on, note=p.note,
+                payment_method=p.payment_method,
             )
             for p in payments
         ],
@@ -288,7 +314,8 @@ async def add_debt_payment(
     session: SessionDep,
 ) -> DebtResponse:
     _, payment = await debt_service.add_payment(
-        session, member, debt_id, body.amount_minor, body.paid_on, body.note
+        session, member, debt_id, body.amount_minor, body.paid_on, body.note,
+        body.payment_method,
     )
     await session.commit()
     currency = await _currency(session, member.household_id)

@@ -5,6 +5,8 @@ from family_api.db.models.household import Household, HouseholdMember
 from family_api.db.models.user import User
 from family_api.periods import parse_period
 from family_api.schemas.dashboard import (
+    CategoryAmount,
+    CategoryBreakdown,
     ContributionSummary,
     DashboardResponse,
     HouseholdTotals,
@@ -16,6 +18,9 @@ from family_api.services import contributions as contribution_service
 from family_api.services import debts as debt_service
 from family_api.services import savings as savings_service
 from family_api.services import transactions as transaction_service
+from family_api.services.household_expenses import (
+    category_breakdown as household_category_breakdown,
+)
 from family_api.services.household_expenses import pot_figures
 from family_api.services.visibility import Level, resolve
 
@@ -32,6 +37,24 @@ async def _cell(
         # No figure at all. Not null, not zero.
         return ModuleCell(level="private")
     return ModuleCell(level=level.value, total_minor=value)
+
+
+async def _category_breakdown_cell(
+    session: AsyncSession,
+    viewer: HouseholdMember,
+    owner: HouseholdMember,
+    module: str,
+    rows: list[tuple[str, int]],
+) -> CategoryBreakdown:
+    """Same gating decision as `_cell`, reusing `resolve` — no parallel
+    visibility mechanism."""
+    level = await resolve(session, viewer, owner, module)
+    if level is Level.NONE:
+        return CategoryBreakdown(level="private")
+    return CategoryBreakdown(
+        level=level.value,
+        rows=[CategoryAmount(category_name=name, amount_minor=amount) for name, amount in rows],
+    )
 
 
 async def build_dashboard(
@@ -63,6 +86,9 @@ async def build_dashboard(
         )
         savings = await savings_service.total_balance(session, owner.id)
         debts = await debt_service.total_outstanding(session, owner.id)
+        expense_rows = await transaction_service.category_breakdown_for(
+            session, owner.id, "expense", start, end
+        )
 
         # FR-D1-02: household totals include EVERY member, private ones
         # included. See spec §8.4 for why suppression was rejected.
@@ -78,6 +104,9 @@ async def build_dashboard(
                 expenses=await _cell(session, viewer, owner, "expenses", expenses),
                 savings=await _cell(session, viewer, owner, "savings", savings),
                 debts=await _cell(session, viewer, owner, "debts", debts),
+                expenses_by_category=await _category_breakdown_cell(
+                    session, viewer, owner, "expenses", expense_rows
+                ),
             )
         )
 
@@ -93,6 +122,9 @@ async def build_dashboard(
         )
 
     figures = await pot_figures(session, household.id)
+    household_expense_rows = await household_category_breakdown(
+        session, household.id, start, end
+    )
 
     return DashboardResponse(
         period=period_label, currency=household.currency,
@@ -100,6 +132,10 @@ async def build_dashboard(
             income_minor=household_income,
             expenses_minor=household_expenses,
             savings_minor=household_savings,
+            household_ledger_expenses_by_category=[
+                CategoryAmount(category_name=name, amount_minor=amount)
+                for name, amount in household_expense_rows
+            ],
         ),
         contribution=contribution,
         pot=PotSummary(

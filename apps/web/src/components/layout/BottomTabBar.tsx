@@ -18,7 +18,7 @@ export const TABS = [
   { href: "/aportes", label: "Aportes", Icon: IconHandshake },
   { href: "/tareas", label: "Tareas", Icon: IconClock },
   { href: "/hogar", label: "Hogar", Icon: IconUsers },
-  { href: "/ajustes/privacidad", label: "Ajustes", Icon: IconSettings },
+  { href: "/ajustes", label: "Ajustes", Icon: IconSettings },
 ] as const;
 
 export function BottomTabBar() {

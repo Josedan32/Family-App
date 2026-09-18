@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
@@ -127,24 +128,24 @@ export function MemberList({
       <Card className="flex flex-col divide-y divide-border p-0">
         {members.map((member) => (
           <div key={member.id} className="flex items-center gap-3 p-3.5">
-            <div
-              aria-hidden="true"
-              className="flex h-10 w-10 flex-none items-center justify-center rounded-full border border-border bg-surface-sunken text-sm font-bold text-text-muted"
+            <Link
+              href={`/hogar/miembros/${member.id}`}
+              className="flex min-w-0 flex-1 items-center gap-3"
             >
-              {member.display_name.charAt(0)}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="font-semibold">{member.display_name}</p>
-              <p className="text-xs text-text-muted">
-                {member.relationship}
-                {member.age !== null ? ` · ${member.age} años` : ""}
-              </p>
-              {member.id === myMemberId && member.age === null ? (
-                <Link href="/ajustes/perfil" className="text-xs font-semibold text-brand">
-                  Agrega tu fecha de nacimiento
-                </Link>
-              ) : null}
-            </div>
+              <Avatar displayName={member.display_name} photoUrl={member.photo_url} seed={member.id} />
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold">{member.display_name}</p>
+                <p className="text-xs text-text-muted">
+                  {member.relationship}
+                  {member.age !== null ? ` · ${member.age} años` : ""}
+                </p>
+              </div>
+            </Link>
+            {member.id === myMemberId && member.age === null ? (
+              <Link href="/ajustes/perfil" className="text-xs font-semibold text-brand">
+                Agrega tu fecha de nacimiento
+              </Link>
+            ) : null}
             <span className="flex-none rounded-lg border border-brand bg-surface-sunken px-2 py-1 text-xs font-semibold text-brand">
               {ROLE_LABEL[member.role] ?? member.role}
             </span>
