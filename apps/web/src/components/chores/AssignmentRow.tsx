@@ -48,14 +48,14 @@ function writeChecked(assignmentId: string, steps: string[]): void {
   }
 }
 
-const STATUS: Record<string, string> = {
+export const STATUS_LABEL: Record<string, string> = {
   pending: "Pendiente",
   done: "Hecha",
   skipped: "Omitida",
   reassigned: "Reasignada",
 };
 
-function formatDue(dueOn: string): string {
+export function formatDue(dueOn: string): string {
   const today = new Date().toISOString().slice(0, 10);
   if (dueOn === today) return "hoy";
   const [, month, day] = dueOn.split("-");
@@ -137,7 +137,7 @@ export function AssignmentRow({
             {assignment.effort_points} {assignment.effort_points === 1 ? "pt" : "pts"}
           </span>
           <span className="text-xs text-text-muted">
-            {STATUS[assignment.status] ?? assignment.status}
+            {STATUS_LABEL[assignment.status] ?? assignment.status}
           </span>
         </div>
         {assignment.status === "pending" && onComplete ? (
