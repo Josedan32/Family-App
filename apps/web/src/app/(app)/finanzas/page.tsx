@@ -2,14 +2,14 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 
 import { DebtCard, type Debt } from "@/components/finance/DebtCard";
 import { DebtDetail } from "@/components/finance/DebtDetail";
 import { GoalCard, type Goal } from "@/components/finance/GoalCard";
 import { GoalDetail } from "@/components/finance/GoalDetail";
 import { MonthlySummaryCard } from "@/components/finance/MonthlySummaryCard";
-import { TransactionForm } from "@/components/finance/TransactionForm";
 import { TransactionRow, type Transaction } from "@/components/finance/TransactionRow";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -29,6 +29,10 @@ import { clientFetch } from "@/lib/api/client";
 import { pushToast } from "@/lib/toast";
 
 type TabId = "income" | "expense" | "savings" | "debts";
+
+function isTabId(value: string | null): value is TabId {
+  return value === "income" || value === "expense" || value === "savings" || value === "debts";
+}
 
 const TABS: { id: TabId; label: string }[] = [
   { id: "income", label: "Ingresos" },
@@ -74,6 +78,7 @@ function SavingsGoalForm({ onDone }: { onDone: () => void }) {
   const [nameTouched, setNameTouched] = useState(false);
   const [target, setTarget] = useState(0);
   const [targetTouched, setTargetTouched] = useState(false);
+  const [targetDate, setTargetDate] = useState("");
   const [priority, setPriority] = useState<"alta" | "media" | "baja">("media");
 
   const nameError = nameTouched && !name ? "Ponle un nombre a la meta" : undefined;
@@ -84,7 +89,12 @@ function SavingsGoalForm({ onDone }: { onDone: () => void }) {
     mutationFn: () =>
       clientFetch("/me/savings-goals", {
         method: "POST",
-        body: JSON.stringify({ name, target_amount_minor: target, priority }),
+        body: JSON.stringify({
+          name,
+          target_amount_minor: target,
+          target_date: targetDate || null,
+          priority,
+        }),
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["savings-goals"] });
@@ -121,6 +131,13 @@ function SavingsGoalForm({ onDone }: { onDone: () => void }) {
         error={targetError}
         required
       />
+      <Input
+        label="Fecha meta (opcional)"
+        type="date"
+        value={targetDate}
+        onChange={(e) => setTargetDate(e.target.value)}
+        helperText="Para calcular los días restantes hasta la meta."
+      />
       <div role="radiogroup" aria-label="Prioridad" className="flex flex-col gap-1.5">
         <span className="text-sm font-medium">Prioridad</span>
         <div className="grid grid-cols-3 gap-1 rounded-xl border border-border bg-surface p-1">
@@ -152,168 +169,22 @@ function SavingsGoalForm({ onDone }: { onDone: () => void }) {
   );
 }
 
-function DebtForm({ onDone }: { onDone: () => void }) {
-  const queryClient = useQueryClient();
-  const [name, setName] = useState("");
-  const [nameTouched, setNameTouched] = useState(false);
-  const [creditorLabel, setCreditorLabel] = useState("");
-  const [creditorTouched, setCreditorTouched] = useState(false);
-  const [principal, setPrincipal] = useState(0);
-  const [principalTouched, setPrincipalTouched] = useState(false);
-  const [dueDay, setDueDay] = useState("");
-  const [minimumPayment, setMinimumPayment] = useState(0);
-  const [hasPlan, setHasPlan] = useState(false);
-  const [installmentsTotal, setInstallmentsTotal] = useState("");
-  const [installmentAmount, setInstallmentAmount] = useState(0);
-  const [firstInstallmentOn, setFirstInstallmentOn] = useState(
-    new Date().toISOString().slice(0, 10),
-  );
-
-  const create = useMutation({
-    mutationFn: () =>
-      clientFetch("/me/debts", {
-        method: "POST",
-        body: JSON.stringify({
-          name,
-          creditor_type: "other",
-          creditor_label: creditorLabel,
-          principal_minor: principal,
-          due_day: dueDay ? Number(dueDay) : null,
-          minimum_payment_minor: minimumPayment > 0 ? minimumPayment : null,
-          ...(hasPlan
-            ? {
-                installments_total: Number(installmentsTotal),
-                installment_amount_minor: installmentAmount,
-                first_installment_on: firstInstallmentOn,
-              }
-            : {}),
-        }),
-      }),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["debts"] });
-      pushToast({ message: "Deuda registrada", type: "success" });
-      onDone();
-    },
-  });
-
-  const planIncomplete =
-    hasPlan && (!installmentsTotal || Number(installmentsTotal) <= 0 || installmentAmount <= 0);
-  const nameError = nameTouched && !name ? "Dale un nombre a esta deuda" : undefined;
-  const creditorError = creditorTouched && !creditorLabel ? "Dinos a quién le debes" : undefined;
-  const principalError =
-    principalTouched && principal <= 0 ? "Ingresa un monto mayor a cero" : undefined;
-  const canSubmit = !!name && !!creditorLabel && principal > 0 && !planIncomplete;
-
+export default function FinanzasPage() {
   return (
-    <form
-      className="flex flex-col gap-5"
-      onSubmit={(event) => {
-        event.preventDefault();
-        setNameTouched(true);
-        setCreditorTouched(true);
-        setPrincipalTouched(true);
-        if (canSubmit) create.mutate();
-      }}
-    >
-      <Input
-        label="Nombre"
-        required
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        onBlur={() => setNameTouched(true)}
-        error={nameError}
-      />
-      <Input
-        label="Acreedor"
-        required
-        value={creditorLabel}
-        onChange={(e) => setCreditorLabel(e.target.value)}
-        onBlur={() => setCreditorTouched(true)}
-        error={creditorError}
-      />
-      <MoneyInput
-        label="Monto"
-        value={principal}
-        onChange={setPrincipal}
-        onBlur={() => setPrincipalTouched(true)}
-        currency={CURRENCY}
-        kind="debt"
-        error={principalError}
-        required
-      />
-      <Input
-        label="Día de corte (opcional)"
-        type="number"
-        min={1}
-        max={31}
-        value={dueDay}
-        onChange={(e) => setDueDay(e.target.value)}
-      />
-      <MoneyInput
-        label="Pago mínimo mensual (opcional)"
-        value={minimumPayment}
-        onChange={setMinimumPayment}
-        currency={CURRENCY}
-        kind="debt"
-      />
-
-      <label className="flex items-center gap-2.5 text-sm font-medium">
-        <input
-          type="checkbox"
-          checked={hasPlan}
-          onChange={(e) => setHasPlan(e.target.checked)}
-          className="h-5 w-5"
-        />
-        Tiene un plan de cuotas
-      </label>
-
-      {hasPlan ? (
-        <div className="flex flex-col gap-5 rounded-xl border border-border p-3.5">
-          <Input
-            label="Número de cuotas"
-            type="number"
-            min={1}
-            max={360}
-            required
-            value={installmentsTotal}
-            onChange={(e) => setInstallmentsTotal(e.target.value)}
-          />
-          <MoneyInput
-            label="Valor de la cuota"
-            value={installmentAmount}
-            onChange={setInstallmentAmount}
-            currency={CURRENCY}
-            kind="debt"
-            required
-          />
-          <Input
-            label="Primera cuota"
-            type="date"
-            required
-            value={firstInstallmentOn}
-            onChange={(e) => setFirstInstallmentOn(e.target.value)}
-          />
-        </div>
-      ) : null}
-
-      {create.isError ? (
-        <p role="alert" className="text-sm text-danger">
-          {(create.error as Error).message}
-        </p>
-      ) : null}
-      <Button type="submit" disabled={create.isPending || !canSubmit}>
-        {create.isPending ? "Guardando…" : "Guardar"}
-      </Button>
-    </form>
+    <Suspense fallback={null}>
+      <FinanzasContent />
+    </Suspense>
   );
 }
 
-export default function FinanzasPage() {
-  const [tab, setTab] = useState<TabId>("expense");
+function FinanzasContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialTab = searchParams.get("tab");
+  const [tab, setTab] = useState<TabId>(isTabId(initialTab) ? initialTab : "expense");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [expandedGoalId, setExpandedGoalId] = useState<string | null>(null);
   const [expandedDebtId, setExpandedDebtId] = useState<string | null>(null);
-  const queryClient = useQueryClient();
 
   const transactions = useQuery({
     queryKey: ["transactions", tab],
@@ -343,13 +214,17 @@ export default function FinanzasPage() {
     setSheetOpen(false);
   }
 
-  async function refreshAndClose() {
-    await queryClient.invalidateQueries({ queryKey: ["transactions"] });
-    pushToast({
-      message: tab === "income" ? "Ingreso registrado" : "Gasto registrado",
-      type: "success",
-    });
-    closeSheet();
+  /** Only "savings" still opens the sheet — income/expense/debts have grown
+   * enough fields (especially debts, with its installment plan) that a
+   * dedicated page reads better than a modal filling the screen. */
+  function openCreateFlow() {
+    if (tab === "income" || tab === "expense") {
+      router.push(`/finanzas/nuevo?kind=${tab}`);
+    } else if (tab === "debts") {
+      router.push("/finanzas/deudas/nueva");
+    } else {
+      setSheetOpen(true);
+    }
   }
 
   const copy = EMPTY_COPY[tab];
@@ -393,7 +268,7 @@ export default function FinanzasPage() {
               <EmptyState
                 icon={<IconFileText />}
                 message={copy.message}
-                action={<Button onClick={() => setSheetOpen(true)}>{copy.action}</Button>}
+                action={<Button onClick={() => openCreateFlow()}>{copy.action}</Button>}
               />
             )}
           </>
@@ -422,7 +297,7 @@ export default function FinanzasPage() {
               <EmptyState
                 icon={<IconDiamondFilled />}
                 message={copy.message}
-                action={<Button onClick={() => setSheetOpen(true)}>{copy.action}</Button>}
+                action={<Button onClick={() => openCreateFlow()}>{copy.action}</Button>}
               />
             )}
           </>
@@ -456,7 +331,7 @@ export default function FinanzasPage() {
               <EmptyState
                 icon={<IconCircleFilled />}
                 message={copy.message}
-                action={<Button onClick={() => setSheetOpen(true)}>{copy.action}</Button>}
+                action={<Button onClick={() => openCreateFlow()}>{copy.action}</Button>}
               />
             )}
           </>
@@ -466,20 +341,14 @@ export default function FinanzasPage() {
       {/* Floating above the tab bar; safe-area handled by the shell, not here. */}
       <button
         aria-label={copy.action}
-        onClick={() => setSheetOpen(true)}
+        onClick={() => openCreateFlow()}
         className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 z-10 flex h-14 w-14 items-center justify-center rounded-full bg-brand text-2xl text-brand-contrast shadow-lg active:bg-brand-pressed md:bottom-6"
       >
         <IconPlus />
       </button>
 
-      <Sheet open={sheetOpen} onClose={closeSheet} title={copy.sheetTitle}>
-        {tab === "income" || tab === "expense" ? (
-          <TransactionForm kind={tab} currency={CURRENCY} onDone={refreshAndClose} />
-        ) : tab === "savings" ? (
-          <SavingsGoalForm onDone={closeSheet} />
-        ) : (
-          <DebtForm onDone={closeSheet} />
-        )}
+      <Sheet open={sheetOpen} onClose={closeSheet} title={EMPTY_COPY.savings.sheetTitle}>
+        <SavingsGoalForm onDone={closeSheet} />
       </Sheet>
     </div>
   );

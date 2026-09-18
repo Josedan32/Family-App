@@ -11,6 +11,7 @@ const base: Goal = {
   progress: 0.5,
   currency: "COP",
   priority: "media",
+  target_date: null,
   days_remaining: null,
   is_overdue: false,
   state: "en_progreso",
@@ -47,5 +48,15 @@ describe("GoalCard", () => {
     expect(screen.queryByText("Meta alcanzada")).not.toBeInTheDocument();
     expect(screen.queryByText("Plazo vencido")).not.toBeInTheDocument();
     expect(screen.queryByText(/días restantes/)).not.toBeInTheDocument();
+  });
+
+  it("displays priority as Baja once the goal is completed, without touching the stored priority", () => {
+    render(<GoalCard goal={{ ...base, priority: "alta", state: "completado" }} />);
+    expect(screen.getByText("Prioridad Baja")).toBeInTheDocument();
+  });
+
+  it("keeps the real priority when merely overdue, not completed", () => {
+    render(<GoalCard goal={{ ...base, priority: "alta", is_overdue: true }} />);
+    expect(screen.getByText("Prioridad Alta")).toBeInTheDocument();
   });
 });
