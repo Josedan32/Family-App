@@ -21,6 +21,7 @@ if config.config_file_name is not None:
 
 config.set_main_option("sqlalchemy.url", get_settings().database_url)
 target_metadata = Base.metadata
+LOCK_TIMEOUT = "15s"
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
@@ -53,7 +54,16 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection: Connection) -> None:
-    context.configure(connection=connection, target_metadata=target_metadata)
+    # One transaction per migration, never one for the whole upgrade. Deploys
+    # migrate while the previous API version still serves requests: holding
+    # 0023's lock on `contributions` while 0024 waited for `savings_goals`
+    # deadlocked against a request reading them in the opposite order, and
+    # Postgres aborted the upgrade (Render, 2026-09-18).
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        transaction_per_migration=True,
+    )
 
     with context.begin_transaction():
         context.run_migrations()
@@ -69,6 +79,9 @@ async def run_async_migrations() -> None:
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        # An ALTER TABLE queued behind a busy table blocks every new query on
+        # it until it gets its lock. Give up instead; the entrypoint retries.
+        connect_args={"server_settings": {"lock_timeout": LOCK_TIMEOUT}},
     )
 
     async with connectable.connect() as connection:
