@@ -22,12 +22,14 @@ export function ChoresTable({
   members,
   onComplete,
   onReassign,
+  today,
 }: {
   caption: string;
   assignments: Assignment[];
   members?: AssignmentMember[];
   onComplete?: (id: string) => void;
   onReassign?: (assignmentId: string, newMemberId: string) => void;
+  today?: string;
 }) {
   return (
     <DataTable
@@ -35,7 +37,7 @@ export function ChoresTable({
       rows={assignments}
       rowKey={(a) => a.id}
       rowClassName={(a) => (a.status === "done" ? "text-text-muted" : "")}
-      mobileDetail={(a) => `${a.member_name} · ${formatDue(a.due_on)}`}
+      mobileDetail={(a) => `${a.member_name} · ${formatDue(a.due_on, today)}`}
       columns={[
         { header: "Tarea", cell: (a) => a.chore_name },
         {
@@ -53,7 +55,7 @@ export function ChoresTable({
             </span>
           ),
         },
-        { header: "Fecha", nowrap: true, hideOnMobile: true, cell: (a) => formatDue(a.due_on) },
+        { header: "Fecha", nowrap: true, hideOnMobile: true, cell: (a) => formatDue(a.due_on, today) },
         {
           header: "Puntos",
           align: "end",
@@ -86,6 +88,7 @@ export function ChoresTable({
             members={members}
             onComplete={onComplete}
             onReassign={onReassign}
+            today={today}
           />
         </ul>
       )}

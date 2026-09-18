@@ -3,6 +3,7 @@ import { fireEvent, render, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { Assignment, AssignmentMember } from "@/components/chores/AssignmentRow";
+import { addDays, todayLocal } from "@/lib/dates";
 
 import { TareasClient } from "../(app)/tareas/TareasClient";
 
@@ -24,7 +25,8 @@ function assignment(over: Partial<Assignment> = {}): Assignment {
     member_id: "m1",
     member_name: "Daniel",
     member_photo_url: null,
-    due_on: "2026-09-03",
+    // Today, so the chore sits in the one group that starts open.
+    due_on: todayLocal(),
     status: "pending",
     effort_points: 1,
     completed_at: null,
@@ -181,5 +183,44 @@ describe("TareasClient — vista de administrador", () => {
     fireEvent.click(getByRole("tab", { name: "Mis tareas" }));
 
     expect(getByLabelText("Ver")).toBeDisabled();
+  });
+});
+
+describe("TareasClient — por día", () => {
+  const cycle = (assignments: Assignment[]) => ({
+    id: "cycle-1", starts_on: "2026-09-01", ends_on: "2026-12-31",
+    seed: 1, seen: true, assignments,
+  });
+
+  it("opens only today's chores and folds every other day", () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse(null, 204)));
+    const { getByText, queryByText, getByRole } = renderClient(
+      cycle([
+        assignment({ id: "t", chore_name: "Barrer hoy" }),
+        assignment({ id: "m", chore_name: "Trapear mañana", due_on: addDays(todayLocal(), 1) }),
+        assignment({ id: "o", chore_name: "Cocinar atrasada", due_on: addDays(todayLocal(), -3) }),
+      ]),
+    );
+
+    expect(getByText("Barrer hoy")).toBeInTheDocument();
+    expect(queryByText("Trapear mañana")).not.toBeInTheDocument();
+    expect(queryByText("Cocinar atrasada")).not.toBeInTheDocument();
+    expect(getByRole("button", { name: /Hoy/ })).toHaveAttribute("aria-expanded", "true");
+    expect(getByRole("button", { name: /Mañana/ })).toHaveAttribute("aria-expanded", "false");
+    expect(getByRole("button", { name: /Atrasadas/ })).toHaveTextContent("1 tarea");
+  });
+
+  it("unfolds another day when its header is tapped", () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse(null, 204)));
+    const { getByText, getByRole } = renderClient(
+      cycle([
+        assignment({ id: "t", chore_name: "Barrer hoy" }),
+        assignment({ id: "m", chore_name: "Trapear mañana", due_on: addDays(todayLocal(), 1) }),
+      ]),
+    );
+
+    fireEvent.click(getByRole("button", { name: /Mañana/ }));
+
+    expect(getByText("Trapear mañana")).toBeInTheDocument();
   });
 });

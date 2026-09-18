@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { Avatar } from "@/components/ui/Avatar";
+import { todayLocal } from "@/lib/dates";
 
 export interface Assignment {
   id: string;
@@ -55,8 +56,7 @@ export const STATUS_LABEL: Record<string, string> = {
   reassigned: "Reasignada",
 };
 
-export function formatDue(dueOn: string): string {
-  const today = new Date().toISOString().slice(0, 10);
+export function formatDue(dueOn: string, today: string = todayLocal()): string {
   if (dueOn === today) return "hoy";
   const [, month, day] = dueOn.split("-");
   const MONTHS = [
@@ -75,11 +75,14 @@ export function AssignmentRow({
   members,
   onComplete,
   onReassign,
+  today,
 }: {
   assignment: Assignment;
   members?: AssignmentMember[];
   onComplete?: (id: string) => void;
   onReassign?: (assignmentId: string, newMemberId: string) => void;
+  /** The household's today, so the server and the phone agree on "hoy". */
+  today?: string;
 }) {
   const done = assignment.status === "done";
   const [reassigning, setReassigning] = useState(false);
@@ -123,7 +126,7 @@ export function AssignmentRow({
             {assignment.chore_name}
           </span>
           <span className="text-xs text-text-muted">
-            <span>{assignment.member_name}</span> · <span>{formatDue(assignment.due_on)}</span>
+            <span>{assignment.member_name}</span> · <span>{formatDue(assignment.due_on, today)}</span>
           </span>
         </div>
         <div className="flex flex-none flex-col items-end gap-0.5">
