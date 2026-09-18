@@ -5,11 +5,12 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from family_api.db.models.debt import Debt
 from family_api.db.models.household import Household, HouseholdMember
 from family_api.db.models.savings import SavingsGoal
 from family_api.db.session import get_session
+from family_api.errors import NotFoundError
 from family_api.periods import parse_period
+from family_api.routers.debt_views import debt_response
 from family_api.schemas.debt import (
     CreateDebtPaymentRequest,
     CreateDebtRequest,
@@ -36,7 +37,6 @@ from family_api.services import debts as debt_service
 from family_api.services import finance_summary as finance_summary_service
 from family_api.services import savings as savings_service
 from family_api.services import transactions as transaction_service
-from family_api.services.installments import InstallmentFigures, compute_installments
 from family_api.services.members import CurrentMember
 from family_api.services.transactions import CategoryKindMismatchError
 
@@ -106,6 +106,25 @@ async def create_transaction(
         transaction.occurred_on, transaction.occurred_on,
     )
     categories = next(c for t, c in rows if t.id == transaction.id)
+    return TransactionResponse(
+        id=transaction.id, kind=transaction.kind,
+        categories=[CategoryRef(id=cid, name=cname) for cid, cname in categories],
+        amount_minor=transaction.amount_minor,
+        currency=await _currency(session, member.household_id),
+        occurred_on=transaction.occurred_on, name=transaction.name, note=transaction.note,
+        source=transaction.source, is_recurring=transaction.is_recurring,
+        frequency=transaction.frequency, payment_method=transaction.payment_method,
+    )
+
+
+@router.get("/transactions/{transaction_id}")
+async def get_transaction(
+    transaction_id: UUID, member: CurrentMember, session: SessionDep
+) -> TransactionResponse:
+    """Own ledger only, derived rows included (they are read, never edited)."""
+    transaction, categories = await transaction_service.get_own_transaction(
+        session, member, transaction_id
+    )
     return TransactionResponse(
         id=transaction.id, kind=transaction.kind,
         categories=[CategoryRef(id=cid, name=cname) for cid, cname in categories],
@@ -193,7 +212,10 @@ async def _goal_by_id(
     session: AsyncSession, member: HouseholdMember, goal_id: UUID
 ) -> SavingsGoalResponse:
     rows = await savings_service.list_goals_with_balances(session, member.id)
-    goal, balance = next((g, b) for g, b in rows if g.id == goal_id)
+    found = next(((g, b) for g, b in rows if g.id == goal_id), None)
+    if found is None:
+        raise NotFoundError
+    goal, balance = found
     return _goal_response(goal, balance, await _currency(session, member.household_id))
 
 
@@ -213,6 +235,13 @@ async def create_goal(
     )
     await session.commit()
     return _goal_response(goal, 0, await _currency(session, member.household_id))
+
+
+@router.get("/savings-goals/{goal_id}")
+async def get_goal(
+    goal_id: UUID, member: CurrentMember, session: SessionDep
+) -> SavingsGoalResponse:
+    return await _goal_by_id(session, member, goal_id)
 
 
 @router.get("/savings-goals/{goal_id}/entries")
@@ -261,32 +290,11 @@ async def unuse_goal(
     return await _goal_by_id(session, member, goal_id)
 
 
-def _debt_response(
-    debt: Debt, outstanding: int, figures: InstallmentFigures | None, currency: str
-) -> DebtResponse:
-    return DebtResponse(
-        id=debt.id, name=debt.name,
-        creditor_type=debt.creditor_type, creditor_label=debt.creditor_label,
-        principal_minor=debt.principal_minor, outstanding_minor=outstanding,
-        paid_total_minor=debt.principal_minor - outstanding,
-        annual_interest_rate=float(debt.annual_interest_rate)
-        if debt.annual_interest_rate is not None else None,
-        due_day=debt.due_day, status=debt.status, currency=currency,
-        installments_total=figures.total if figures else None,
-        installments_paid=figures.paid if figures else None,
-        installments_remaining=figures.remaining if figures else None,
-        next_installment_on=figures.next_on if figures else None,
-        next_installment_amount_minor=figures.next_amount_minor if figures else None,
-        minimum_payment_minor=debt.minimum_payment_minor,
-        is_overdue=figures.is_overdue if figures else None,
-    )
-
-
 @router.get("/debts")
 async def list_debts(member: CurrentMember, session: SessionDep) -> list[DebtResponse]:
     currency = await _currency(session, member.household_id)
     rows = await debt_service.list_debts_with_figures(session, member.id)
-    return [_debt_response(d, out, figures, currency) for d, out, figures in rows]
+    return [debt_response(d, figures, currency) for d, figures in rows]
 
 
 @router.post("/debts", status_code=status.HTTP_201_CREATED)
@@ -302,8 +310,8 @@ async def create_debt(
     await session.commit()
     currency = await _currency(session, member.household_id)
     rows = await debt_service.list_debts_with_figures(session, member.id)
-    d, outstanding, figures = next(row for row in rows if row[0].id == debt.id)
-    return _debt_response(d, outstanding, figures, currency)
+    d, figures = next(row for row in rows if row[0].id == debt.id)
+    return debt_response(d, figures, currency)
 
 
 @router.get("/debts/{debt_id}")
@@ -311,12 +319,11 @@ async def get_debt(
     debt_id: UUID, member: CurrentMember, session: SessionDep
 ) -> DebtDetailResponse:
     debt, outstanding, payments = await debt_service.get_debt_detail(session, member, debt_id)
-    figures = compute_installments(
-        debt.installments_total, debt.installment_amount_minor,
-        debt.first_installment_on, debt.principal_minor - outstanding, date.today(),
+    figures = debt_service.debt_figures(
+        debt, outstanding, max((p.paid_on for p in payments), default=None), date.today()
     )
     currency = await _currency(session, member.household_id)
-    base = _debt_response(debt, outstanding, figures, currency)
+    base = debt_response(debt, figures, currency)
     return DebtDetailResponse(
         **base.model_dump(),
         payments=[
@@ -349,8 +356,8 @@ async def add_debt_payment(
     await session.commit()
     currency = await _currency(session, member.household_id)
     rows = await debt_service.list_debts_with_figures(session, member.id)
-    d, outstanding, figures = next(row for row in rows if row[0].id == debt_id)
-    response = _debt_response(d, outstanding, figures, currency)
+    d, figures = next(row for row in rows if row[0].id == debt_id)
+    response = debt_response(d, figures, currency)
     response.last_payment_id = payment.id
     return response
 
