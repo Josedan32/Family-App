@@ -62,6 +62,7 @@ export function DebtDetail({ debt, onDeleted }: { debt: Debt; onDeleted: () => v
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["debts"] });
       await queryClient.invalidateQueries({ queryKey: ["debt-detail", debt.id] });
+      await queryClient.invalidateQueries({ queryKey: ["monthly-summary"] });
       setAmount(0);
       setNote("");
       setPaymentMethod("cash");
@@ -103,6 +104,12 @@ export function DebtDetail({ debt, onDeleted }: { debt: Debt; onDeleted: () => v
           <span className="text-text-muted">Total abonado</span>
           <MoneyDisplay amountMinor={debt.paid_total_minor} currency={debt.currency} />
         </div>
+        {debt.annual_interest_rate !== null ? (
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-text-muted">Tasa de interés anual</span>
+            <span>{debt.annual_interest_rate}%</span>
+          </div>
+        ) : null}
         {debt.minimum_payment_minor ? (
           <div className="flex items-center justify-between gap-3">
             <span className="text-text-muted">Pago mínimo mensual</span>

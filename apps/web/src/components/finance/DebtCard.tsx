@@ -10,6 +10,7 @@ export interface Debt {
   principal_minor: number;
   outstanding_minor: number;
   paid_total_minor: number;
+  annual_interest_rate: number | null;
   due_day: number | null;
   status: string;
   currency: string;
@@ -32,6 +33,7 @@ export function DebtCard({ debt }: { debt: Debt }) {
       <div className="flex items-end justify-between gap-3">
         <span className="text-xs text-text-muted">
           {debt.due_day ? `Vence el día ${debt.due_day}` : "Sin fecha de corte"}
+          {debt.annual_interest_rate !== null ? ` · ${debt.annual_interest_rate}% E.A.` : ""}
         </span>
         <MoneyDisplay
           amountMinor={debt.outstanding_minor}
@@ -42,7 +44,14 @@ export function DebtCard({ debt }: { debt: Debt }) {
       {debt.status === "paid" ? (
         <span className="text-xs font-semibold text-success">Pagada</span>
       ) : (
-        <span className="text-xs tracking-wide text-text-muted">Saldo pendiente</span>
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-xs tracking-wide text-text-muted">Saldo pendiente</span>
+          {debt.paid_total_minor > 0 ? (
+            <span className="text-xs text-text-muted">
+              Abonado: <MoneyDisplay amountMinor={debt.paid_total_minor} currency={debt.currency} className="text-xs" />
+            </span>
+          ) : null}
+        </div>
       )}
       {debt.installments_total !== null ? (
         <div className="mt-1 border-t border-border pt-2">

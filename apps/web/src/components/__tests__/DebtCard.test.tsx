@@ -11,6 +11,7 @@ const debtWithPlan: Debt = {
   principal_minor: 1_200_000,
   outstanding_minor: 1_000_000,
   paid_total_minor: 200_000,
+  annual_interest_rate: null,
   due_day: 15,
   status: "pending",
   currency: "COP",
