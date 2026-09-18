@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { MonthlySummaryCard } from "../finance/MonthlySummaryCard";
@@ -79,5 +79,16 @@ describe("MonthlySummaryCard", () => {
         expect.anything(),
       ),
     );
+  });
+
+  it("collapses on demand, hiding the breakdown but keeping the remaining balance visible", async () => {
+    const fetchMock = vi.fn(async () => jsonResponse(healthySummary));
+    renderCard(fetchMock);
+    await waitFor(() => expect(screen.getByText("Saludable")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: /Resumen mensual/ }));
+
+    expect(screen.queryByText("Ingresos")).not.toBeInTheDocument();
+    expect(screen.getByText("$ 700.000")).toBeInTheDocument();
   });
 });

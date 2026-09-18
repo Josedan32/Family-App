@@ -64,6 +64,7 @@ export function ContributeButton({
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      await queryClient.invalidateQueries({ queryKey: ["monthly-summary"] });
       setOpen(false);
       pushToast({ message: "Aporte registrado", type: "success" });
       router.refresh();

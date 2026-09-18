@@ -69,6 +69,7 @@ export function GoalDetail({ goal }: { goal: Goal }) {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["savings-goals"] });
       await queryClient.invalidateQueries({ queryKey: ["savings-entries", goal.id] });
+      await queryClient.invalidateQueries({ queryKey: ["monthly-summary"] });
       setAmount(0);
       pushToast({
         message: kind === "deposit" ? "Abono registrado" : "Retiro registrado",

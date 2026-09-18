@@ -32,13 +32,14 @@ function currentPeriod(): string {
 interface Row {
   label: string;
   amountMinor: number;
+  className?: string;
 }
 
-function SummaryRow({ label, amountMinor, currency }: Row & { currency: string }) {
+function SummaryRow({ label, amountMinor, currency, className = "" }: Row & { currency: string }) {
   return (
     <div className="flex items-center justify-between text-sm">
-      <span className="text-text-muted">{label}</span>
-      <span className="tabular font-medium">{formatMoney(amountMinor, currency)}</span>
+      <span className={`font-medium ${className || "text-text-muted"}`}>{label}</span>
+      <span className={`tabular font-medium ${className}`}>{formatMoney(amountMinor, currency)}</span>
     </div>
   );
 }
@@ -48,6 +49,12 @@ function SummaryRow({ label, amountMinor, currency }: Row & { currency: string }
  * (another member's, subject to visibility gating server-side). */
 export function MonthlySummaryCard({ endpoint }: { endpoint: string }) {
   const [period, setPeriod] = useState(currentPeriod());
+  // Collapsed by default on narrow viewports so it doesn't push the rest of
+  // the page below the fold — expanded is the right default on desktop,
+  // where there's room for it beside everything else.
+  const [expanded, setExpanded] = useState(
+    () => typeof window === "undefined" || window.innerWidth >= 768,
+  );
 
   const summary = useQuery({
     queryKey: ["monthly-summary", endpoint, period],
@@ -58,41 +65,64 @@ export function MonthlySummaryCard({ endpoint }: { endpoint: string }) {
 
   return (
     <Card className="flex flex-col gap-3.5">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-base font-semibold">Resumen mensual</h2>
-        <label className="flex items-center gap-1.5 text-xs text-text-muted">
-          <span className="sr-only">Mes</span>
-          <input
-            type="month"
-            value={period}
-            onChange={(event) => setPeriod(event.target.value)}
-            className="min-h-[36px] rounded-lg border border-border bg-surface px-2 text-xs"
-          />
-        </label>
-      </div>
+      <button
+        type="button"
+        onClick={() => setExpanded((value) => !value)}
+        aria-expanded={expanded}
+        className="flex items-center justify-between gap-3 text-left"
+      >
+        <span className="flex items-center gap-1.5">
+          <span aria-hidden="true" className="text-xs text-text-muted">
+            {expanded ? "▾" : "▸"}
+          </span>
+          <h2 className="text-base font-semibold">Resumen mensual</h2>
+        </span>
+        {expanded ? (
+          <label
+            className="flex items-center gap-1.5 text-xs text-text-muted"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <span className="sr-only">Mes</span>
+            <input
+              type="month"
+              value={period}
+              onChange={(event) => setPeriod(event.target.value)}
+              className="min-h-[36px] rounded-lg border border-border bg-surface px-2 text-xs"
+            />
+          </label>
+        ) : summary.data ? (
+          <span className="tabular text-sm font-semibold">
+            {formatMoney(summary.data.remaining_minor, summary.data.currency)}
+          </span>
+        ) : null}
+      </button>
 
-      {summary.isLoading ? null : summary.data ? (
+      {!expanded ? null : summary.isLoading ? null : summary.data ? (
         <>
           <div className="flex flex-col gap-1.5">
             <SummaryRow
               label="Ingresos"
               amountMinor={summary.data.income_minor}
               currency={summary.data.currency}
+              className="text-income"
             />
             <SummaryRow
               label="Gastos"
               amountMinor={summary.data.expenses_minor}
               currency={summary.data.currency}
+              className="text-expense"
             />
             <SummaryRow
               label="Ahorrado"
               amountMinor={summary.data.saved_minor}
               currency={summary.data.currency}
+              className="text-savings"
             />
             <SummaryRow
               label="Pagos de deuda"
               amountMinor={summary.data.debt_payments_minor}
               currency={summary.data.currency}
+              className="text-debt"
             />
           </div>
           <div className="flex items-center justify-between border-t border-border pt-3">

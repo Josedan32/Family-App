@@ -38,6 +38,7 @@ export function TransactionRow({ transaction }: { transaction: Transaction }) {
     mutationFn: () => clientFetch(`/me/transactions/${transaction.id}`, { method: "DELETE" }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      await queryClient.invalidateQueries({ queryKey: ["monthly-summary"] });
       pushToast({ message: "Movimiento eliminado", type: "info" });
     },
   });

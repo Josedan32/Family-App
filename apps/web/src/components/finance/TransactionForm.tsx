@@ -111,6 +111,7 @@ export function TransactionForm({
           }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      await queryClient.invalidateQueries({ queryKey: ["monthly-summary"] });
       onDone();
     },
   });
