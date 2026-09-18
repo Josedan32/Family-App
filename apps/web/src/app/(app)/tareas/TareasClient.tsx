@@ -12,9 +12,11 @@ import {
 import { AssignmentWheel } from "@/components/chores/AssignmentWheel";
 import { ChoresTable } from "@/components/chores/ChoresTable";
 import { clientFetch } from "@/lib/api/client";
+import { addDays, todayLocal } from "@/lib/dates";
 import { useViewMode } from "@/lib/viewMode";
 
 import { filterAssignments } from "./filterAssignments";
+import { groupByDay } from "./groupByDay";
 
 const STATUS_LABELS: Record<string, string> = {
   pending: "Pendiente",
@@ -42,12 +44,9 @@ interface Cycle {
 /** A month-long cycle draws well over a hundred assignments; spinning for
  *  every one is unwatchable. The wheel reveals the week — the same span the
  *  page already calls "Esta semana", and the only one a family looks at. */
-function thisWeek(assignments: Assignment[]): Assignment[] {
-  const today = new Date();
-  const horizon = new Date(today);
-  horizon.setDate(horizon.getDate() + 7);
-  const from = today.toISOString().slice(0, 10);
-  const to = horizon.toISOString().slice(0, 10);
+function thisWeek(assignments: Assignment[], today: string): Assignment[] {
+  const from = today;
+  const to = addDays(today, 7);
 
   return assignments
     .filter((a) => a.due_on >= from && a.due_on <= to)
@@ -59,16 +58,21 @@ export function TareasClient({
   members,
   myMemberId,
   isAdmin = false,
+  today = todayLocal(),
 }: {
   cycle: Cycle;
   members: AssignmentMember[];
   myMemberId: string;
   isAdmin?: boolean;
+  /** The household's today, computed by the server in its time zone. */
+  today?: string;
 }) {
   const [assignments, setAssignments] = useState(cycle.assignments);
   const [showDone, setShowDone] = useState(false);
   const [showWheel, setShowWheel] = useState(false);
   const asTable = useViewMode() === "table";
+  // Only today's chores start unfolded; every other day is one tap away.
+  const [openDays, setOpenDays] = useState<string[]>([today]);
   const [memberFilter, setMemberFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [minPoints, setMinPoints] = useState<number | null>(null);
@@ -92,7 +96,7 @@ export function TareasClient({
     }
   }, [cycle.id, cycle.seen]);
 
-  const weeklyAll = thisWeek(cycle.assignments);
+  const weeklyAll = thisWeek(cycle.assignments, today);
 
   const filtered = filterAssignments(assignments, {
     memberFilter: effectiveMemberFilter,
@@ -104,6 +108,9 @@ export function TareasClient({
   const done = filtered.filter((a) => a.status === "done");
   const pendingPoints = pending.reduce((sum, a) => sum + a.effort_points, 0);
   const donePoints = done.reduce((sum, a) => sum + a.effort_points, 0);
+  const dayGroups = groupByDay(pending, today);
+  const toggleDay = (key: string) =>
+    setOpenDays((open) => (open.includes(key) ? open.filter((k) => k !== key) : [...open, key]));
   // The list only ever shows "pending" and "done" sections, so a status
   // filter set to "skipped"/"reassigned" (or a member/points combo that only
   // matches those) would otherwise blank the page with no explanation.
@@ -280,29 +287,76 @@ export function TareasClient({
             />
           </label>
         </div>
-        {asTable ? (
-          pending.length ? (
-            <ChoresTable
-              caption="Tareas pendientes"
-              assignments={pending}
-              members={members}
-              onComplete={(id) => complete.mutate(id)}
-              onReassign={(id, memberId) => reassign.mutate({ id, memberId })}
-            />
-          ) : null
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {pending.map((assignment) => (
-              <AssignmentRow
-                key={assignment.id}
-                assignment={assignment}
-                members={members}
-                onComplete={(id) => complete.mutate(id)}
-                onReassign={(id, memberId) => reassign.mutate({ id, memberId })}
-              />
-            ))}
-          </ul>
-        )}
+        {pending.length && !dayGroups.some((group) => group.tone === "today") ? (
+          <p className="rounded-xl border border-border bg-surface-sunken p-3 text-center text-xs text-text-muted">
+            Hoy no hay tareas pendientes.
+          </p>
+        ) : null}
+        {dayGroups.map((group) => {
+          const open = openDays.includes(group.key);
+          const points = group.assignments.reduce((sum, a) => sum + a.effort_points, 0);
+          const count = group.assignments.length;
+          return (
+            <section
+              key={group.key}
+              className={`overflow-hidden rounded-2xl border bg-surface ${
+                group.tone === "overdue" ? "border-danger/40" : "border-border"
+              }`}
+            >
+              <button
+                type="button"
+                onClick={() => toggleDay(group.key)}
+                aria-expanded={open}
+                className="flex min-h-[52px] w-full items-center gap-2.5 px-3.5 text-left"
+              >
+                <span aria-hidden="true" className="text-xs text-text-muted">
+                  {open ? "▾" : "▸"}
+                </span>
+                <span
+                  className={`flex-1 font-semibold ${
+                    group.tone === "overdue"
+                      ? "text-danger"
+                      : group.tone === "today"
+                        ? "text-brand"
+                        : ""
+                  }`}
+                >
+                  {group.label}
+                </span>
+                <span className="whitespace-nowrap text-xs tabular-nums text-text-muted">
+                  {count} {count === 1 ? "tarea" : "tareas"} · {points} pts
+                </span>
+              </button>
+              {open ? (
+                asTable ? (
+                  <div className="border-t border-border p-2">
+                    <ChoresTable
+                      caption={`Tareas: ${group.label}`}
+                      assignments={group.assignments}
+                      members={members}
+                      onComplete={(id) => complete.mutate(id)}
+                      onReassign={(id, memberId) => reassign.mutate({ id, memberId })}
+                      today={today}
+                    />
+                  </div>
+                ) : (
+                  <ul className="flex flex-col gap-2 border-t border-border p-2">
+                    {group.assignments.map((assignment) => (
+                      <AssignmentRow
+                        key={assignment.id}
+                        assignment={assignment}
+                        members={members}
+                        onComplete={(id) => complete.mutate(id)}
+                        onReassign={(id, memberId) => reassign.mutate({ id, memberId })}
+                        today={today}
+                      />
+                    ))}
+                  </ul>
+                )
+              ) : null}
+            </section>
+          );
+        })}
         {otherStatusOnly ? (
           <p className="rounded-xl border border-border bg-surface-sunken p-3 text-center text-xs text-text-muted">
             {otherStatusMessage}
@@ -328,12 +382,12 @@ export function TareasClient({
           {showDone ? (
             asTable ? (
               <div className="border-t border-border p-2">
-                <ChoresTable caption="Tareas hechas" assignments={done} />
+                <ChoresTable caption="Tareas hechas" assignments={done} today={today} />
               </div>
             ) : (
               <ul className="flex flex-col gap-2 border-t border-border p-2">
                 {done.map((assignment) => (
-                  <AssignmentRow key={assignment.id} assignment={assignment} />
+                  <AssignmentRow key={assignment.id} assignment={assignment} today={today} />
                 ))}
               </ul>
             )

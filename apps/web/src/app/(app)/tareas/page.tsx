@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/Card";
 import { IconClock, IconSettings } from "@/components/ui/Icons";
 import { ApiError } from "@/lib/api/errors";
 import { pageFetch } from "@/lib/api/server";
+import { todayIn } from "@/lib/dates";
 
 import { GenerateCycleButton } from "./GenerateCycleButton";
 import { TareasClient } from "./TareasClient";
@@ -29,6 +30,7 @@ interface EffortBalances {
 interface HouseholdDetail {
   my_role: string;
   my_member_id: string;
+  timezone: string;
   members: { id: string; display_name: string; role: string }[];
 }
 
@@ -108,6 +110,7 @@ export default async function TareasPage() {
             members={assignableMembers}
             myMemberId={household.my_member_id}
             isAdmin={isAdmin}
+            today={todayIn(household.timezone)}
           />
         </>
       ) : (
