@@ -197,6 +197,55 @@ async def period_totals(
     )
 
 
+async def _contribution_category(session: AsyncSession, household_id: UUID) -> Category:
+    category = await session.scalar(
+        select(Category).where(
+            Category.household_id == household_id,
+            Category.kind == "expense",
+            Category.name == CONTRIBUTION_CATEGORY,
+        )
+    )
+    if category is None:
+        raise NotFoundError
+    return category
+
+
+async def _chosen_categories(
+    session: AsyncSession, household_id: UUID, category_ids: list[UUID], system: Category
+) -> list[Category]:
+    """The member's extra categories, in the order given, without the system
+    one or duplicates. Any id that is not an expense category of this
+    household is a 404, like every other cross-household reference."""
+    wanted = list(dict.fromkeys(cid for cid in category_ids if cid != system.id))
+    if not wanted:
+        return []
+    found = {
+        c.id: c
+        for c in await session.scalars(
+            select(Category).where(
+                Category.id.in_(wanted),
+                Category.household_id == household_id,
+                Category.kind == "expense",
+            )
+        )
+    }
+    if len(found) != len(wanted):
+        raise NotFoundError
+    return [found[cid] for cid in wanted]
+
+
+def _attach(
+    session: AsyncSession, household_id: UUID, transaction_id: UUID, categories: list[Category]
+) -> None:
+    for category in categories:
+        session.add(
+            TransactionCategory(
+                id=new_id(), household_id=household_id,
+                transaction_id=transaction_id, category_id=category.id,
+            )
+        )
+
+
 async def record_contribution(
     session: AsyncSession,
     member: HouseholdMember,
@@ -204,7 +253,7 @@ async def record_contribution(
     amount_minor: int,
     paid_on: date,
     note: str | None,
-    category_id: UUID | None = None,
+    category_ids: list[UUID] | None = None,
 ) -> Contribution:
     """Write the contribution AND the contributor's personal expense atomically.
 
@@ -212,10 +261,9 @@ async def record_contribution(
     commits; every write below is inside that one transaction, so an error
     anywhere rolls back both.
 
-    `category_id`, when given, is the member's OPTIONAL, ADDITIONAL category
-    — it is attached via `TransactionCategory` alongside the fixed system
-    category, never replacing it as the transaction's own `category_id` or
-    as the first `TransactionCategory` row.
+    `category_ids` are the member's OPTIONAL, ADDITIONAL categories — attached
+    via `TransactionCategory` after the fixed system category, never replacing
+    it as the transaction's own `category_id` or as its first category.
     """
     if member.role == "guest":
         raise ForbiddenRoleError
@@ -224,27 +272,10 @@ async def record_contribution(
     if period.status == "closed":
         raise PeriodClosedError
 
-    category = await session.scalar(
-        select(Category).where(
-            Category.household_id == member.household_id,
-            Category.kind == "expense",
-            Category.name == CONTRIBUTION_CATEGORY,
-        )
+    category = await _contribution_category(session, member.household_id)
+    chosen = await _chosen_categories(
+        session, member.household_id, category_ids or [], category
     )
-    if category is None:
-        raise NotFoundError
-
-    chosen_category = None
-    if category_id is not None:
-        chosen_category = await session.scalar(
-            select(Category).where(
-                Category.id == category_id,
-                Category.household_id == member.household_id,
-                Category.kind == "expense",
-            )
-        )
-        if chosen_category is None:
-            raise NotFoundError
 
     contribution_id = new_id()
     transaction = Transaction(
@@ -255,30 +286,42 @@ async def record_contribution(
     )
     session.add(transaction)
     await session.flush()
-    session.add(
-        TransactionCategory(
-            id=new_id(), household_id=member.household_id,
-            transaction_id=transaction.id, category_id=category.id,
-        )
-    )
-    if chosen_category is not None and chosen_category.id != category.id:
-        session.add(
-            TransactionCategory(
-                id=new_id(), household_id=member.household_id,
-                transaction_id=transaction.id, category_id=chosen_category.id,
-            )
-        )
+    _attach(session, member.household_id, transaction.id, [category])
+    await session.flush()
+    _attach(session, member.household_id, transaction.id, chosen)
     await session.flush()
 
     contribution = Contribution(
         id=contribution_id, household_id=member.household_id, period_id=period.id,
         member_id=member.id, amount_minor=amount_minor, paid_on=paid_on, note=note,
         expense_transaction_id=transaction.id,
-        category_id=chosen_category.id if chosen_category is not None else None,
     )
     session.add(contribution)
     await session.flush()
     return contribution
+
+
+async def chosen_category_ids(
+    session: AsyncSession, contributions: list[Contribution]
+) -> dict[UUID, list[UUID]]:
+    """Each contribution's member-chosen categories, read in one query from
+    its mirrored expense — everything except the fixed system category."""
+    if not contributions:
+        return {}
+    by_transaction = {c.expense_transaction_id: c.id for c in contributions}
+    rows = await session.execute(
+        select(TransactionCategory.transaction_id, TransactionCategory.category_id)
+        .join(Transaction, Transaction.id == TransactionCategory.transaction_id)
+        .where(
+            TransactionCategory.transaction_id.in_(by_transaction),
+            TransactionCategory.category_id != Transaction.category_id,
+        )
+        .order_by(TransactionCategory.created_at, TransactionCategory.id)
+    )
+    result: dict[UUID, list[UUID]] = {c.id: [] for c in contributions}
+    for transaction_id, category_id in rows:
+        result[by_transaction[transaction_id]].append(category_id)
+    return result
 
 
 async def list_own_contributions(
@@ -300,6 +343,7 @@ async def update_contribution(
     amount_minor: int | None,
     paid_on: date | None,
     note: str | None,
+    category_ids: list[UUID] | None = None,
 ) -> Contribution:
     """Updates the contribution AND its mirrored expense atomically — same
     discipline as `record_contribution` (INV-D-01): one write, both rows."""
@@ -331,6 +375,17 @@ async def update_contribution(
     if note is not None:
         contribution.note = note
         transaction.note = note
+    if category_ids is not None:
+        system = await _contribution_category(session, actor.household_id)
+        chosen = await _chosen_categories(session, actor.household_id, category_ids, system)
+        await session.execute(
+            delete(TransactionCategory).where(
+                TransactionCategory.transaction_id == transaction.id,
+                TransactionCategory.category_id != transaction.category_id,
+            )
+        )
+        await session.flush()
+        _attach(session, actor.household_id, transaction.id, chosen)
 
     await session.flush()
     return contribution

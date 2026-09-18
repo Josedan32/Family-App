@@ -10,6 +10,7 @@ import { ContributeButton } from "../(app)/aportes/ContributeButton";
 
 const categories = [
   { id: "c1", name: "Ahorro familiar", kind: "expense", is_contribution_category: false },
+  { id: "c2", name: "Comida", kind: "expense", is_contribution_category: false },
 ];
 
 function jsonResponse(body: unknown, status = 200) {
@@ -49,7 +50,7 @@ describe("ContributeButton", () => {
   it("marks the category picker as optional", () => {
     renderButton();
     fireEvent.click(screen.getByText("Registrar mi aporte"));
-    expect(screen.getByText("Categoría (opcional)")).toBeInTheDocument();
+    expect(screen.getByText("Categorías (opcional, elige una o más)")).toBeInTheDocument();
   });
 
   describe("category selection", () => {
@@ -57,7 +58,7 @@ describe("ContributeButton", () => {
       vi.unstubAllGlobals();
     });
 
-    it("submits category_id: null when no category is chosen", async () => {
+    it("submits no categories when none is chosen", async () => {
       const fetchMock = vi.fn(async (url: string) => {
         if (String(url).includes("/categories")) return jsonResponse(categories);
         return jsonResponse({ id: "contrib1" }, 201);
@@ -76,11 +77,11 @@ describe("ContributeButton", () => {
         ) as [string, RequestInit] | undefined;
         expect(call).toBeDefined();
         const body = JSON.parse(call![1].body as string);
-        expect(body.category_id).toBeNull();
+        expect(body.category_ids).toEqual([]);
       });
     });
 
-    it("submits the chosen category_id alongside the amount", async () => {
+    it("submits every chosen category alongside the amount", async () => {
       const fetchMock = vi.fn(async (url: string) => {
         if (String(url).includes("/categories")) return jsonResponse(categories);
         return jsonResponse({ id: "contrib1" }, 201);
@@ -92,6 +93,7 @@ describe("ContributeButton", () => {
 
       fireEvent.change(screen.getByLabelText("Monto"), { target: { value: "500.000" } });
       fireEvent.click(screen.getByText("Ahorro familiar"));
+      fireEvent.click(screen.getByText("Comida"));
       fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
 
       await waitFor(() => {
@@ -100,7 +102,7 @@ describe("ContributeButton", () => {
         ) as [string, RequestInit] | undefined;
         expect(call).toBeDefined();
         const body = JSON.parse(call![1].body as string);
-        expect(body.category_id).toBe("c1");
+        expect(body.category_ids).toEqual(["c1", "c2"]);
       });
     });
   });

@@ -15,9 +15,9 @@ class TransactionCategory(Base, TimestampMixin):
     additive: it is what lets a manually-created transaction carry more than
     one category. Household expenses stay single-category by design. A
     contribution's mirrored expense stays fixed to the system "Aporte al
-    hogar" category as its first entry, but MAY carry one additional,
-    member-chosen category on top of it — see `Contribution.category_id` and
-    `record_contribution`.
+    hogar" category as its first entry, and MAY carry member-chosen
+    categories on top of it — see `record_contribution`. These rows are the
+    only record of that choice.
     """
 
     __tablename__ = "transaction_categories"

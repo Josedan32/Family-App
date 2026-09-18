@@ -36,7 +36,7 @@ export function ContributeButton({
   const [paidOn, setPaidOn] = useState(TODAY());
   const [dateTouched, setDateTouched] = useState(false);
   const [note, setNote] = useState("");
-  const [categoryId, setCategoryId] = useState("");
+  const [categoryIds, setCategoryIds] = useState<string[]>([]);
 
   const categories = useQuery({
     queryKey: ["categories", "expense"],
@@ -59,13 +59,14 @@ export function ContributeButton({
           amount_minor: amount,
           paid_on: paidOn,
           note: note || null,
-          category_id: categoryId || null,
+          category_ids: categoryIds,
         }),
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["transactions"] });
       await queryClient.invalidateQueries({ queryKey: ["monthly-summary"] });
       setOpen(false);
+      setCategoryIds([]);
       pushToast({ message: "Aporte registrado", type: "success" });
       router.refresh();
     },
@@ -116,9 +117,10 @@ export function ContributeButton({
           />
           <CategoryPicker
             categories={categories.data}
-            value={categoryId}
-            onChange={setCategoryId}
-            label="Categoría (opcional)"
+            mode="multi"
+            value={categoryIds}
+            onChange={setCategoryIds}
+            label="Categorías (opcional, elige una o más)"
           />
           {contribute.isError ? (
             <p role="alert" className="text-sm text-danger">

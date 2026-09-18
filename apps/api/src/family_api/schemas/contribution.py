@@ -26,13 +26,17 @@ class CreateContributionRequest(BaseModel):
     amount_minor: int = Field(gt=0)
     paid_on: date
     note: str | None = None
-    category_id: UUID | None = None
+    # Optional, member-chosen expense categories, attached IN ADDITION to the
+    # fixed "Aporte al hogar" one on the mirrored expense.
+    category_ids: list[UUID] = Field(default_factory=list, max_length=10)
 
 
 class UpdateContributionRequest(BaseModel):
     amount_minor: int | None = Field(default=None, gt=0)
     paid_on: date | None = None
     note: str | None = None
+    # Replaces the chosen categories. The system one is never touched.
+    category_ids: list[UUID] | None = Field(default=None, max_length=10)
 
 
 class PeriodResponse(BaseModel):
@@ -75,4 +79,4 @@ class ContributionResponse(BaseModel):
     paid_on: date
     note: str | None
     expense_transaction_id: UUID
-    category_id: UUID | None
+    category_ids: list[UUID]

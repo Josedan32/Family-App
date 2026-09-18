@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from family_api.db.models.contribution import ContributionPeriod
+from family_api.db.models.contribution import Contribution, ContributionPeriod
 from family_api.db.models.household import Household, HouseholdMember
 from family_api.db.models.user import User
 from family_api.db.session import get_session
@@ -180,6 +180,27 @@ async def set_pledges(
     return await _detail(session, member, period)
 
 
+def _contribution_response(
+    contribution: Contribution, currency: str, category_ids: list[UUID]
+) -> ContributionResponse:
+    return ContributionResponse(
+        id=contribution.id, member_id=contribution.member_id,
+        amount_minor=contribution.amount_minor, currency=currency,
+        paid_on=contribution.paid_on, note=contribution.note,
+        expense_transaction_id=contribution.expense_transaction_id,
+        category_ids=category_ids,
+    )
+
+
+async def _single_response(
+    session: AsyncSession, contribution: Contribution, household_id: UUID
+) -> ContributionResponse:
+    chosen = await contribution_service.chosen_category_ids(session, [contribution])
+    return _contribution_response(
+        contribution, await _currency(session, household_id), chosen[contribution.id]
+    )
+
+
 @router.get("/{period_id}/contributions/mine")
 async def list_own_contributions(
     period_id: UUID, member: CurrentMember, session: SessionDep
@@ -188,15 +209,8 @@ async def list_own_contributions(
         session, member, period_id
     )
     currency = await _currency(session, member.household_id)
-    return [
-        ContributionResponse(
-            id=c.id, member_id=c.member_id, amount_minor=c.amount_minor,
-            currency=currency, paid_on=c.paid_on, note=c.note,
-            expense_transaction_id=c.expense_transaction_id,
-            category_id=c.category_id,
-        )
-        for c in contributions
-    ]
+    chosen = await contribution_service.chosen_category_ids(session, contributions)
+    return [_contribution_response(c, currency, chosen[c.id]) for c in contributions]
 
 
 @router.post("/{period_id}/contributions", status_code=status.HTTP_201_CREATED)
@@ -208,17 +222,10 @@ async def record_contribution(
 ) -> ContributionResponse:
     contribution = await contribution_service.record_contribution(
         session, member, period_id, body.amount_minor, body.paid_on, body.note,
-        body.category_id,
+        body.category_ids,
     )
     await session.commit()
-    return ContributionResponse(
-        id=contribution.id, member_id=contribution.member_id,
-        amount_minor=contribution.amount_minor,
-        currency=await _currency(session, member.household_id),
-        paid_on=contribution.paid_on, note=contribution.note,
-        expense_transaction_id=contribution.expense_transaction_id,
-        category_id=contribution.category_id,
-    )
+    return await _single_response(session, contribution, member.household_id)
 
 
 @contributions_router.patch("/{contribution_id}")
@@ -229,17 +236,11 @@ async def update_contribution(
     session: SessionDep,
 ) -> ContributionResponse:
     contribution = await contribution_service.update_contribution(
-        session, member, contribution_id, body.amount_minor, body.paid_on, body.note
+        session, member, contribution_id, body.amount_minor, body.paid_on, body.note,
+        body.category_ids,
     )
     await session.commit()
-    return ContributionResponse(
-        id=contribution.id, member_id=contribution.member_id,
-        amount_minor=contribution.amount_minor,
-        currency=await _currency(session, member.household_id),
-        paid_on=contribution.paid_on, note=contribution.note,
-        expense_transaction_id=contribution.expense_transaction_id,
-        category_id=contribution.category_id,
-    )
+    return await _single_response(session, contribution, member.household_id)
 
 
 @contributions_router.delete("/{contribution_id}", status_code=status.HTTP_204_NO_CONTENT)
