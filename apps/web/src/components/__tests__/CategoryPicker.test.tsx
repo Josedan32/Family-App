@@ -58,3 +58,30 @@ describe("CategoryPicker", () => {
     expect(onChange).toHaveBeenCalledWith(["c2"]);
   });
 });
+
+describe("CategoryPicker with a long category list", () => {
+  const many = Array.from({ length: 12 }, (_, i) => ({
+    id: `c${i}`,
+    name: `Categoría ${i}`,
+    kind: "expense",
+    is_contribution_category: false,
+  }));
+
+  it("collapses past the fold with a 'ver más' chip", () => {
+    render(<CategoryPicker categories={many} value="" onChange={() => {}} />);
+    expect(screen.getByText("Categoría 0")).toBeInTheDocument();
+    expect(screen.queryByText("Categoría 11")).not.toBeInTheDocument();
+    expect(screen.getByText("+4 más")).toBeInTheDocument();
+  });
+
+  it("expands to show every category on demand", () => {
+    render(<CategoryPicker categories={many} value="" onChange={() => {}} />);
+    fireEvent.click(screen.getByText("+4 más"));
+    expect(screen.getByText("Categoría 11")).toBeInTheDocument();
+  });
+
+  it("never hides an already-selected category behind the fold", () => {
+    render(<CategoryPicker categories={many} value="c11" onChange={() => {}} />);
+    expect(screen.getByText("Categoría 11")).toBeInTheDocument();
+  });
+});

@@ -1,3 +1,7 @@
+"use client";
+
+import { useState } from "react";
+
 interface Category {
   id: string;
   name: string;
@@ -21,6 +25,11 @@ type Props =
       label?: string;
     };
 
+/** Beyond this many chips, the picker collapses — the list keeps growing
+ * (docs/prueba-end-to-end.md §5 alone adds four) and a wall of buttons
+ * before the rest of the form is worse than one extra tap. */
+const COLLAPSED_COUNT = 8;
+
 /**
  * Single-select by default; pass `mode="multi"` for real multi-category
  * selection (personal transactions only — household expenses keep one
@@ -36,7 +45,8 @@ type Props =
  */
 export function CategoryPicker(props: Props) {
   const { categories } = props;
-  const selectable = categories?.filter((category) => !category.is_contribution_category);
+  const [expanded, setExpanded] = useState(false);
+  const selectable = categories?.filter((category) => !category.is_contribution_category) ?? [];
   const multi = props.mode === "multi";
 
   function isSelected(id: string): boolean {
@@ -54,17 +64,21 @@ export function CategoryPicker(props: Props) {
     }
   }
 
+  // Never hides an already-selected chip behind "Ver más" — editing a
+  // transaction whose category sits past the fold must still show it picked.
+  const visible =
+    expanded || selectable.length <= COLLAPSED_COUNT
+      ? selectable
+      : selectable.filter((category, index) => index < COLLAPSED_COUNT || isSelected(category.id));
+  const hiddenCount = selectable.length - visible.length;
+
   return (
     <div className="flex flex-col gap-2">
       <span className="text-xs font-semibold uppercase tracking-wide text-text-muted">
         {props.label ?? `Categoría${multi ? " (elige una o más)" : ""}`}
       </span>
-      <div
-        role={multi ? "group" : "radiogroup"}
-        aria-label="Categoría"
-        className="grid grid-cols-3 gap-2"
-      >
-        {selectable?.map((category) => {
+      <div role={multi ? "group" : "radiogroup"} aria-label="Categoría" className="flex flex-wrap gap-1.5">
+        {visible.map((category) => {
           const selected = isSelected(category.id);
           return (
             <button
@@ -74,7 +88,7 @@ export function CategoryPicker(props: Props) {
               aria-checked={multi ? undefined : selected}
               aria-pressed={multi ? selected : undefined}
               onClick={() => toggle(category.id)}
-              className={`min-h-[48px] rounded-xl border px-1 text-sm font-medium ${
+              className={`min-h-9 rounded-full border px-3 text-sm font-medium ${
                 selected
                   ? "border-brand bg-brand font-bold text-brand-contrast"
                   : "border-border bg-surface text-text active:bg-surface-sunken"
@@ -84,6 +98,24 @@ export function CategoryPicker(props: Props) {
             </button>
           );
         })}
+        {hiddenCount > 0 ? (
+          <button
+            type="button"
+            onClick={() => setExpanded(true)}
+            className="min-h-9 rounded-full border border-dashed border-border px-3 text-sm font-medium text-brand"
+          >
+            +{hiddenCount} más
+          </button>
+        ) : null}
+        {expanded && selectable.length > COLLAPSED_COUNT ? (
+          <button
+            type="button"
+            onClick={() => setExpanded(false)}
+            className="min-h-9 rounded-full border border-dashed border-border px-3 text-sm font-medium text-text-muted"
+          >
+            Ver menos
+          </button>
+        ) : null}
       </div>
     </div>
   );
