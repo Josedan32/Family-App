@@ -10,6 +10,7 @@ from datetime import UTC, date, datetime, timedelta
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from family_api.config import get_settings
 from family_api.db.models.chore import ChoreAssignment
 from family_api.db.models.contribution import ContributionPeriod, ContributionPledge
 from family_api.db.models.household import Household, HouseholdMember
@@ -187,6 +188,16 @@ async def seed_demo_household(session: AsyncSession) -> None:
 
 
 async def main() -> None:
+    # This script creates four accounts whose password is written in this file
+    # and in version control. Running it against a real household's
+    # database would hand their finances to anyone who can read the source.
+    settings = get_settings()
+    if settings.environment != "development":
+        raise SystemExit(
+            f"Refusing to seed demo data with ENVIRONMENT={settings.environment!r}. "
+            "This creates accounts with a password committed to the repository."
+        )
+
     factory = get_session_factory()
     async with factory() as session:
         await seed_demo_household(session)

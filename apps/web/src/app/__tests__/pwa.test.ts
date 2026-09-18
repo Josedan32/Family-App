@@ -5,7 +5,6 @@ import { describe, expect, it } from "vitest";
 const manifest = JSON.parse(
   readFileSync(join(process.cwd(), "public/manifest.webmanifest"), "utf8"),
 );
-const sw = readFileSync(join(process.cwd(), "public/sw.js"), "utf8");
 
 describe("manifest", () => {
   it("is installable as a standalone app", () => {
@@ -25,18 +24,4 @@ describe("manifest", () => {
   });
 });
 
-describe("service worker", () => {
-  it("never caches API responses", () => {
-    // A cached financial response outlives the visibility setting that
-    // permitted it. The app shell is cacheable; data is not.
-    expect(sw).toContain("/api/");
-    expect(sw).toMatch(/return;|fetch\(request\)/);
-  });
-
-  it("does not put API responses into the cache", () => {
-    const putCalls = sw.match(/cache\.put\(/g) ?? [];
-    expect(putCalls.length).toBeGreaterThan(0);
-    // The guard must appear before any cache.put in the fetch handler.
-    expect(sw.indexOf("/api/")).toBeLessThan(sw.indexOf("cache.put("));
-  });
-});
+// The service worker's fetch handling is tested by behaviour in serviceWorker.test.ts.
