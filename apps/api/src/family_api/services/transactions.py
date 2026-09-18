@@ -8,8 +8,14 @@ from family_api.db.models.household import HouseholdMember
 from family_api.db.models.seeded import Category
 from family_api.db.models.transaction import Transaction
 from family_api.db.models.transaction_category import TransactionCategory
-from family_api.errors import DerivedRecordError, NotFoundError
+from family_api.errors import DerivedRecordError, DomainError, NotFoundError
 from family_api.ids import new_id
+
+
+class RecurrenceWithoutFrequencyError(DomainError):
+    type_slug = "recurrence_without_frequency"
+    status = 422
+    title = "Un movimiento recurrente necesita una frecuencia"
 
 
 class CategoryKindMismatchError(Exception):
@@ -209,8 +215,23 @@ async def update_transaction(
     occurred_on: date | None,
     name: str | None,
     note: str | None,
+    is_recurring: bool | None = None,
+    frequency: str | None = None,
+    payment_method: str | None = None,
 ) -> Transaction:
     transaction = await _own_transaction(session, member, transaction_id)
+
+    recurring = transaction.is_recurring if is_recurring is None else is_recurring
+    if not recurring and frequency is not None:
+        raise RecurrenceWithoutFrequencyError
+    resulting_frequency = (frequency or transaction.frequency) if recurring else None
+    if recurring and resulting_frequency is None:
+        raise RecurrenceWithoutFrequencyError
+    transaction.is_recurring = recurring
+    transaction.frequency = resulting_frequency
+    if payment_method is not None:
+        transaction.payment_method = payment_method
+
     if category_ids is not None:
         categories = await _resolve_categories(session, member, category_ids, transaction.kind)
         transaction.category_id = categories[0].id

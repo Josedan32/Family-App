@@ -1,12 +1,10 @@
-import {
-  HouseholdExpenseRow,
-  type HouseholdExpense,
-} from "@/components/finance/HouseholdExpenseRow";
+import type { HouseholdExpense } from "@/components/finance/HouseholdExpenseRow";
 import { PotBalanceCard } from "@/components/finance/PotBalanceCard";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { IconWallet } from "@/components/ui/Icons";
 import { pageFetch } from "@/lib/api/server";
 
+import { HouseholdExpenseList } from "./HouseholdExpenseList";
 import { NewExpenseButton } from "./NewExpenseButton";
 
 interface Pot {
@@ -36,11 +34,7 @@ export default async function HouseholdLedgerPage() {
       />
 
       {expenses.length ? (
-        <ul className="flex flex-col gap-2.5">
-          {expenses.map((expense) => (
-            <HouseholdExpenseRow key={expense.id} expense={expense} />
-          ))}
-        </ul>
+        <HouseholdExpenseList expenses={expenses} />
       ) : (
         <EmptyState
           icon={<IconWallet />}

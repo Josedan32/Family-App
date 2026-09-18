@@ -78,6 +78,36 @@ describe("TransactionRow", () => {
     expect(screen.queryByText("Editar")).not.toBeInTheDocument();
   });
 
+  it("sends a household-expense row back to the household ledger, not to Aportes", () => {
+    renderRow({ ...expense, source: "household_expense" });
+    expect(screen.getByText("Gasto del hogar")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Ver gastos del hogar/ })).toHaveAttribute(
+      "href",
+      "/hogar/gastos",
+    );
+    expect(screen.queryByText("Editar")).not.toBeInTheDocument();
+  });
+
+  it("sends a savings-withdrawal income row back to Ahorros", () => {
+    renderRow({ ...expense, kind: "income", source: "savings_withdrawal" });
+    expect(screen.getByText("Retiro de ahorro")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Ver ahorros/ })).toHaveAttribute(
+      "href",
+      "/finanzas?tab=savings",
+    );
+  });
+
+  it("sends loan rows, both the loan and its repayments, to Préstamos", () => {
+    for (const source of ["loan", "loan_payment"]) {
+      const { unmount } = renderRow({ ...expense, source });
+      expect(screen.getByRole("link", { name: /Ver préstamos/ })).toHaveAttribute(
+        "href",
+        "/finanzas/prestamos",
+      );
+      unmount();
+    }
+  });
+
   it("offers edit and delete for a manual transaction", () => {
     renderRow(expense);
     expect(screen.getByText("Editar")).toBeInTheDocument();

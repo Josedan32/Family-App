@@ -198,3 +198,48 @@ async def test_deleting_an_in_kind_expense_removes_all_three_rows(
         "/api/v1/me/transactions?kind=expense&period=2026-09", headers=mama
     )
     assert ledger.json()["items"] == []
+
+
+@pytest.mark.asyncio
+async def test_the_payers_ledger_row_keeps_the_name_and_payment_method(
+    client: AsyncClient,
+) -> None:
+    """Recorded from the personal expense form as "this was my contribution":
+    the row in the payer's own ledger must read like any expense they logged."""
+    _, mama, _, category_id, _ = await _setup(client)
+
+    await client.post(
+        "/api/v1/household-expenses",
+        json={
+            "category_id": category_id, "amount_minor": 600_000,
+            "occurred_on": "2026-09-07", "name": "Mercado", "note": "D1",
+            "funding": "member", "counts_as_contribution": True,
+            "payment_method": "nequi",
+        },
+        headers=mama,
+    )
+
+    ledger = await client.get(
+        "/api/v1/me/transactions?kind=expense&period=2026-09", headers=mama
+    )
+    row = ledger.json()["items"][0]
+    assert row["name"] == "Mercado"
+    assert row["payment_method"] == "nequi"
+    assert row["source"] == "household_expense"
+
+
+@pytest.mark.asyncio
+async def test_a_pot_funded_expense_takes_no_payment_method(client: AsyncClient) -> None:
+    daniel, _, _, category_id, _ = await _setup(client)
+
+    response = await client.post(
+        "/api/v1/household-expenses",
+        json={
+            "category_id": category_id, "amount_minor": 1_000,
+            "occurred_on": "2026-09-07", "funding": "pot",
+            "payment_method": "nequi",
+        },
+        headers=daniel,
+    )
+
+    assert response.status_code == 422

@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { clientFetch } from "@/lib/api/client";
 import { formatMoney } from "@/lib/money";
+import { useMediaQuery } from "@/lib/useMediaQuery";
 
 export interface MonthlySummary {
   period: string;
@@ -51,10 +52,11 @@ export function MonthlySummaryCard({ endpoint }: { endpoint: string }) {
   const [period, setPeriod] = useState(currentPeriod());
   // Collapsed by default on narrow viewports so it doesn't push the rest of
   // the page below the fold — expanded is the right default on desktop,
-  // where there's room for it beside everything else.
-  const [expanded, setExpanded] = useState(
-    () => typeof window === "undefined" || window.innerWidth >= 768,
-  );
+  // where there's room for it beside everything else. Until the member
+  // toggles it, the screen decides.
+  const wide = useMediaQuery("(min-width: 768px)", true);
+  const [chosen, setChosen] = useState<boolean | null>(null);
+  const expanded = chosen ?? wide;
 
   const summary = useQuery({
     queryKey: ["monthly-summary", endpoint, period],
@@ -67,7 +69,7 @@ export function MonthlySummaryCard({ endpoint }: { endpoint: string }) {
     <Card className="flex flex-col gap-3.5">
       <button
         type="button"
-        onClick={() => setExpanded((value) => !value)}
+        onClick={() => setChosen(!expanded)}
         aria-expanded={expanded}
         className="flex items-center justify-between gap-3 text-left"
       >

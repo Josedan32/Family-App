@@ -7,6 +7,9 @@ interface Category {
   name: string;
   kind: string;
   is_contribution_category: boolean;
+  /** Written only by the API on mirrored rows ("Aporte al hogar", "Retiro de
+   *  ahorro"…). Absent on older fixtures; absent means pickable. */
+  is_reserved?: boolean;
 }
 
 type Props =
@@ -46,7 +49,10 @@ const COLLAPSED_COUNT = 8;
 export function CategoryPicker(props: Props) {
   const { categories } = props;
   const [expanded, setExpanded] = useState(false);
-  const selectable = categories?.filter((category) => !category.is_contribution_category) ?? [];
+  const selectable =
+    categories?.filter(
+      (category) => !category.is_contribution_category && !category.is_reserved,
+    ) ?? [];
   const multi = props.mode === "multi";
 
   function isSelected(id: string): boolean {

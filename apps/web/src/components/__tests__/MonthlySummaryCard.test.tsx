@@ -91,4 +91,50 @@ describe("MonthlySummaryCard", () => {
     expect(screen.queryByText("Ingresos")).not.toBeInTheDocument();
     expect(screen.getByText("$ 700.000")).toBeInTheDocument();
   });
+
+  describe("initial state", () => {
+    function screenWidth(wide: boolean) {
+      vi.stubGlobal(
+        "matchMedia",
+        vi.fn((query: string) => ({
+          matches: wide,
+          media: query,
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+        })),
+      );
+    }
+
+    it("starts collapsed on a phone", () => {
+      screenWidth(false);
+      renderCard(vi.fn(async () => jsonResponse(healthySummary)));
+      expect(screen.getByRole("button", { name: /Resumen mensual/ })).toHaveAttribute(
+        "aria-expanded",
+        "false",
+      );
+    });
+
+    it("starts expanded on a wide screen", () => {
+      screenWidth(true);
+      renderCard(vi.fn(async () => jsonResponse(healthySummary)));
+      expect(screen.getByRole("button", { name: /Resumen mensual/ })).toHaveAttribute(
+        "aria-expanded",
+        "true",
+      );
+    });
+
+    it("renders the same thing on the server whatever the screen", async () => {
+      // The server has no screen. If the first client render guessed from
+      // window.innerWidth, every phone would disagree with the HTML it was
+      // sent and React would throw the tree away on hydration.
+      screenWidth(false);
+      const { renderToString } = await import("react-dom/server");
+      const html = renderToString(
+        <QueryClientProvider client={new QueryClient()}>
+          <MonthlySummaryCard endpoint="/me/monthly-summary" />
+        </QueryClientProvider>,
+      );
+      expect(html).toContain('aria-expanded="true"');
+    });
+  });
 });

@@ -52,6 +52,10 @@ class SavingsGoal(Base, TimestampMixin):
     priority: Mapped[str] = mapped_column(
         savings_priority, nullable=False, server_default="media"
     )
+    # Set when the saved money was spent on what it was saved for. From then
+    # on the goal is history, not savings: it leaves the savings total and
+    # takes no new entries.
+    used_on: Mapped[date | None] = mapped_column(Date, nullable=True)
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 

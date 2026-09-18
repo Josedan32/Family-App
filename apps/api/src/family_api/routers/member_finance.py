@@ -108,7 +108,7 @@ async def member_savings(
     responses = []
     for g, balance in rows:
         state, days_remaining, is_overdue = savings_service.goal_state(
-            balance, g.target_amount_minor, g.target_date, date.today()
+            balance, g.target_amount_minor, g.target_date, date.today(), g.used_on
         )
         responses.append(
             SavingsGoalResponse(
@@ -116,7 +116,7 @@ async def member_savings(
                 target_date=g.target_date, priority=g.priority, balance_minor=balance,
                 progress=savings_service.progress(balance, g.target_amount_minor),
                 currency=household.currency, days_remaining=days_remaining,
-                is_overdue=is_overdue, state=state,
+                is_overdue=is_overdue, state=state, used_on=g.used_on,
             )
         )
     return responses

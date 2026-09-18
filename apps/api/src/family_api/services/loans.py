@@ -9,6 +9,8 @@ from family_api.db.models.loan import MemberLoan, MemberLoanPayment
 from family_api.errors import ForbiddenRoleError, NotFoundError
 from family_api.ids import new_id
 from family_api.services.debts import OverpaymentError
+from family_api.services.households import FAMILY_LOAN_CATEGORY
+from family_api.services.mirrors import record_mirror
 from family_api.services.visibility import Level, resolve
 
 
@@ -26,6 +28,29 @@ async def _assert_party_is_valid(
         # FR-M2-15: a guest has no ledger and cannot be a loan party.
         raise ForbiddenRoleError
     return member
+
+
+async def _mirror_transfer(
+    session: AsyncSession,
+    *,
+    household_id: UUID,
+    payer_id: UUID,
+    receiver_id: UUID,
+    amount_minor: int,
+    occurred_on: date,
+    source: str,
+    source_id: UUID,
+) -> None:
+    """Money leaving one member's pocket for another's: an expense for the
+    payer, income for the receiver. No name and no note — a loan is governed
+    by the borrower's `debts` setting, and these rows by income/expenses, so
+    they must not name the other party (visibility-rules §5.3.1)."""
+    for member_id, kind in ((payer_id, "expense"), (receiver_id, "income")):
+        await record_mirror(
+            session, household_id=household_id, member_id=member_id, kind=kind,
+            category_name=FAMILY_LOAN_CATEGORY, amount_minor=amount_minor,
+            occurred_on=occurred_on, source=source, source_id=source_id,
+        )
 
 
 async def create_loan(
@@ -52,6 +77,12 @@ async def create_loan(
     )
     session.add(loan)
     await session.flush()
+    await _mirror_transfer(
+        session, household_id=loan.household_id,
+        payer_id=lender_member_id, receiver_id=borrower_member_id,
+        amount_minor=amount_minor, occurred_on=lent_on,
+        source="loan", source_id=loan.id,
+    )
     return loan
 
 
@@ -122,13 +153,19 @@ async def add_loan_payment(
     if amount_minor > outstanding:
         raise OverpaymentError
 
-    session.add(
-        MemberLoanPayment(
-            id=new_id(), household_id=loan.household_id, loan_id=loan.id,
-            amount_minor=amount_minor, paid_on=paid_on, recorded_by_member_id=member.id,
-        )
+    payment = MemberLoanPayment(
+        id=new_id(), household_id=loan.household_id, loan_id=loan.id,
+        amount_minor=amount_minor, paid_on=paid_on, recorded_by_member_id=member.id,
     )
+    session.add(payment)
     await session.flush()
+    # A repayment runs the other way: out of the borrower, back to the lender.
+    await _mirror_transfer(
+        session, household_id=loan.household_id,
+        payer_id=loan.borrower_member_id, receiver_id=loan.lender_member_id,
+        amount_minor=amount_minor, occurred_on=paid_on,
+        source="loan_payment", source_id=payment.id,
+    )
 
     remaining = outstanding - amount_minor
     loan.status = "paid" if remaining == 0 else "partially_paid"
@@ -139,7 +176,11 @@ async def add_loan_payment(
 async def cancel_loan(
     session: AsyncSession, member: HouseholdMember, loan_id: UUID
 ) -> None:
-    """Only the lender may cancel (FR-M2-14)."""
+    """Only the lender may cancel (FR-M2-14).
+
+    The ledger rows stay: cancelling forgives what is still owed, it does not
+    undo the money that already changed hands.
+    """
     loan = await _load_party_loan(session, member, loan_id)
     if loan.lender_member_id != member.id:
         raise ForbiddenRoleError

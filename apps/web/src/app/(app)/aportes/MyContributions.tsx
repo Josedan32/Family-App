@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { CategoryPicker } from "@/components/finance/CategoryPicker";
 import { MoneyDisplay } from "@/components/finance/MoneyDisplay";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -19,6 +20,14 @@ interface OwnContribution {
   currency: string;
   paid_on: string;
   note: string | null;
+  category_ids: string[];
+}
+
+interface Category {
+  id: string;
+  name: string;
+  kind: string;
+  is_contribution_category: boolean;
 }
 
 function EditContributionSheet({
@@ -33,12 +42,23 @@ function EditContributionSheet({
   const [amount, setAmount] = useState(contribution.amount_minor);
   const [paidOn, setPaidOn] = useState(contribution.paid_on);
   const [note, setNote] = useState(contribution.note ?? "");
+  const [categoryIds, setCategoryIds] = useState<string[]>(contribution.category_ids ?? []);
+
+  const categories = useQuery({
+    queryKey: ["categories", "expense"],
+    queryFn: () => clientFetch<Category[]>("/categories?kind=expense"),
+  });
 
   const update = useMutation({
     mutationFn: () =>
       clientFetch(`/contributions/${contribution.id}`, {
         method: "PATCH",
-        body: JSON.stringify({ amount_minor: amount, paid_on: paidOn, note: note || null }),
+        body: JSON.stringify({
+          amount_minor: amount,
+          paid_on: paidOn,
+          note: note || null,
+          category_ids: categoryIds,
+        }),
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["own-contributions"] });
@@ -76,6 +96,13 @@ function EditContributionSheet({
           label="Nota (opcional)"
           value={note}
           onChange={(event) => setNote(event.target.value)}
+        />
+        <CategoryPicker
+          categories={categories.data}
+          mode="multi"
+          value={categoryIds}
+          onChange={setCategoryIds}
+          label="Categorías (opcional, elige una o más)"
         />
         {update.isError ? (
           <p role="alert" className="text-sm text-danger">

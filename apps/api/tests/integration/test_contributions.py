@@ -95,41 +95,45 @@ async def test_the_mirrored_expense_uses_the_aporte_al_hogar_category(
     assert ledger.json()["items"][0]["categories"][0]["name"] == "Aporte al hogar"
 
 
-@pytest.mark.asyncio
-async def test_a_chosen_category_is_attached_alongside_the_system_one(
-    client: AsyncClient, db_session: AsyncSession
-) -> None:
-    """Task 9: the mirrored expense keeps 'Aporte al hogar' AND gains the
-    member's chosen category via TransactionCategory — never replacing it."""
-    _, papa, period_id = await _household_with_period(client)
+async def _expense_category_ids(
+    client: AsyncClient, headers: dict, *names: str
+) -> list[str]:
+    categories = (await client.get("/api/v1/categories?kind=expense", headers=headers)).json()
+    return [next(c["id"] for c in categories if c["name"] == name) for name in names]
 
-    categories = await client.get("/api/v1/categories?kind=expense", headers=papa)
-    ahorro = next(c for c in categories.json() if c["name"] == "Ahorro familiar")
+
+async def _ledger_category_names(client: AsyncClient, headers: dict) -> set[str]:
+    ledger = await client.get(
+        "/api/v1/me/transactions?kind=expense&period=2026-09", headers=headers
+    )
+    return {c["name"] for c in ledger.json()["items"][0]["categories"]}
+
+
+@pytest.mark.asyncio
+async def test_chosen_categories_are_attached_alongside_the_system_one(
+    client: AsyncClient,
+) -> None:
+    """The mirrored expense keeps 'Aporte al hogar' AND gains every category
+    the member picked — never replacing the system one."""
+    _, papa, period_id = await _household_with_period(client)
+    chosen = await _expense_category_ids(client, papa, "Ahorro familiar", "Comida")
 
     response = await client.post(
         f"/api/v1/contribution-periods/{period_id}/contributions",
-        json={
-            "amount_minor": 1_000_000,
-            "paid_on": "2026-09-05",
-            "category_id": ahorro["id"],
-        },
+        json={"amount_minor": 1_000_000, "paid_on": "2026-09-05", "category_ids": chosen},
         headers=papa,
     )
     assert response.status_code == 201
-    assert response.json()["category_id"] == ahorro["id"]
-
-    ledger = await client.get(
-        "/api/v1/me/transactions?kind=expense&period=2026-09", headers=papa
-    )
-    category_names = {c["name"] for c in ledger.json()["items"][0]["categories"]}
-    assert category_names == {"Aporte al hogar", "Ahorro familiar"}
+    assert set(response.json()["category_ids"]) == set(chosen)
+    assert await _ledger_category_names(client, papa) == {
+        "Aporte al hogar", "Ahorro familiar", "Comida",
+    }
 
 
 @pytest.mark.asyncio
-async def test_omitting_a_category_keeps_only_the_system_one(
+async def test_omitting_categories_keeps_only_the_system_one(
     client: AsyncClient,
 ) -> None:
-    """Task 9: today's behavior stays intact when no category is chosen."""
     _, papa, period_id = await _household_with_period(client)
 
     response = await client.post(
@@ -138,13 +142,69 @@ async def test_omitting_a_category_keeps_only_the_system_one(
         headers=papa,
     )
     assert response.status_code == 201
-    assert response.json()["category_id"] is None
+    assert response.json()["category_ids"] == []
+    assert await _ledger_category_names(client, papa) == {"Aporte al hogar"}
 
-    ledger = await client.get(
-        "/api/v1/me/transactions?kind=expense&period=2026-09", headers=papa
+
+@pytest.mark.asyncio
+async def test_editing_replaces_the_chosen_categories_but_never_the_system_one(
+    client: AsyncClient,
+) -> None:
+    _, papa, period_id = await _household_with_period(client)
+    ahorro, comida, servicios = await _expense_category_ids(
+        client, papa, "Ahorro familiar", "Comida", "Servicios"
     )
-    category_names = {c["name"] for c in ledger.json()["items"][0]["categories"]}
-    assert category_names == {"Aporte al hogar"}
+    created = await client.post(
+        f"/api/v1/contribution-periods/{period_id}/contributions",
+        json={"amount_minor": 1_000_000, "paid_on": "2026-09-05", "category_ids": [ahorro]},
+        headers=papa,
+    )
+
+    response = await client.patch(
+        f"/api/v1/contributions/{created.json()['id']}",
+        json={"category_ids": [comida, servicios]},
+        headers=papa,
+    )
+
+    assert response.status_code == 200
+    assert set(response.json()["category_ids"]) == {comida, servicios}
+    assert await _ledger_category_names(client, papa) == {
+        "Aporte al hogar", "Comida", "Servicios",
+    }
+
+
+@pytest.mark.asyncio
+async def test_listed_contributions_carry_their_categories(client: AsyncClient) -> None:
+    _, papa, period_id = await _household_with_period(client)
+    chosen = await _expense_category_ids(client, papa, "Ahorro familiar", "Comida")
+    await client.post(
+        f"/api/v1/contribution-periods/{period_id}/contributions",
+        json={"amount_minor": 1_000_000, "paid_on": "2026-09-05", "category_ids": chosen},
+        headers=papa,
+    )
+
+    listed = await client.get(
+        f"/api/v1/contribution-periods/{period_id}/contributions/mine", headers=papa
+    )
+
+    assert set(listed.json()[0]["category_ids"]) == set(chosen)
+
+
+@pytest.mark.asyncio
+async def test_an_income_category_is_rejected(client: AsyncClient) -> None:
+    _, papa, period_id = await _household_with_period(client)
+    incomes = (await client.get("/api/v1/categories?kind=income", headers=papa)).json()
+
+    response = await client.post(
+        f"/api/v1/contribution-periods/{period_id}/contributions",
+        json={
+            "amount_minor": 1_000_000, "paid_on": "2026-09-05",
+            "category_ids": [incomes[0]["id"]],
+        },
+        headers=papa,
+    )
+
+    assert response.status_code == 404
 
 
 @pytest.mark.asyncio

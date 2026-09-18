@@ -12,7 +12,7 @@ from family_api.schemas.category import (
     UpdateCategoryRequest,
 )
 from family_api.services import categories as category_service
-from family_api.services.households import CONTRIBUTION_CATEGORY
+from family_api.services.households import CONTRIBUTION_CATEGORY, RESERVED_CATEGORIES
 from family_api.services.members import CurrentMember
 
 router = APIRouter(prefix="/categories", tags=["categories"])
@@ -26,6 +26,7 @@ def _to_response(category: Category) -> CategoryResponse:
         is_contribution_category=(
             category.kind == "expense" and category.name == CONTRIBUTION_CATEGORY
         ),
+        is_reserved=(category.kind, category.name) in RESERVED_CATEGORIES,
         archived_at=category.archived_at,
     )
 

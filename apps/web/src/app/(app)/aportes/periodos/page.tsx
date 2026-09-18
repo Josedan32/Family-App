@@ -20,6 +20,7 @@ interface Period {
 interface HouseholdDetail {
   my_role: string;
   currency: string;
+  members: { id: string; display_name: string; role: string }[];
 }
 
 function monthLabel(periodMonth: string): string {
@@ -40,7 +41,12 @@ export default async function PeriodListPage() {
       <PageHeader />
       <div className="flex items-center justify-between gap-4">
         <h1 className="text-[1.75rem] font-bold tracking-tight">Periodos</h1>
-        {isAdmin ? <CreatePeriodButton currency={household.currency} /> : null}
+        {isAdmin ? (
+          <CreatePeriodButton
+            currency={household.currency}
+            members={household.members.filter((member) => member.role !== "guest")}
+          />
+        ) : null}
       </div>
 
       {periods.length === 0 ? (

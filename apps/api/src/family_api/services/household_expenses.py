@@ -97,6 +97,7 @@ async def create_expense(
     funding: str,
     paid_by_member_id: UUID | None,
     counts_as_contribution: bool,
+    payment_method: str | None = None,
 ) -> HouseholdExpense:
     """Writes 1, 2 or 3 rows, always in ONE transaction.
 
@@ -151,8 +152,9 @@ async def create_expense(
         transaction = Transaction(
             id=new_id(), household_id=member.household_id, member_id=payer.id,
             kind="expense", category_id=category.id, amount_minor=amount_minor,
-            occurred_on=occurred_on, note=note,
+            occurred_on=occurred_on, name=name, note=note,
             source="household_expense", source_id=expense_id,
+            payment_method=payment_method or "cash",
         )
         session.add(transaction)
         await session.flush()

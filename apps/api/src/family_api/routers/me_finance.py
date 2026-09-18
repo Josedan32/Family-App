@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from family_api.db.models.debt import Debt
-from family_api.db.models.household import Household
+from family_api.db.models.household import Household, HouseholdMember
 from family_api.db.models.savings import SavingsGoal
 from family_api.db.session import get_session
 from family_api.periods import parse_period
@@ -23,6 +23,7 @@ from family_api.schemas.savings import (
     CreateGoalRequest,
     SavingsEntryResponse,
     SavingsGoalResponse,
+    UseGoalRequest,
 )
 from family_api.schemas.transaction import (
     CategoryRef,
@@ -127,6 +128,7 @@ async def update_transaction(
         transaction = await transaction_service.update_transaction(
             session, member, transaction_id, body.category_ids,
             body.amount_minor, body.occurred_on, body.name, body.note,
+            body.is_recurring, body.frequency, body.payment_method,
         )
     except CategoryKindMismatchError:
         raise HTTPException(status_code=422, detail="Category kind mismatch") from None
@@ -176,14 +178,23 @@ async def monthly_summary(
 
 def _goal_response(goal: SavingsGoal, balance: int, currency: str) -> SavingsGoalResponse:
     state, days_remaining, is_overdue = savings_service.goal_state(
-        balance, goal.target_amount_minor, goal.target_date, date.today()
+        balance, goal.target_amount_minor, goal.target_date, date.today(), goal.used_on
     )
     return SavingsGoalResponse(
         id=goal.id, name=goal.name, target_amount_minor=goal.target_amount_minor,
         target_date=goal.target_date, priority=goal.priority, balance_minor=balance,
         progress=savings_service.progress(balance, goal.target_amount_minor),
         currency=currency, days_remaining=days_remaining, is_overdue=is_overdue, state=state,
+        used_on=goal.used_on,
     )
+
+
+async def _goal_by_id(
+    session: AsyncSession, member: HouseholdMember, goal_id: UUID
+) -> SavingsGoalResponse:
+    rows = await savings_service.list_goals_with_balances(session, member.id)
+    goal, balance = next((g, b) for g, b in rows if g.id == goal_id)
+    return _goal_response(goal, balance, await _currency(session, member.household_id))
 
 
 @router.get("/savings-goals")
@@ -227,9 +238,27 @@ async def add_entry(
         session, member, goal_id, body.kind, body.amount_minor, body.occurred_on, body.note
     )
     await session.commit()
-    rows = await savings_service.list_goals_with_balances(session, member.id)
-    goal, balance = next((g, b) for g, b in rows if g.id == goal_id)
-    return _goal_response(goal, balance, await _currency(session, member.household_id))
+    return await _goal_by_id(session, member, goal_id)
+
+
+@router.post("/savings-goals/{goal_id}/use")
+async def use_goal(
+    goal_id: UUID, body: UseGoalRequest, member: CurrentMember, session: SessionDep
+) -> SavingsGoalResponse:
+    await savings_service.mark_goal_used(
+        session, member, goal_id, body.used_on or date.today()
+    )
+    await session.commit()
+    return await _goal_by_id(session, member, goal_id)
+
+
+@router.delete("/savings-goals/{goal_id}/use")
+async def unuse_goal(
+    goal_id: UUID, member: CurrentMember, session: SessionDep
+) -> SavingsGoalResponse:
+    await savings_service.unmark_goal_used(session, member, goal_id)
+    await session.commit()
+    return await _goal_by_id(session, member, goal_id)
 
 
 def _debt_response(

@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 const TABS = [
   { href: "/ajustes/perfil", label: "Perfil" },
   { href: "/ajustes/privacidad", label: "Privacidad" },
+  { href: "/ajustes/visualizacion", label: "Visualización" },
 ] as const;
 
 /** Link-based, not state-based: each tab is its own bookmarkable route, so

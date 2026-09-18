@@ -77,7 +77,7 @@ async def create_expense(
     expense = await ledger_service.create_expense(
         session, member, body.category_id, body.amount_minor, body.occurred_on,
         body.name, body.note, body.funding, body.paid_by_member_id,
-        body.counts_as_contribution,
+        body.counts_as_contribution, body.payment_method,
     )
     await session.commit()
     rows = await ledger_service.list_expenses(

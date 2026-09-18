@@ -7,6 +7,8 @@ import { pageFetch } from "@/lib/api/server";
 
 import { ContributeButton } from "../ContributeButton";
 import { ClosePeriodButton } from "./ClosePeriodButton";
+import { EditPledgesButton } from "./EditPledgesButton";
+import { pledgeStatus } from "./pledgeStatus";
 import { ReopenPeriodButton } from "./ReopenPeriodButton";
 
 interface ContributionMember {
@@ -14,6 +16,7 @@ interface ContributionMember {
   display_name: string;
   pledged_minor: number;
   contributed_minor: number;
+  missing_minor: number;
 }
 
 interface PeriodDetail {
@@ -22,6 +25,7 @@ interface PeriodDetail {
   status: string;
   goal_amount_minor: number;
   collected_minor: number;
+  pledged_minor: number;
   progress: number;
   currency: string;
   members: ContributionMember[];
@@ -29,6 +33,7 @@ interface PeriodDetail {
 
 interface HouseholdDetail {
   my_role: string;
+  members: { id: string; role: string }[];
 }
 
 function monthLabel(periodMonth: string): string {
@@ -48,6 +53,9 @@ export default async function PeriodDetailPage({
     pageFetch<HouseholdDetail>("/households/current"),
   ]);
   const isAdmin = household.my_role === "admin";
+  const guests = new Set(
+    household.members.filter((member) => member.role === "guest").map((member) => member.id),
+  );
 
   return (
     <div className="flex flex-col gap-4">
@@ -73,28 +81,43 @@ export default async function PeriodDetailPage({
       />
 
       <div className="flex flex-col gap-2.5">
-        <div className="flex items-baseline justify-between gap-4">
-          <h2 className="text-sm font-semibold">Quién aportó</h2>
-          <span className="text-xs text-text-muted">{period.members.length} miembros</span>
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex flex-col gap-0.5">
+            <h2 className="text-sm font-semibold">Quién aportó</h2>
+            <span className="text-xs text-text-muted">
+              Cuotas asignadas:{" "}
+              <MoneyDisplay
+                amountMinor={period.pledged_minor}
+                currency={period.currency}
+                className="text-xs"
+              />
+            </span>
+          </div>
+          {isAdmin && period.status === "open" ? (
+            <EditPledgesButton
+              periodId={period.id}
+              currency={period.currency}
+              members={period.members.filter((member) => !guests.has(member.member_id))}
+            />
+          ) : null}
         </div>
         <Card className="flex flex-col divide-y divide-border p-0">
           {period.members.map((member) => {
-            const complete = member.contributed_minor >= member.pledged_minor;
-            const missing = member.pledged_minor - member.contributed_minor;
+            const status = pledgeStatus(member.pledged_minor, member.contributed_minor);
             return (
               <div key={member.member_id} className="flex items-center gap-3 p-3.5">
                 <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <span className="font-bold">{member.display_name}</span>
-                  {complete ? (
+                  {status === "complete" ? (
                     <span className="inline-flex items-center gap-1 text-xs font-semibold text-income">
                       <IconCheck />
                       Completó su cuota
                     </span>
-                  ) : member.pledged_minor > 0 ? (
+                  ) : status === "pending" ? (
                     <span className="flex items-center gap-1 text-xs font-semibold text-debt">
                       Le faltan{" "}
                       <MoneyDisplay
-                        amountMinor={missing}
+                        amountMinor={member.missing_minor}
                         currency={period.currency}
                         className="text-xs"
                       />

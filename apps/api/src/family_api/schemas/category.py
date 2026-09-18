@@ -27,4 +27,7 @@ class CategoryResponse(BaseModel):
     # archived, never deleted) — this is the narrower "never pick this by
     # hand" signal a picker actually needs.
     is_contribution_category: bool
+    # Written only by the API on mirrored rows (contributions, savings
+    # withdrawals…). A picker must never offer it.
+    is_reserved: bool
     archived_at: datetime | None

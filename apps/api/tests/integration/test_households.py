@@ -50,7 +50,7 @@ async def test_creating_a_second_household_is_rejected(client: AsyncClient) -> N
 async def test_creation_seeds_the_spec_categories(
     client: AsyncClient, db_session: AsyncSession
 ) -> None:
-    """FR-M2-01, including the Aporte al hogar system category."""
+    """FR-M2-01, plus the reserved categories mirrored rows are filed under."""
     token = await _register(client)
     await client.post("/api/v1/households", json={"name": "Hogar"}, headers=_auth(token))
 
@@ -58,16 +58,21 @@ async def test_creation_seeds_the_spec_categories(
     income = {c.name for c in rows if c.kind == "income"}
     expense = {c.name for c in rows if c.kind == "expense"}
 
-    assert income == {"Salario", "Negocio", "Regalos", "Otros"}
+    assert income == {
+        "Salario", "Negocio", "Regalos", "Otros", "Retiro de ahorro", "Préstamo familiar",
+    }
     assert expense == {
         "Transporte", "Comida", "Educación", "Entretenimiento", "Salud", "Otros",
         "Internet", "Servicios", "Arriendo", "Ahorro familiar",
         "Trabajo", "Viaje", "Regalo", "Banco", "Lujo", "Inversión",
         "Responsabilidad", "Casa", "Ropa", "Aseo Personal", "Deudas - Préstamos", "Gym",
-        "Aporte al hogar",
+        "Aporte al hogar", "Préstamo familiar",
     }
-    aporte = next(c for c in rows if c.name == "Aporte al hogar")
-    assert aporte.is_system is True
+    reserved = [
+        c for c in rows if c.name in {"Aporte al hogar", "Retiro de ahorro", "Préstamo familiar"}
+    ]
+    assert len(reserved) == 4
+    assert all(c.is_system for c in reserved)
 
 
 @pytest.mark.asyncio

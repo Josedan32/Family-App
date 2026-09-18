@@ -31,11 +31,21 @@ class CreateTransactionRequest(BaseModel):
 
 
 class UpdateTransactionRequest(BaseModel):
+    """Every field optional: an omitted field is left as it is.
+
+    Recurrence is validated against the resulting row in the service, since
+    `is_recurring: true` alone is valid for a row that already has a
+    frequency and invalid for one that does not.
+    """
+
     category_ids: list[UUID] | None = Field(default=None, min_length=1)
     amount_minor: int | None = Field(default=None, gt=0)
     occurred_on: date | None = None
     name: str | None = Field(default=None, max_length=120)
     note: str | None = None
+    is_recurring: bool | None = None
+    frequency: Literal["monthly", "once", "biweekly"] | None = None
+    payment_method: Literal["cash", "nequi", "bancolombia"] | None = None
 
 
 class TransactionResponse(BaseModel):

@@ -8,6 +8,7 @@ import { MoneyInput } from "@/components/ui/MoneyInput";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { clientFetch } from "@/lib/api/client";
+import { pushToast } from "@/lib/toast";
 
 interface Category {
   id: string;
@@ -23,6 +24,9 @@ interface EditableTransaction {
   occurred_on: string;
   name: string | null;
   note: string | null;
+  is_recurring: boolean;
+  frequency: string | null;
+  payment_method: string;
 }
 
 const FREQUENCIES = ["monthly", "once", "biweekly"] as const;
@@ -37,11 +41,19 @@ const FREQUENCY_LABEL: Record<Frequency, string> = {
 const PAYMENT_METHODS = ["cash", "nequi", "bancolombia"] as const;
 type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
-const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
+export const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
   cash: "Efectivo",
   nequi: "Nequi",
   bancolombia: "Bancolombia",
 };
+
+function isFrequency(value: string | null | undefined): value is Frequency {
+  return FREQUENCIES.includes(value as Frequency);
+}
+
+function isPaymentMethod(value: string | null | undefined): value is PaymentMethod {
+  return PAYMENT_METHODS.includes(value as PaymentMethod);
+}
 
 export function TransactionForm({
   kind,
@@ -67,9 +79,17 @@ export function TransactionForm({
   );
   const [name, setName] = useState(transaction?.name ?? "");
   const [note, setNote] = useState(transaction?.note ?? "");
-  const [isRecurring, setIsRecurring] = useState(false);
-  const [frequency, setFrequency] = useState<Frequency>("monthly");
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
+  const [isRecurring, setIsRecurring] = useState(transaction?.is_recurring ?? false);
+  const [frequency, setFrequency] = useState<Frequency>(
+    isFrequency(transaction?.frequency) ? transaction.frequency : "monthly",
+  );
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(
+    isPaymentMethod(transaction?.payment_method) ? transaction.payment_method : "cash",
+  );
+  // Only when creating an expense: it becomes a household expense the member
+  // paid, which counts toward their quota in the open period (FR-M4-12).
+  const canBeContribution = !transaction && kind === "expense";
+  const [asContribution, setAsContribution] = useState(false);
 
   const amountError =
     amountTouched && amount <= 0 ? "Ingresa un monto mayor a cero" : undefined;
@@ -84,7 +104,22 @@ export function TransactionForm({
 
   const save = useMutation({
     mutationFn: () =>
-      transaction
+      asContribution
+        ? clientFetch("/household-expenses", {
+            method: "POST",
+            body: JSON.stringify({
+              // Household expenses carry exactly one category.
+              category_id: categoryIds[0],
+              amount_minor: amount,
+              occurred_on: occurredOn,
+              name: name || null,
+              note: note || null,
+              funding: "member",
+              counts_as_contribution: true,
+              payment_method: paymentMethod,
+            }),
+          })
+        : transaction
         ? clientFetch(`/me/transactions/${transaction.id}`, {
             method: "PATCH",
             body: JSON.stringify({
@@ -93,6 +128,9 @@ export function TransactionForm({
               occurred_on: occurredOn,
               name: name || null,
               note: note || null,
+              is_recurring: isRecurring,
+              frequency: isRecurring ? frequency : null,
+              payment_method: paymentMethod,
             }),
           })
         : clientFetch("/me/transactions", {
@@ -112,6 +150,9 @@ export function TransactionForm({
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["transactions"] });
       await queryClient.invalidateQueries({ queryKey: ["monthly-summary"] });
+      if (asContribution) {
+        pushToast({ message: "Gasto registrado como tu aporte", type: "success" });
+      }
       onDone();
     },
   });
@@ -137,12 +178,40 @@ export function TransactionForm({
         required
       />
 
-      <CategoryPicker
-        categories={categories.data}
-        mode="multi"
-        value={categoryIds}
-        onChange={setCategoryIds}
-      />
+      {canBeContribution ? (
+        <label className="flex items-start gap-3 rounded-xl border border-border bg-surface p-3.5">
+          <input
+            type="checkbox"
+            checked={asContribution}
+            onChange={(event) => {
+              setAsContribution(event.target.checked);
+              if (event.target.checked) setCategoryIds((ids) => ids.slice(0, 1));
+            }}
+            className="mt-0.5 h-5 w-5 flex-none"
+          />
+          <span className="flex flex-col gap-0.5">
+            <span className="text-sm font-semibold">Este gasto fue mi aporte al hogar</span>
+            <span className="text-xs text-text-muted">
+              Se anota en los gastos del hogar y cuenta para tu cuota del periodo abierto.
+            </span>
+          </span>
+        </label>
+      ) : null}
+
+      {asContribution ? (
+        <CategoryPicker
+          categories={categories.data}
+          value={categoryIds[0] ?? ""}
+          onChange={(id) => setCategoryIds([id])}
+        />
+      ) : (
+        <CategoryPicker
+          categories={categories.data}
+          mode="multi"
+          value={categoryIds}
+          onChange={setCategoryIds}
+        />
+      )}
       {categoryError ? (
         <p role="alert" className="-mt-3 text-xs font-medium text-danger">
           {categoryError}
@@ -195,47 +264,51 @@ export function TransactionForm({
         </div>
       </div>
 
-      <label className="flex items-start gap-3 rounded-xl border border-border bg-surface p-3.5">
-        <input
-          type="checkbox"
-          checked={isRecurring}
-          onChange={(event) => setIsRecurring(event.target.checked)}
-          className="mt-0.5 h-5 w-5 flex-none"
-        />
-        <span className="flex flex-col gap-0.5">
-          <span className="text-sm font-semibold">Es un movimiento recurrente</span>
-          <span className="text-xs text-text-muted">Se repite con la frecuencia que elijas.</span>
-        </span>
-      </label>
+      {asContribution ? null : (
+        <>
+          <label className="flex items-start gap-3 rounded-xl border border-border bg-surface p-3.5">
+            <input
+              type="checkbox"
+              checked={isRecurring}
+              onChange={(event) => setIsRecurring(event.target.checked)}
+              className="mt-0.5 h-5 w-5 flex-none"
+            />
+            <span className="flex flex-col gap-0.5">
+              <span className="text-sm font-semibold">Es un movimiento recurrente</span>
+              <span className="text-xs text-text-muted">Se repite con la frecuencia que elijas.</span>
+            </span>
+          </label>
 
-      {isRecurring ? (
-        <div className="flex flex-col gap-2">
-          <span className="text-xs font-semibold uppercase tracking-wide text-text-muted">
-            Frecuencia
-          </span>
-          <div role="radiogroup" aria-label="Frecuencia" className="grid grid-cols-3 gap-2">
-            {FREQUENCIES.map((value) => {
-              const selected = frequency === value;
-              return (
-                <button
-                  key={value}
-                  type="button"
-                  role="radio"
-                  aria-checked={selected}
-                  onClick={() => setFrequency(value)}
-                  className={`min-h-[48px] rounded-xl border px-1 text-sm font-medium ${
-                    selected
-                      ? "border-brand bg-brand font-bold text-brand-contrast"
-                      : "border-border bg-surface text-text active:bg-surface-sunken"
-                  }`}
-                >
-                  {FREQUENCY_LABEL[value]}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      ) : null}
+          {isRecurring ? (
+            <div className="flex flex-col gap-2">
+              <span className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+                Frecuencia
+              </span>
+              <div role="radiogroup" aria-label="Frecuencia" className="grid grid-cols-3 gap-2">
+                {FREQUENCIES.map((value) => {
+                  const selected = frequency === value;
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      onClick={() => setFrequency(value)}
+                      className={`min-h-[48px] rounded-xl border px-1 text-sm font-medium ${
+                        selected
+                          ? "border-brand bg-brand font-bold text-brand-contrast"
+                          : "border-border bg-surface text-text active:bg-surface-sunken"
+                      }`}
+                    >
+                      {FREQUENCY_LABEL[value]}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+        </>
+      )}
 
       {save.isError ? (
         <p role="alert" className="text-sm text-danger">

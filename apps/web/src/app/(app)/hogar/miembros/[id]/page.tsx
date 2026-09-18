@@ -3,6 +3,7 @@ import { MoneyDisplay } from "@/components/finance/MoneyDisplay";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { PrivateBlock } from "@/components/privacy/PrivateBlock";
 import { VisibilityBadge, type Level } from "@/components/privacy/VisibilityBadge";
+import { Avatar } from "@/components/ui/Avatar";
 import { Card } from "@/components/ui/Card";
 import { IconArrowDown, IconArrowUp, IconCircleFilled, IconDiamondFilled } from "@/components/ui/Icons";
 import { ApiError } from "@/lib/api/errors";
@@ -167,12 +168,12 @@ export default async function MemberProfilePage({
     <div className="flex flex-col gap-5">
       <PageHeader />
       <div className="flex items-center gap-3.5">
-        <div
-          aria-hidden="true"
-          className="flex h-14 w-14 flex-none items-center justify-center rounded-full bg-brand text-xl font-bold text-brand-contrast"
-        >
-          {member?.display_name.charAt(0) ?? "?"}
-        </div>
+        <Avatar
+          displayName={member?.display_name ?? "—"}
+          photoUrl={member?.photo_url}
+          seed={id}
+          size="lg"
+        />
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{member?.display_name ?? "—"}</h1>
           <p className="text-sm text-text-muted">

@@ -206,3 +206,104 @@ async def test_summary_response_never_grows_new_transaction_fields() -> None:
     from family_api.schemas.transaction import MoneyTotalResponse
 
     assert set(MoneyTotalResponse.model_fields) == {"period", "total_minor", "currency"}
+
+
+async def _expense(client: AsyncClient, headers: dict[str, str], **fields: object) -> str:
+    category_id = await _category(client, headers, "Comida", "expense")
+    created = await client.post(
+        "/api/v1/me/transactions",
+        json={
+            "kind": "expense", "category_ids": [category_id],
+            "amount_minor": 15000, "occurred_on": "2026-09-02", **fields,
+        },
+        headers=headers,
+    )
+    assert created.status_code == 201
+    return str(created.json()["id"])
+
+
+@pytest.mark.asyncio
+async def test_editing_changes_the_payment_method(client: AsyncClient) -> None:
+    headers = await _member(client)
+    transaction_id = await _expense(client, headers)
+
+    response = await client.patch(
+        f"/api/v1/me/transactions/{transaction_id}",
+        json={"payment_method": "nequi"},
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["payment_method"] == "nequi"
+
+
+@pytest.mark.asyncio
+async def test_editing_makes_a_transaction_recurring(client: AsyncClient) -> None:
+    headers = await _member(client)
+    transaction_id = await _expense(client, headers)
+
+    response = await client.patch(
+        f"/api/v1/me/transactions/{transaction_id}",
+        json={"is_recurring": True, "frequency": "biweekly"},
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["is_recurring"] is True
+    assert response.json()["frequency"] == "biweekly"
+
+
+@pytest.mark.asyncio
+async def test_editing_stops_a_recurrence_and_clears_its_frequency(
+    client: AsyncClient,
+) -> None:
+    headers = await _member(client)
+    transaction_id = await _expense(client, headers, is_recurring=True, frequency="monthly")
+
+    response = await client.patch(
+        f"/api/v1/me/transactions/{transaction_id}",
+        json={"is_recurring": False},
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["is_recurring"] is False
+    assert response.json()["frequency"] is None
+
+
+@pytest.mark.asyncio
+async def test_editing_to_recurring_without_a_frequency_is_rejected(
+    client: AsyncClient,
+) -> None:
+    headers = await _member(client)
+    transaction_id = await _expense(client, headers)
+
+    response = await client.patch(
+        f"/api/v1/me/transactions/{transaction_id}",
+        json={"is_recurring": True},
+        headers=headers,
+    )
+
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_an_unrelated_edit_keeps_recurrence_and_payment_method(
+    client: AsyncClient,
+) -> None:
+    headers = await _member(client)
+    transaction_id = await _expense(
+        client, headers, is_recurring=True, frequency="monthly", payment_method="bancolombia"
+    )
+
+    response = await client.patch(
+        f"/api/v1/me/transactions/{transaction_id}",
+        json={"amount_minor": 20000},
+        headers=headers,
+    )
+
+    body = response.json()
+    assert body["amount_minor"] == 20000
+    assert body["is_recurring"] is True
+    assert body["frequency"] == "monthly"
+    assert body["payment_method"] == "bancolombia"
