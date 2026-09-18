@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from family_api.db.models.household import Household
 from family_api.db.session import get_session
 from family_api.periods import parse_period
+from family_api.routers.debt_views import debt_response
 from family_api.schemas.debt import DebtResponse, DebtSummaryResponse
 from family_api.schemas.finance_summary import MonthlySummaryResponse
 from family_api.schemas.savings import SavingsGoalResponse, SavingsSummaryResponse
@@ -138,25 +139,7 @@ async def member_debts(
         )
 
     rows = await debt_service.list_debts_with_figures(session, scope.owner.id)
-    return [
-        DebtResponse(
-            id=d.id, name=d.name,
-            creditor_type=d.creditor_type, creditor_label=d.creditor_label,
-            principal_minor=d.principal_minor, outstanding_minor=out,
-            paid_total_minor=d.principal_minor - out,
-            annual_interest_rate=float(d.annual_interest_rate)
-            if d.annual_interest_rate is not None else None,
-            due_day=d.due_day, status=d.status, currency=household.currency,
-            installments_total=figures.total if figures else None,
-            installments_paid=figures.paid if figures else None,
-            installments_remaining=figures.remaining if figures else None,
-            next_installment_on=figures.next_on if figures else None,
-            next_installment_amount_minor=figures.next_amount_minor if figures else None,
-            minimum_payment_minor=d.minimum_payment_minor,
-            is_overdue=figures.is_overdue if figures else None,
-        )
-        for d, out, figures in rows
-    ]
+    return [debt_response(d, figures, household.currency) for d, figures in rows]
 
 
 @router.get("/{member_id}/monthly-summary")

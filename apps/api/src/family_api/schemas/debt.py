@@ -59,6 +59,12 @@ class DebtResponse(BaseModel):
     minimum_payment_minor: int | None = None
     is_overdue: bool | None = None
     last_payment_id: UUID | None = None
+    # Derived on read: see services/debt_standing.py.
+    standing: Literal["paid", "overdue", "due_soon", "up_to_date", "cancelled"]
+    next_due_on: date | None = None
+    # Share of the principal already paid. A ratio, reported by the API so the
+    # client never divides money.
+    progress: float
 
 
 class DebtPaymentResponse(BaseModel):

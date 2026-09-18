@@ -190,6 +190,26 @@ async def category_breakdown_for(
     return [(name, int(total)) for name, total in rows]
 
 
+async def get_own_transaction(
+    session: AsyncSession, member: HouseholdMember, transaction_id: UUID
+) -> tuple[Transaction, list[tuple[UUID, str]]]:
+    """A row of the member's own ledger with its categories, derived or not."""
+    transaction = await session.scalar(
+        select(Transaction).where(
+            Transaction.id == transaction_id, Transaction.member_id == member.id
+        )
+    )
+    if transaction is None:
+        raise NotFoundError
+    rows = await session.execute(
+        select(Category.id, Category.name)
+        .join(TransactionCategory, TransactionCategory.category_id == Category.id)
+        .where(TransactionCategory.transaction_id == transaction.id)
+        .order_by(TransactionCategory.created_at, TransactionCategory.id)
+    )
+    return transaction, [(cid, name) for cid, name in rows]
+
+
 async def _own_transaction(
     session: AsyncSession, member: HouseholdMember, transaction_id: UUID
 ) -> Transaction:

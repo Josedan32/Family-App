@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from datetime import date
 from datetime import date as date_type
 from uuid import UUID
@@ -9,6 +10,7 @@ from family_api.db.models.debt import Debt, DebtPayment
 from family_api.db.models.household import HouseholdMember
 from family_api.errors import DomainError, NotFoundError
 from family_api.ids import new_id
+from family_api.services.debt_standing import DebtStanding, debt_standing
 from family_api.services.installments import InstallmentFigures, compute_installments
 
 
@@ -101,29 +103,58 @@ async def total_outstanding(session: AsyncSession, member_id: UUID) -> int:
     return sum(out for _, out in rows)
 
 
+@dataclass(frozen=True)
+class DebtFigures:
+    """Everything derived about a debt. None of it is stored."""
+
+    outstanding_minor: int
+    installments: InstallmentFigures | None
+    standing: DebtStanding
+
+
+def debt_figures(
+    debt: Debt, outstanding: int, last_paid_on: date | None, today: date
+) -> DebtFigures:
+    installments = compute_installments(
+        debt.installments_total,
+        debt.installment_amount_minor,
+        debt.first_installment_on,
+        debt.principal_minor - outstanding,
+        today,
+    )
+    return DebtFigures(
+        outstanding_minor=outstanding,
+        installments=installments,
+        standing=debt_standing(
+            status=debt.status,
+            outstanding_minor=outstanding,
+            due_day=debt.due_day,
+            installment_next_on=installments.next_on if installments else None,
+            created_on=debt.created_at.date(),
+            last_paid_on=last_paid_on,
+            today=today,
+        ),
+    )
+
+
 async def list_debts_with_figures(
     session: AsyncSession, member_id: UUID, today: date_type | None = None
-) -> list[tuple[Debt, int, InstallmentFigures | None]]:
-    """Debt, outstanding, and derived installment figures."""
+) -> list[tuple[Debt, DebtFigures]]:
     today = today or date_type.today()
     rows = await list_debts_with_outstanding(session, member_id)
-    result = []
-    for debt, outstanding in rows:
-        paid_total = debt.principal_minor - outstanding
-        result.append(
-            (
-                debt,
-                outstanding,
-                compute_installments(
-                    debt.installments_total,
-                    debt.installment_amount_minor,
-                    debt.first_installment_on,
-                    paid_total,
-                    today,
-                ),
-            )
+    # One query for every debt's latest payment, not one per debt.
+    last_paid: dict[UUID, date] = {}
+    if rows:
+        latest = await session.execute(
+            select(DebtPayment.debt_id, func.max(DebtPayment.paid_on))
+            .where(DebtPayment.debt_id.in_([debt.id for debt, _ in rows]))
+            .group_by(DebtPayment.debt_id)
         )
-    return result
+        last_paid = {debt_id: paid_on for debt_id, paid_on in latest}
+    return [
+        (debt, debt_figures(debt, outstanding, last_paid.get(debt.id), today))
+        for debt, outstanding in rows
+    ]
 
 
 async def get_debt_detail(

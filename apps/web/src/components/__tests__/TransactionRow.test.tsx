@@ -41,12 +41,6 @@ describe("TransactionRow", () => {
     expect(screen.getByText("+$ 15.000")).toBeInTheDocument();
   });
 
-  it("shows the category and the note", () => {
-    renderRow(expense);
-    expect(screen.getByText("Comida")).toBeInTheDocument();
-    expect(screen.getByText("Arroz 2kg")).toBeInTheDocument();
-  });
-
   it("shows the name as the title and the category as a pill when named", () => {
     renderRow({ ...expense, name: "Mercado de la semana" });
     expect(screen.getByText("Mercado de la semana")).toBeInTheDocument();
@@ -71,46 +65,20 @@ describe("TransactionRow", () => {
     expect(screen.getAllByText("Comida")).toHaveLength(1);
   });
 
-  it("marks a derived record as managed elsewhere", () => {
+  it("shows the date in words", () => {
+    renderRow(expense);
+    expect(screen.getByText("2 sep 2026")).toBeInTheDocument();
+  });
+
+  it("opens the movement's detail page", () => {
+    renderRow(expense);
+    expect(screen.getByRole("link")).toHaveAttribute("href", "/finanzas/movimientos/1");
+  });
+
+  it("marks where a derived record comes from, without offering to edit it", () => {
     renderRow({ ...expense, source: "contribution" });
     // FR-M2-05: it cannot be edited here, and the UI must not pretend otherwise.
     expect(screen.getByText("Aporte")).toBeInTheDocument();
     expect(screen.queryByText("Editar")).not.toBeInTheDocument();
-  });
-
-  it("sends a household-expense row back to the household ledger, not to Aportes", () => {
-    renderRow({ ...expense, source: "household_expense" });
-    expect(screen.getByText("Gasto del hogar")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Ver gastos del hogar/ })).toHaveAttribute(
-      "href",
-      "/hogar/gastos",
-    );
-    expect(screen.queryByText("Editar")).not.toBeInTheDocument();
-  });
-
-  it("sends a savings-withdrawal income row back to Ahorros", () => {
-    renderRow({ ...expense, kind: "income", source: "savings_withdrawal" });
-    expect(screen.getByText("Retiro de ahorro")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Ver ahorros/ })).toHaveAttribute(
-      "href",
-      "/finanzas?tab=savings",
-    );
-  });
-
-  it("sends loan rows, both the loan and its repayments, to Préstamos", () => {
-    for (const source of ["loan", "loan_payment"]) {
-      const { unmount } = renderRow({ ...expense, source });
-      expect(screen.getByRole("link", { name: /Ver préstamos/ })).toHaveAttribute(
-        "href",
-        "/finanzas/prestamos",
-      );
-      unmount();
-    }
-  });
-
-  it("offers edit and delete for a manual transaction", () => {
-    renderRow(expense);
-    expect(screen.getByText("Editar")).toBeInTheDocument();
-    expect(screen.getByText("Eliminar")).toBeInTheDocument();
   });
 });

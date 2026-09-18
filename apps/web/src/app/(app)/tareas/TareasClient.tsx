@@ -10,7 +10,9 @@ import {
   type AssignmentMember,
 } from "@/components/chores/AssignmentRow";
 import { AssignmentWheel } from "@/components/chores/AssignmentWheel";
+import { ChoresTable } from "@/components/chores/ChoresTable";
 import { clientFetch } from "@/lib/api/client";
+import { useViewMode } from "@/lib/viewMode";
 
 import { filterAssignments } from "./filterAssignments";
 
@@ -66,6 +68,7 @@ export function TareasClient({
   const [assignments, setAssignments] = useState(cycle.assignments);
   const [showDone, setShowDone] = useState(false);
   const [showWheel, setShowWheel] = useState(false);
+  const asTable = useViewMode() === "table";
   const [memberFilter, setMemberFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [minPoints, setMinPoints] = useState<number | null>(null);
@@ -277,17 +280,29 @@ export function TareasClient({
             />
           </label>
         </div>
-        <ul className="flex flex-col gap-2">
-          {pending.map((assignment) => (
-            <AssignmentRow
-              key={assignment.id}
-              assignment={assignment}
+        {asTable ? (
+          pending.length ? (
+            <ChoresTable
+              caption="Tareas pendientes"
+              assignments={pending}
               members={members}
               onComplete={(id) => complete.mutate(id)}
               onReassign={(id, memberId) => reassign.mutate({ id, memberId })}
             />
-          ))}
-        </ul>
+          ) : null
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {pending.map((assignment) => (
+              <AssignmentRow
+                key={assignment.id}
+                assignment={assignment}
+                members={members}
+                onComplete={(id) => complete.mutate(id)}
+                onReassign={(id, memberId) => reassign.mutate({ id, memberId })}
+              />
+            ))}
+          </ul>
+        )}
         {otherStatusOnly ? (
           <p className="rounded-xl border border-border bg-surface-sunken p-3 text-center text-xs text-text-muted">
             {otherStatusMessage}
@@ -311,11 +326,17 @@ export function TareasClient({
             </span>
           </button>
           {showDone ? (
-            <ul className="flex flex-col gap-2 border-t border-border p-2">
-              {done.map((assignment) => (
-                <AssignmentRow key={assignment.id} assignment={assignment} />
-              ))}
-            </ul>
+            asTable ? (
+              <div className="border-t border-border p-2">
+                <ChoresTable caption="Tareas hechas" assignments={done} />
+              </div>
+            ) : (
+              <ul className="flex flex-col gap-2 border-t border-border p-2">
+                {done.map((assignment) => (
+                  <AssignmentRow key={assignment.id} assignment={assignment} />
+                ))}
+              </ul>
+            )
           ) : null}
         </div>
       ) : null}

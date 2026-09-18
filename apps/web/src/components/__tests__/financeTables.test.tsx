@@ -1,11 +1,15 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { render, screen, within } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
+
+import type { Debt } from "../finance/DebtCard";
 import type { Goal } from "../finance/GoalCard";
 import type { HouseholdExpense } from "../finance/HouseholdExpenseRow";
 import type { Transaction } from "../finance/TransactionRow";
 import {
+  DebtsTable,
   GoalsTable,
   HouseholdExpensesTable,
   TransactionsTable,
@@ -49,10 +53,21 @@ describe("TransactionsTable", () => {
     expect(screen.getByText("Retiro de ahorro")).toBeInTheDocument();
   });
 
-  it("opens the usual card, with its actions, when a row is tapped", () => {
+  it("opens the movement's own page from its row", () => {
     withClient(<TransactionsTable kind="expense" transactions={[expense]} />);
-    fireEvent.click(screen.getByRole("button", { name: "Mercado" }));
-    expect(screen.getByRole("button", { name: "Editar" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Mercado" })).toHaveAttribute(
+      "href",
+      "/finanzas/movimientos/t1",
+    );
+  });
+
+  it("keeps only name and amount as columns on a phone", () => {
+    withClient(<TransactionsTable kind="expense" transactions={[expense]} />);
+    const visible = screen
+      .getAllByRole("columnheader")
+      .filter((header) => !header.classList.contains("hidden"))
+      .map((header) => header.textContent);
+    expect(visible).toEqual(["Detalle", "Monto"]);
   });
 });
 
@@ -100,5 +115,42 @@ describe("HouseholdExpensesTable", () => {
     withClient(<HouseholdExpensesTable expenses={[paid, { ...paid, id: "h2", funding: "pot", paid_by_name: null, contribution_id: null }]} />);
     expect(screen.getByText("Mamá · aporte")).toBeInTheDocument();
     expect(screen.getByText("Del pozo")).toBeInTheDocument();
+  });
+});
+
+describe("DebtsTable", () => {
+  const overdue: Debt = {
+    id: "d1",
+    name: "Nu - Tc",
+    creditor_type: "other",
+    creditor_label: "Nu",
+    principal_minor: 823_913,
+    outstanding_minor: 400_000,
+    paid_total_minor: 423_913,
+    annual_interest_rate: 28.34,
+    due_day: 5,
+    status: "active",
+    currency: "COP",
+    installments_total: null,
+    installments_paid: null,
+    installments_remaining: null,
+    next_installment_on: null,
+    next_installment_amount_minor: null,
+    minimum_payment_minor: 114_959,
+    is_overdue: null,
+    standing: "overdue",
+    next_due_on: "2026-09-05",
+    progress: 0.51,
+  };
+
+  it("tints an overdue row and says so", () => {
+    withClient(<DebtsTable debts={[overdue]} />);
+    const row = screen.getAllByRole("row")[1];
+    expect(row.style.backgroundColor).toContain("--danger");
+    expect(within(row).getAllByText("En mora").length).toBeGreaterThan(0);
+    expect(screen.getByRole("link", { name: "Nu - Tc" })).toHaveAttribute(
+      "href",
+      "/finanzas/deudas/d1",
+    );
   });
 });
