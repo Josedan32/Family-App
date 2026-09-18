@@ -31,6 +31,27 @@ describe("CategoryPicker", () => {
     expect(screen.queryByText("Aporte al hogar")).not.toBeInTheDocument();
   });
 
+  it("never offers any reserved category the API writes itself", () => {
+    render(
+      <CategoryPicker
+        categories={[
+          ...categories,
+          {
+            id: "c4",
+            name: "Retiro de ahorro",
+            kind: "income",
+            is_contribution_category: false,
+            is_reserved: true,
+          },
+        ]}
+        value=""
+        onChange={() => {}}
+      />,
+    );
+    expect(screen.queryByText("Retiro de ahorro")).not.toBeInTheDocument();
+    expect(screen.getByText("Comida")).toBeInTheDocument();
+  });
+
   it("allows selecting more than one category in multi mode", () => {
     const onChange = vi.fn();
     render(

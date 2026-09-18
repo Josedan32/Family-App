@@ -19,6 +19,12 @@ const DERIVED: Record<string, DerivedSource> = {
     href: "/hogar/gastos",
     linkLabel: "Ver gastos del hogar ›",
   },
+  savings_withdrawal: {
+    pill: "Retiro de ahorro",
+    explanation: "Sacaste plata de un ahorro: vuelve a contar como ingreso del mes.",
+    href: "/finanzas?tab=savings",
+    linkLabel: "Ver ahorros ›",
+  },
 };
 
 const UNKNOWN: DerivedSource = {

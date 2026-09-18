@@ -88,6 +88,15 @@ describe("TransactionRow", () => {
     expect(screen.queryByText("Editar")).not.toBeInTheDocument();
   });
 
+  it("sends a savings-withdrawal income row back to Ahorros", () => {
+    renderRow({ ...expense, kind: "income", source: "savings_withdrawal" });
+    expect(screen.getByText("Retiro de ahorro")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Ver ahorros/ })).toHaveAttribute(
+      "href",
+      "/finanzas?tab=savings",
+    );
+  });
+
   it("offers edit and delete for a manual transaction", () => {
     renderRow(expense);
     expect(screen.getByText("Editar")).toBeInTheDocument();

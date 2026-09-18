@@ -36,6 +36,15 @@ SEEDED_CATEGORIES: dict[str, tuple[str, ...]] = {
 
 # The category FR-M4-05 assigns to the expense a contribution generates.
 CONTRIBUTION_CATEGORY = "Aporte al hogar"
+# The category of the income row a savings withdrawal generates.
+SAVINGS_WITHDRAWAL_CATEGORY = "Retiro de ahorro"
+
+# Categories only the API itself writes, on mirrored rows. Picking one by hand
+# would create a look-alike row that is not linked to anything.
+RESERVED_CATEGORIES: frozenset[tuple[str, str]] = frozenset({
+    ("expense", CONTRIBUTION_CATEGORY),
+    ("income", SAVINGS_WITHDRAWAL_CATEGORY),
+})
 
 # FR-M3-03. Debt is the most stigmatized financial fact in a family.
 DEFAULT_VISIBILITY: dict[str, str] = {
@@ -55,12 +64,13 @@ def seed_categories(session: AsyncSession, household: Household) -> None:
                     name=name, is_system=True,
                 )
             )
-    session.add(
-        Category(
-            id=new_id(), household_id=household.id, kind="expense",
-            name=CONTRIBUTION_CATEGORY, is_system=True,
+    for kind, name in sorted(RESERVED_CATEGORIES):
+        session.add(
+            Category(
+                id=new_id(), household_id=household.id, kind=kind,
+                name=name, is_system=True,
+            )
         )
-    )
 
 
 def seed_visibility(session: AsyncSession, member: HouseholdMember) -> None:

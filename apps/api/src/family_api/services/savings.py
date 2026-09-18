@@ -8,6 +8,8 @@ from family_api.db.models.household import HouseholdMember
 from family_api.db.models.savings import SavingsEntry, SavingsGoal
 from family_api.errors import DomainError, NotFoundError
 from family_api.ids import new_id
+from family_api.services.households import SAVINGS_WITHDRAWAL_CATEGORY
+from family_api.services.mirrors import record_mirror
 
 
 class GoalNotReachedError(DomainError):
@@ -136,6 +138,18 @@ async def add_entry(
     )
     session.add(entry)
     await session.flush()
+
+    if kind == "withdrawal":
+        # The money is back in the member's pocket and spendable again, so
+        # the month that receives it counts it as income. No name and no
+        # note: income and savings are separate visibility settings, and
+        # this row must not reveal the goal or what was written about it.
+        await record_mirror(
+            session, household_id=goal.household_id, member_id=goal.member_id,
+            kind="income", category_name=SAVINGS_WITHDRAWAL_CATEGORY,
+            amount_minor=amount_minor, occurred_on=occurred_on,
+            source="savings_withdrawal", source_id=entry.id,
+        )
     return entry
 
 

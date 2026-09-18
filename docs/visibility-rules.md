@@ -194,6 +194,20 @@ stays governed by its owner.**
 A guest sees household expenses, because a guest sees household aggregates
 (§5 of the spec's role table). A guest still sees no per-member module.
 
+### 5.3.1 Mirrored rows that cross modules
+
+Some mirrored rows land in a **different module** from the record they
+mirror. A savings withdrawal lives in `savings` but its mirror is an income
+row, so it resolves against the member's `income` setting. Someone who may see
+your income in detail but not your savings learns that *a withdrawal of this
+amount happened on this date* — which is exactly what the member asked for
+when they asked that withdrawals count as income.
+
+They must learn nothing more. A cross-module mirror therefore carries **no
+name and no note**: only the reserved category ("Retiro de ahorro"), the
+amount and the date. Copying the goal's name or the note written in savings
+into the income row would leak the savings module through the income one.
+
 ### 5.4 Chores (FR-M8-15)
 
 Chores, assignments, completion history and effort balances are visible to the

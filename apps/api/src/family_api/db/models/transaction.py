@@ -21,7 +21,7 @@ transaction_kind = PgEnum(
     "income", "expense", name="transaction_kind", create_type=False
 )
 transaction_source = PgEnum(
-    "manual", "contribution", "household_expense",
+    "manual", "contribution", "household_expense", "savings_withdrawal",
     name="transaction_source", create_type=False,
 )
 transaction_frequency = PgEnum(
