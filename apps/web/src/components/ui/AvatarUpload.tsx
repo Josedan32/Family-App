@@ -11,6 +11,7 @@ import {
 } from "@/lib/avatarImage";
 import { pushToast } from "@/lib/toast";
 
+import { Avatar } from "./Avatar";
 import { Button } from "./Button";
 
 interface Props {
@@ -64,17 +65,7 @@ export function AvatarUpload({ displayName, photoUrl, onUpdated }: Props) {
 
   return (
     <div className="flex items-center gap-3">
-      {photoUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={photoUrl} alt="" className="h-16 w-16 rounded-full object-cover" />
-      ) : (
-        <div
-          aria-hidden="true"
-          className="flex h-16 w-16 items-center justify-center rounded-full bg-surface-sunken text-xl font-semibold text-text-muted"
-        >
-          {displayName.charAt(0).toUpperCase()}
-        </div>
-      )}
+      <Avatar displayName={displayName} photoUrl={photoUrl} size="lg" />
       <div className="flex flex-col gap-1">
         <Button
           type="button"

@@ -26,6 +26,18 @@
   --danger: #B91C1C;
   --warning: #A16207;
   --success: #15803D;
+
+  /* Deterministic per-member avatar background, picked by hashing the
+     member id (see Avatar.tsx) — never role or amount, so it stays stable
+     no matter what the member's finances look like. */
+  --avatar-1-bg: #FDE2E2; --avatar-1-fg: #9F1239;
+  --avatar-2-bg: #FDECD2; --avatar-2-fg: #9A5B13;
+  --avatar-3-bg: #E1F5E1; --avatar-3-fg: #166534;
+  --avatar-4-bg: #DCEEFB; --avatar-4-fg: #1D4ED8;
+  --avatar-5-bg: #E7E2FB; --avatar-5-fg: #5B21B6;
+  --avatar-6-bg: #FBE2F3; --avatar-6-fg: #A21CAF;
+  --avatar-7-bg: #D9F5F0; --avatar-7-fg: #0F766E;
+  --avatar-8-bg: #FBE6D2; --avatar-8-fg: #C2410C;
 }
 
 /*
@@ -59,6 +71,15 @@
     --danger: #F87171;
     --warning: #FBBF24;
     --success: #4ADE80;
+
+    --avatar-1-bg: #4C1D2E; --avatar-1-fg: #FDA4AF;
+    --avatar-2-bg: #4A3110; --avatar-2-fg: #FBBF67;
+    --avatar-3-bg: #14321E; --avatar-3-fg: #86EFAC;
+    --avatar-4-bg: #12283F; --avatar-4-fg: #93C5FD;
+    --avatar-5-bg: #2E1F4D; --avatar-5-fg: #C4B5FD;
+    --avatar-6-bg: #431A38; --avatar-6-fg: #F0ABFC;
+    --avatar-7-bg: #0F2E2A; --avatar-7-fg: #5EEAD4;
+    --avatar-8-bg: #422710; --avatar-8-fg: #FDBA74;
   }
 }
 
@@ -85,6 +106,15 @@
   --danger: #F87171;
   --warning: #FBBF24;
   --success: #4ADE80;
+
+  --avatar-1-bg: #4C1D2E; --avatar-1-fg: #FDA4AF;
+  --avatar-2-bg: #4A3110; --avatar-2-fg: #FBBF67;
+  --avatar-3-bg: #14321E; --avatar-3-fg: #86EFAC;
+  --avatar-4-bg: #12283F; --avatar-4-fg: #93C5FD;
+  --avatar-5-bg: #2E1F4D; --avatar-5-fg: #C4B5FD;
+  --avatar-6-bg: #431A38; --avatar-6-fg: #F0ABFC;
+  --avatar-7-bg: #0F2E2A; --avatar-7-fg: #5EEAD4;
+  --avatar-8-bg: #422710; --avatar-8-fg: #FDBA74;
 }
 
 /* Tailwind v4 reads design tokens from CSS rather than tailwind.config.ts. */
