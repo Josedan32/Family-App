@@ -10,6 +10,7 @@ import { DebtDetail } from "@/components/finance/DebtDetail";
 import { GoalCard, type Goal } from "@/components/finance/GoalCard";
 import { GoalDetail } from "@/components/finance/GoalDetail";
 import { MonthlySummaryCard } from "@/components/finance/MonthlySummaryCard";
+import { DebtsTable, GoalsTable, TransactionsTable } from "@/components/finance/tables";
 import { TransactionRow, type Transaction } from "@/components/finance/TransactionRow";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -27,6 +28,7 @@ import { Sheet } from "@/components/ui/Sheet";
 import { Tabs } from "@/components/ui/Tabs";
 import { clientFetch } from "@/lib/api/client";
 import { pushToast } from "@/lib/toast";
+import { useViewMode } from "@/lib/viewMode";
 
 type TabId = "income" | "expense" | "savings" | "debts";
 
@@ -185,6 +187,7 @@ function FinanzasContent() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [expandedGoalId, setExpandedGoalId] = useState<string | null>(null);
   const [expandedDebtId, setExpandedDebtId] = useState<string | null>(null);
+  const asTable = useViewMode() === "table";
 
   const transactions = useQuery({
     queryKey: ["transactions", tab],
@@ -258,7 +261,9 @@ function FinanzasContent() {
       <div role="tabpanel" className="flex flex-col gap-2.5">
         {(tab === "income" || tab === "expense") && (
           <>
-            {transactions.data?.length ? (
+            {transactions.data?.length && asTable ? (
+              <TransactionsTable kind={tab} transactions={transactions.data} />
+            ) : transactions.data?.length ? (
               <ul className="flex flex-col gap-2.5">
                 {transactions.data.map((transaction) => (
                   <TransactionRow key={transaction.id} transaction={transaction} />
@@ -276,7 +281,9 @@ function FinanzasContent() {
 
         {tab === "savings" && (
           <>
-            {goals.data?.length ? (
+            {goals.data?.length && asTable ? (
+              <GoalsTable goals={goals.data} />
+            ) : goals.data?.length ? (
               <div className="flex flex-col gap-2.5">
                 {goals.data.map((goal) => (
                   <div key={goal.id} className="flex flex-col gap-2">
@@ -305,7 +312,9 @@ function FinanzasContent() {
 
         {tab === "debts" && (
           <>
-            {debts.data?.length ? (
+            {debts.data?.length && asTable ? (
+              <DebtsTable debts={debts.data} />
+            ) : debts.data?.length ? (
               <div className="flex flex-col gap-2.5">
                 {debts.data.map((debt) => (
                   <div key={debt.id} className="flex flex-col gap-2">

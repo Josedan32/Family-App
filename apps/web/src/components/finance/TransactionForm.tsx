@@ -41,7 +41,7 @@ const FREQUENCY_LABEL: Record<Frequency, string> = {
 const PAYMENT_METHODS = ["cash", "nequi", "bancolombia"] as const;
 type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
-const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
+export const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
   cash: "Efectivo",
   nequi: "Nequi",
   bancolombia: "Bancolombia",
