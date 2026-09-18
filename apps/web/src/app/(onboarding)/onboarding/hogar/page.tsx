@@ -1,7 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -20,10 +20,22 @@ const SUBTITLES: Record<Mode, string> = {
 const CODE_LENGTH = 8;
 
 export default function OnboardingPage() {
+  return (
+    <Suspense fallback={null}>
+      <OnboardingForm />
+    </Suspense>
+  );
+}
+
+function OnboardingForm() {
   const router = useRouter();
-  const [mode, setMode] = useState<Mode>("create");
+  const searchParams = useSearchParams();
+  // A shared invite link carries the code so the recipient never types it
+  // by hand (docs/prueba-end-to-end.md §3).
+  const codeFromLink = (searchParams.get("code") ?? "").toUpperCase().slice(0, CODE_LENGTH);
+  const [mode, setMode] = useState<Mode>(codeFromLink ? "join" : "create");
   const [name, setName] = useState("");
-  const [code, setCode] = useState("");
+  const [code, setCode] = useState(codeFromLink);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 

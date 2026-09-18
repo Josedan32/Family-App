@@ -8,8 +8,15 @@ import { Card } from "@/components/ui/Card";
 import { clientFetch } from "@/lib/api/client";
 import { pushToast } from "@/lib/toast";
 
-export function buildShareMessage(code: string): string {
-  return `Únete a mi hogar con este código: ${code}`;
+/** `origin` is the app's own URL (`window.location.origin` at the call
+ * site) so the link always points at wherever this build is actually
+ * hosted, never a hardcoded domain. */
+export function buildInviteLink(origin: string, code: string): string {
+  return `${origin}/onboarding/hogar?code=${encodeURIComponent(code)}`;
+}
+
+export function buildShareMessage(code: string, origin: string): string {
+  return `Únete a mi hogar con este código: ${code}\n${buildInviteLink(origin, code)}`;
 }
 
 interface Invite {
@@ -56,8 +63,8 @@ export async function copyToClipboard(text: string) {
   }
 }
 
-export async function handleShare(code: string) {
-  const message = buildShareMessage(code);
+export async function handleShare(code: string, origin: string) {
+  const message = buildShareMessage(code, origin);
 
   // Try Web Share API first
   if (navigator.share) {
@@ -177,7 +184,7 @@ export function InvitesSection() {
             </div>
             <div className="flex flex-col gap-1.5">
               <Button
-                onClick={() => handleShare((create.data as Invite).code)}
+                onClick={() => handleShare((create.data as Invite).code, window.location.origin)}
                 className="whitespace-nowrap"
               >
                 Compartir

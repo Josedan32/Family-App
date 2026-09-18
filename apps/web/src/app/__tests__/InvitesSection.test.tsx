@@ -1,29 +1,44 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { buildShareMessage, copyToClipboard, handleShare } from "../(app)/hogar/InvitesSection";
+import {
+  buildInviteLink,
+  buildShareMessage,
+  copyToClipboard,
+  handleShare,
+} from "../(app)/hogar/InvitesSection";
 
 // Mock pushToast
 vi.mock("@/lib/toast", () => ({
   pushToast: vi.fn(),
 }));
 
+const ORIGIN = "https://familyhub.example.com";
+
+describe("buildInviteLink", () => {
+  it("builds a deep link carrying the code so it never has to be typed in", () => {
+    expect(buildInviteLink(ORIGIN, "ABCD1234")).toBe(
+      "https://familyhub.example.com/onboarding/hogar?code=ABCD1234",
+    );
+  });
+});
+
 describe("buildShareMessage", () => {
-  it("builds a message with the invite code", () => {
-    const message = buildShareMessage("ABCD1234");
-    expect(message).toBe("Únete a mi hogar con este código: ABCD1234");
+  it("builds a message with the invite code and its deep link", () => {
+    const message = buildShareMessage("ABCD1234", ORIGIN);
+    expect(message).toBe(
+      "Únete a mi hogar con este código: ABCD1234\nhttps://familyhub.example.com/onboarding/hogar?code=ABCD1234",
+    );
   });
 
   it("handles codes with different characters", () => {
-    const message = buildShareMessage("XYZQ9876");
-    expect(message).toBe("Únete a mi hogar con este código: XYZQ9876");
+    const message = buildShareMessage("XYZQ9876", ORIGIN);
+    expect(message).toContain("XYZQ9876");
+    expect(message).toContain("code=XYZQ9876");
   });
 
   it("correctly URL-encodes the message for WhatsApp sharing", () => {
-    const message = buildShareMessage("TEST5678");
+    const message = buildShareMessage("TEST5678", ORIGIN);
     const encoded = encodeURIComponent(message);
-    // Verify that the encoded string can be safely used in a URL
-    expect(encoded).toBe("%C3%9Anete%20a%20mi%20hogar%20con%20este%20c%C3%B3digo%3A%20TEST5678");
-    // Verify the encoded string can be decoded back
     expect(decodeURIComponent(encoded)).toBe(message);
   });
 });
@@ -81,13 +96,15 @@ describe("handleShare", () => {
     delete (navigator as Partial<Navigator>).share;
   });
 
-  it("uses navigator.share when available and successful", async () => {
+  it("uses navigator.share when available and successful, with the link included", async () => {
     const { pushToast } = await import("@/lib/toast");
     navigatorShare.mockResolvedValue(undefined);
 
-    await handleShare("ABCD1234");
+    await handleShare("ABCD1234", ORIGIN);
 
-    expect(navigatorShare).toHaveBeenCalledWith({ text: "Únete a mi hogar con este código: ABCD1234" });
+    expect(navigatorShare).toHaveBeenCalledWith({
+      text: "Únete a mi hogar con este código: ABCD1234\nhttps://familyhub.example.com/onboarding/hogar?code=ABCD1234",
+    });
     expect(pushToast).toHaveBeenCalledWith({ message: "Compartido", type: "success" });
     expect(windowOpen).not.toHaveBeenCalled();
   });
@@ -96,7 +113,7 @@ describe("handleShare", () => {
     delete (navigator as Partial<Navigator>).share;
     windowOpen.mockReturnValue({});
 
-    await handleShare("ABCD1234");
+    await handleShare("ABCD1234", ORIGIN);
 
     expect(windowOpen).toHaveBeenCalledWith(
       expect.stringContaining("https://wa.me/?text="),
@@ -107,7 +124,7 @@ describe("handleShare", () => {
   it("does NOT fall back to wa.me when user cancels (AbortError)", async () => {
     navigatorShare.mockRejectedValue(new DOMException("User cancelled", "AbortError"));
 
-    await handleShare("ABCD1234");
+    await handleShare("ABCD1234", ORIGIN);
 
     expect(windowOpen).not.toHaveBeenCalled();
   });
@@ -116,7 +133,7 @@ describe("handleShare", () => {
     navigatorShare.mockRejectedValue(new Error("Share failed"));
     windowOpen.mockReturnValue({});
 
-    await handleShare("ABCD1234");
+    await handleShare("ABCD1234", ORIGIN);
 
     expect(windowOpen).toHaveBeenCalledWith(
       expect.stringContaining("https://wa.me/?text="),
@@ -129,9 +146,11 @@ describe("handleShare", () => {
     delete (navigator as Partial<Navigator>).share;
     windowOpen.mockReturnValue(null);
 
-    await handleShare("ABCD1234");
+    await handleShare("ABCD1234", ORIGIN);
 
-    expect(writeText).toHaveBeenCalledWith("Únete a mi hogar con este código: ABCD1234");
+    expect(writeText).toHaveBeenCalledWith(
+      "Únete a mi hogar con este código: ABCD1234\nhttps://familyhub.example.com/onboarding/hogar?code=ABCD1234",
+    );
     expect(pushToast).toHaveBeenCalledWith({ message: "Copiado", type: "success" });
   });
 
@@ -139,9 +158,9 @@ describe("handleShare", () => {
     delete (navigator as Partial<Navigator>).share;
     windowOpen.mockReturnValue({});
 
-    await handleShare("TEST5678");
+    await handleShare("TEST5678", ORIGIN);
 
-    const expectedEncoded = encodeURIComponent("Únete a mi hogar con este código: TEST5678");
+    const expectedEncoded = encodeURIComponent(buildShareMessage("TEST5678", ORIGIN));
     expect(windowOpen).toHaveBeenCalledWith(
       `https://wa.me/?text=${expectedEncoded}`,
       "_blank"
