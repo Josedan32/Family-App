@@ -55,6 +55,7 @@ async def _detail(
     return PeriodDetailResponse(
         id=period.id, period_month=period.period_month, status=period.status,
         goal_amount_minor=period.goal_amount_minor, collected_minor=collected,
+        pledged_minor=sum(pledged.values()),
         progress=collected / period.goal_amount_minor if period.goal_amount_minor else 0.0,
         currency=await _currency(session, member.household_id),
         members=[
@@ -62,6 +63,9 @@ async def _detail(
                 member_id=member_id, display_name=name,
                 pledged_minor=pledged.get(member_id, 0),
                 contributed_minor=contributed.get(member_id, 0),
+                missing_minor=max(
+                    pledged.get(member_id, 0) - contributed.get(member_id, 0), 0
+                ),
             )
             for member_id, name in rows
         ],
@@ -92,6 +96,11 @@ async def create_period(
     period = await contribution_service.open_period(
         session, member, body.period_month, body.goal_amount_minor
     )
+    if body.pledges:
+        await contribution_service.set_pledges(
+            session, member, period.id,
+            [(p.member_id, p.expected_amount_minor) for p in body.pledges],
+        )
     await session.commit()
     return PeriodResponse(
         id=period.id, period_month=period.period_month,

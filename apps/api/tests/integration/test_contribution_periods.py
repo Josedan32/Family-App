@@ -278,3 +278,111 @@ async def test_reopening_a_period_fails_while_another_is_open(
 
     assert response.status_code == 409
     assert response.json()["type"] == "period_already_open"
+
+
+async def _daniel_id(client: AsyncClient, admin: dict) -> str:
+    listed = await client.get("/api/v1/households/current", headers=admin)
+    return next(m["id"] for m in listed.json()["members"] if m["display_name"] == "Daniel")
+
+
+@pytest.mark.asyncio
+async def test_a_period_can_be_created_with_what_each_member_owes(
+    client: AsyncClient,
+) -> None:
+    admin, _, papa_id = await _admin_and_papa(client)
+    daniel_id = await _daniel_id(client, admin)
+
+    created = await client.post(
+        "/api/v1/contribution-periods",
+        json={
+            **PERIOD,
+            "pledges": [
+                {"member_id": papa_id, "expected_amount_minor": 1_200_000},
+                {"member_id": daniel_id, "expected_amount_minor": 800_000},
+            ],
+        },
+        headers=admin,
+    )
+    assert created.status_code == 201
+
+    detail = await client.get(
+        f"/api/v1/contribution-periods/{created.json()['id']}", headers=admin
+    )
+    pledged = {m["member_id"]: m["pledged_minor"] for m in detail.json()["members"]}
+    assert pledged == {papa_id: 1_200_000, daniel_id: 800_000}
+
+
+@pytest.mark.asyncio
+async def test_a_pledge_for_someone_outside_the_household_is_rejected(
+    client: AsyncClient,
+) -> None:
+    admin, _, _ = await _admin_and_papa(client)
+    period = await client.post("/api/v1/contribution-periods", json=PERIOD, headers=admin)
+
+    stranger = await client.post(
+        "/api/v1/auth/register",
+        json={"email": "otro@example.com", "password": "correct-horse-battery",
+              "display_name": "Otro"},
+    )
+    stranger_headers = {"Authorization": f"Bearer {stranger.json()['access_token']}"}
+    await client.post("/api/v1/households", json={"name": "Otro hogar"}, headers=stranger_headers)
+    stranger_id = (
+        await client.get("/api/v1/households/current", headers=stranger_headers)
+    ).json()["members"][0]["id"]
+
+    response = await client.put(
+        f"/api/v1/contribution-periods/{period.json()['id']}/pledges",
+        json={"pledges": [{"member_id": stranger_id, "expected_amount_minor": 1_000}]},
+        headers=admin,
+    )
+
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_the_same_member_twice_is_rejected(client: AsyncClient) -> None:
+    admin, _, papa_id = await _admin_and_papa(client)
+    period = await client.post("/api/v1/contribution-periods", json=PERIOD, headers=admin)
+
+    response = await client.put(
+        f"/api/v1/contribution-periods/{period.json()['id']}/pledges",
+        json={"pledges": [
+            {"member_id": papa_id, "expected_amount_minor": 1_000},
+            {"member_id": papa_id, "expected_amount_minor": 2_000},
+        ]},
+        headers=admin,
+    )
+
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_the_period_reports_what_each_member_still_owes_and_the_pledged_total(
+    client: AsyncClient,
+) -> None:
+    """Computed here so the page never does arithmetic on money."""
+    admin, papa, papa_id = await _admin_and_papa(client)
+    daniel_id = await _daniel_id(client, admin)
+    created = await client.post(
+        "/api/v1/contribution-periods",
+        json={
+            **PERIOD,
+            "pledges": [
+                {"member_id": papa_id, "expected_amount_minor": 1_200_000},
+                {"member_id": daniel_id, "expected_amount_minor": 800_000},
+            ],
+        },
+        headers=admin,
+    )
+    period_id = created.json()["id"]
+    await client.post(
+        f"/api/v1/contribution-periods/{period_id}/contributions",
+        json={"amount_minor": 1_500_000, "paid_on": "2026-09-05"},
+        headers=papa,
+    )
+
+    detail = (await client.get(f"/api/v1/contribution-periods/{period_id}", headers=admin)).json()
+
+    missing = {m["member_id"]: m["missing_minor"] for m in detail["members"]}
+    assert missing == {papa_id: 0, daniel_id: 800_000}
+    assert detail["pledged_minor"] == 2_000_000

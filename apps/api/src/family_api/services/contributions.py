@@ -155,6 +155,21 @@ async def set_pledges(
     if period.status == "closed":
         raise PeriodClosedError
 
+    member_ids = {member_id for member_id, _ in pledges}
+    if member_ids:
+        # A foreign member id would be a cross-household reference the FK
+        # alone does not catch: that member exists, just not here.
+        found = set(
+            await session.scalars(
+                select(HouseholdMember.id).where(
+                    HouseholdMember.id.in_(member_ids),
+                    HouseholdMember.household_id == member.household_id,
+                )
+            )
+        )
+        if found != member_ids:
+            raise NotFoundError
+
     await session.execute(
         delete(ContributionPledge).where(ContributionPledge.period_id == period.id)
     )

@@ -4,6 +4,12 @@ import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import {
+  PledgesEditor,
+  pledgesPayload,
+  type PledgeMember,
+  type Pledges,
+} from "@/components/finance/PledgesEditor";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { MoneyInput } from "@/components/ui/MoneyInput";
@@ -18,12 +24,20 @@ function firstOfNextMonth(): string {
   return next.toISOString().slice(0, 10);
 }
 
-export function CreatePeriodButton({ currency }: { currency: string }) {
+export function CreatePeriodButton({
+  currency,
+  members,
+}: {
+  currency: string;
+  /** Who can be given a quota — guests contribute nothing and are left out. */
+  members: PledgeMember[];
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [periodMonth, setPeriodMonth] = useState(firstOfNextMonth());
   const [goalAmount, setGoalAmount] = useState(0);
   const [goalTouched, setGoalTouched] = useState(false);
+  const [pledges, setPledges] = useState<Pledges>({});
   const [error, setError] = useState<string | null>(null);
 
   const goalError = goalTouched && goalAmount <= 0 ? "Ingresa un monto mayor a cero" : undefined;
@@ -33,13 +47,18 @@ export function CreatePeriodButton({ currency }: { currency: string }) {
     mutationFn: () =>
       clientFetch("/contribution-periods", {
         method: "POST",
-        body: JSON.stringify({ period_month: periodMonth, goal_amount_minor: goalAmount }),
+        body: JSON.stringify({
+          period_month: periodMonth,
+          goal_amount_minor: goalAmount,
+          pledges: pledgesPayload(members, pledges),
+        }),
       }),
     onSuccess: () => {
       pushToast({ message: "Periodo creado", type: "success" });
       setOpen(false);
       setGoalAmount(0);
       setGoalTouched(false);
+      setPledges({});
       router.refresh();
     },
     onError: (err: unknown) => {
@@ -80,6 +99,12 @@ export function CreatePeriodButton({ currency }: { currency: string }) {
             currency={currency}
             error={goalError}
             required
+          />
+          <PledgesEditor
+            members={members}
+            value={pledges}
+            onChange={setPledges}
+            currency={currency}
           />
           {error ? (
             <p role="alert" className="text-sm text-danger">
