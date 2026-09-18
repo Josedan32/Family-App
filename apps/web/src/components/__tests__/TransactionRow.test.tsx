@@ -97,6 +97,17 @@ describe("TransactionRow", () => {
     );
   });
 
+  it("sends loan rows, both the loan and its repayments, to Préstamos", () => {
+    for (const source of ["loan", "loan_payment"]) {
+      const { unmount } = renderRow({ ...expense, source });
+      expect(screen.getByRole("link", { name: /Ver préstamos/ })).toHaveAttribute(
+        "href",
+        "/finanzas/prestamos",
+      );
+      unmount();
+    }
+  });
+
   it("offers edit and delete for a manual transaction", () => {
     renderRow(expense);
     expect(screen.getByText("Editar")).toBeInTheDocument();

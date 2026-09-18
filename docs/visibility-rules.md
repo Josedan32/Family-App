@@ -208,6 +208,15 @@ name and no note**: only the reserved category ("Retiro de ahorro"), the
 amount and the date. Copying the goal's name or the note written in savings
 into the income row would leak the savings module through the income one.
 
+Family loans work the same way. The loan itself follows §5.1, but lending
+writes an expense row for the lender and an income row for the borrower, and
+each repayment writes the reverse. Those rows resolve against `expenses` and
+`income`, so they show that *money moved under "Préstamo familiar"* and never
+who the other party was or what the loan's note says. A member whose `debts`
+are private but whose income is visible in detail does reveal that they
+received a family loan — the unavoidable cost of counting it as income, which
+is what was asked for.
+
 ### 5.4 Chores (FR-M8-15)
 
 Chores, assignments, completion history and effort balances are visible to the

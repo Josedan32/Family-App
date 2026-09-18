@@ -38,12 +38,17 @@ SEEDED_CATEGORIES: dict[str, tuple[str, ...]] = {
 CONTRIBUTION_CATEGORY = "Aporte al hogar"
 # The category of the income row a savings withdrawal generates.
 SAVINGS_WITHDRAWAL_CATEGORY = "Retiro de ahorro"
+# The category of both ledger rows a family loan or repayment generates: an
+# expense for whoever hands the money over, income for whoever receives it.
+FAMILY_LOAN_CATEGORY = "Préstamo familiar"
 
 # Categories only the API itself writes, on mirrored rows. Picking one by hand
 # would create a look-alike row that is not linked to anything.
 RESERVED_CATEGORIES: frozenset[tuple[str, str]] = frozenset({
     ("expense", CONTRIBUTION_CATEGORY),
     ("income", SAVINGS_WITHDRAWAL_CATEGORY),
+    ("expense", FAMILY_LOAN_CATEGORY),
+    ("income", FAMILY_LOAN_CATEGORY),
 })
 
 # FR-M3-03. Debt is the most stigmatized financial fact in a family.

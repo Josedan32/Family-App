@@ -25,6 +25,18 @@ const DERIVED: Record<string, DerivedSource> = {
     href: "/finanzas?tab=savings",
     linkLabel: "Ver ahorros ›",
   },
+  loan: {
+    pill: "Préstamo familiar",
+    explanation: "Un préstamo en la familia: gasto para quien presta, ingreso para quien recibe.",
+    href: "/finanzas/prestamos",
+    linkLabel: "Ver préstamos ›",
+  },
+  loan_payment: {
+    pill: "Pago de préstamo",
+    explanation: "Un abono a un préstamo familiar: gasto para quien paga, ingreso para quien cobra.",
+    href: "/finanzas/prestamos",
+    linkLabel: "Ver préstamos ›",
+  },
 };
 
 const UNKNOWN: DerivedSource = {

@@ -57,6 +57,9 @@ function LoanForm({ onDone }: { onDone: () => void }) {
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["loans"] });
+      // Lending and repaying both land in Ingresos/Gastos and the summary.
+      await queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      await queryClient.invalidateQueries({ queryKey: ["monthly-summary"] });
       pushToast({ message: "Préstamo registrado", type: "success" });
       onDone();
     },
@@ -132,6 +135,10 @@ function LoanForm({ onDone }: { onDone: () => void }) {
         value={lentOn}
         onChange={(event) => setLentOn(event.target.value)}
       />
+      <p className="text-xs text-text-muted">
+        Se anota como gasto de quien presta y como ingreso de quien recibe. Cada abono
+        se anota al revés.
+      </p>
       {create.isError ? (
         <p role="alert" className="text-sm text-danger">
           {(create.error as Error).message}
@@ -173,6 +180,9 @@ function LoanDetail({ loan }: { loan: Loan }) {
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["loans"] });
+      // Lending and repaying both land in Ingresos/Gastos and the summary.
+      await queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      await queryClient.invalidateQueries({ queryKey: ["monthly-summary"] });
       await queryClient.invalidateQueries({ queryKey: ["loan-detail", loan.id] });
       setPayAmount(0);
       pushToast({ message: "Pago registrado", type: "success" });
@@ -183,6 +193,9 @@ function LoanDetail({ loan }: { loan: Loan }) {
     mutationFn: () => clientFetch(`/loans/${loan.id}`, { method: "DELETE" }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["loans"] });
+      // Lending and repaying both land in Ingresos/Gastos and the summary.
+      await queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      await queryClient.invalidateQueries({ queryKey: ["monthly-summary"] });
       pushToast({ message: "Préstamo cancelado", type: "success" });
     },
   });
