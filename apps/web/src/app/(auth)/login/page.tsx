@@ -1,14 +1,26 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { pushToast } from "@/lib/toast";
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  // Carries a shared invite's code through login, so she lands back on the
+  // join form with it already filled in instead of typing it again.
+  const code = searchParams.get("code");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +45,7 @@ export default function LoginPage() {
       return;
     }
     pushToast({ message: "Sesión iniciada", type: "success" });
-    router.push("/");
+    router.push(code ? `/onboarding/hogar?code=${encodeURIComponent(code)}` : "/");
     router.refresh();
   }
 
@@ -92,7 +104,10 @@ export default function LoginPage() {
           </Button>
           <div className="flex justify-center gap-1.5 text-sm text-text-muted">
             <span>¿No tienes cuenta?</span>
-            <a href="/registro" className="font-semibold text-brand">
+            <a
+              href={code ? `/registro?code=${encodeURIComponent(code)}` : "/registro"}
+              className="font-semibold text-brand"
+            >
               Crear cuenta
             </a>
           </div>

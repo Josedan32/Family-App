@@ -1,7 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -10,7 +10,19 @@ import { MIN_PASSWORD_LENGTH } from "@/lib/passwordStrength";
 import { pushToast } from "@/lib/toast";
 
 export default function RegistroPage() {
+  return (
+    <Suspense fallback={null}>
+      <RegistroForm />
+    </Suspense>
+  );
+}
+
+function RegistroForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  // Carries a shared invite's code through signup, so she lands back on the
+  // join form with it already filled in instead of typing it again.
+  const code = searchParams.get("code");
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -37,7 +49,7 @@ export default function RegistroPage() {
       return;
     }
     pushToast({ message: "Cuenta creada", type: "success" });
-    router.push("/onboarding/hogar");
+    router.push(code ? `/onboarding/hogar?code=${encodeURIComponent(code)}` : "/onboarding/hogar");
     router.refresh();
   }
 
@@ -89,7 +101,10 @@ export default function RegistroPage() {
             {busy ? "Creando cuenta…" : "Registrarme"}
           </Button>
           <div className="flex justify-center text-sm">
-            <a href="/login" className="font-semibold text-brand">
+            <a
+              href={code ? `/login?code=${encodeURIComponent(code)}` : "/login"}
+              className="font-semibold text-brand"
+            >
               Ya tengo cuenta
             </a>
           </div>

@@ -6,11 +6,30 @@ import { Suspense, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Tabs } from "@/components/ui/Tabs";
-import { clientFetch } from "@/lib/api/client";
-import { ApiError } from "@/lib/api/errors";
+import { ApiError, type Problem } from "@/lib/api/errors";
 import { pushToast } from "@/lib/toast";
 
 type Mode = "create" | "join";
+
+/**
+ * Deliberately bypasses `clientFetch`: this screen needs to recognize a 401
+ * itself (an anonymous invite-link visitor, not an expired session) before
+ * any toast fires, so it can redirect to registro instead of surfacing
+ * "Tu sesión expiró" to someone who never had a session.
+ */
+async function onboardingFetch<T>(path: string, init: RequestInit): Promise<T> {
+  const response = await fetch(`/api/proxy${path}`, {
+    ...init,
+    headers: { "Content-Type": "application/json" },
+  });
+  const body = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new ApiError(
+      (body as Problem) ?? { type: "unknown", title: "Ocurrió un error", status: response.status },
+    );
+  }
+  return body as T;
+}
 
 const SUBTITLES: Record<Mode, string> = {
   create: "Todavía no perteneces a ninguno. Crea uno o únete al de tu familia.",
@@ -45,12 +64,12 @@ function OnboardingForm() {
     setError(null);
     try {
       if (mode === "create") {
-        await clientFetch("/households", {
+        await onboardingFetch("/households", {
           method: "POST",
           body: JSON.stringify({ name }),
         });
       } else {
-        await clientFetch("/households/join", {
+        await onboardingFetch("/households/join", {
           method: "POST",
           body: JSON.stringify({ code }),
         });
@@ -62,7 +81,18 @@ function OnboardingForm() {
       router.push("/");
       router.refresh();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "No pudimos completar la solicitud");
+      // A shared invite link is reachable by someone with no account and no
+      // session. The API can only report that as 401 "Tu sesión expiró",
+      // which is misleading for a visitor who never had a session — send her
+      // to create an account instead, keeping the code for after.
+      if (err instanceof ApiError && err.status === 401) {
+        pushToast({ message: "Primero crea una cuenta para unirte", type: "danger" });
+        router.push(code ? `/registro?code=${encodeURIComponent(code)}` : "/registro");
+        return;
+      }
+      const message = err instanceof ApiError ? err.message : "No pudimos completar la solicitud";
+      pushToast({ message, type: "danger" });
+      setError(message);
     } finally {
       setBusy(false);
     }
