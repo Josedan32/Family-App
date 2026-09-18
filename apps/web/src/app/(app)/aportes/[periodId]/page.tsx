@@ -7,6 +7,7 @@ import { pageFetch } from "@/lib/api/server";
 
 import { ContributeButton } from "../ContributeButton";
 import { ClosePeriodButton } from "./ClosePeriodButton";
+import { ReopenPeriodButton } from "./ReopenPeriodButton";
 
 interface ContributionMember {
   member_id: string;
@@ -127,7 +128,11 @@ export default async function PeriodDetailPage({
         <ContributeButton periodId={period.id} currency={period.currency} />
       ) : null}
 
-      <ClosePeriodButton periodId={period.id} isAdmin={isAdmin} status={period.status} />
+      {period.status === "open" ? (
+        <ClosePeriodButton periodId={period.id} isAdmin={isAdmin} status={period.status} />
+      ) : (
+        <ReopenPeriodButton periodId={period.id} isAdmin={isAdmin} status={period.status} />
+      )}
     </div>
   );
 }

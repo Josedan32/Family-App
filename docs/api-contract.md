@@ -180,6 +180,7 @@ member, resolved against the **borrower's** `debts` setting.
 | `GET` | `/contribution-periods/current` | member | Target, collected, percentage, and per-member contributed vs pledged (FR-M4-04). **Always visible to all members** (FR-M4-07). |
 | `PATCH` | `/contribution-periods/{id}` | admin | `{goal_amount_minor?}`. `409 period_closed`. |
 | `POST` | `/contribution-periods/{id}/close` | admin | |
+| `POST` | `/contribution-periods/{id}/reopen` | admin | No-op if already open. `409 period_already_open` if a different period is currently open — close it first. |
 | `PUT` | `/contribution-periods/{id}/pledges` | admin | `{pledges: [{member_id, expected_amount_minor}]}`. Replaces the set. |
 | `POST` | `/contribution-periods/{id}/contributions` | member | `{amount_minor, paid_on, note?}`. **Creates the mirrored expense atomically** (FR-M4-05). `409 period_closed`. |
 | `DELETE` | `/contributions/{id}` | owner or admin | Deletes contribution and its mirrored expense atomically (FR-M4-06). |

@@ -32,6 +32,12 @@ class PeriodExistsError(DomainError):
     title = "Ya existe un periodo para ese mes"
 
 
+class PeriodAlreadyOpenError(DomainError):
+    type_slug = "period_already_open"
+    status = 409
+    title = "Ya hay un periodo abierto — ciérralo antes de reabrir este"
+
+
 async def open_period(
     session: AsyncSession,
     member: HouseholdMember,
@@ -116,6 +122,23 @@ async def close_period(
     require_admin(member)
     period = await _load_period(session, member, period_id)
     period.status = "closed"
+    await session.flush()
+    return period
+
+
+async def reopen_period(
+    session: AsyncSession, member: HouseholdMember, period_id: UUID
+) -> ContributionPeriod:
+    """Only one period is ever open at once — `get_open_period` assumes it
+    when it picks the latest open period without disambiguation."""
+    require_admin(member)
+    period = await _load_period(session, member, period_id)
+    if period.status == "open":
+        return period
+    currently_open = await get_open_period(session, member.household_id)
+    if currently_open is not None and currently_open.id != period.id:
+        raise PeriodAlreadyOpenError
+    period.status = "open"
     await session.flush()
     return period
 

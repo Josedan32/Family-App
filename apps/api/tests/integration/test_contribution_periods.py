@@ -213,3 +213,68 @@ async def test_a_closed_period_rejects_target_changes(client: AsyncClient) -> No
 
     assert response.status_code == 409
     assert response.json()["type"] == "period_closed"
+
+
+@pytest.mark.asyncio
+async def test_admin_can_reopen_a_closed_period(client: AsyncClient) -> None:
+    admin, _, _ = await _admin_and_papa(client)
+    created = await client.post(
+        "/api/v1/contribution-periods", json=PERIOD, headers=admin
+    )
+    period_id = created.json()["id"]
+    await client.post(
+        f"/api/v1/contribution-periods/{period_id}/close", headers=admin
+    )
+
+    response = await client.post(
+        f"/api/v1/contribution-periods/{period_id}/reopen", headers=admin
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "open"
+
+
+@pytest.mark.asyncio
+async def test_non_admin_cannot_reopen_a_period(client: AsyncClient) -> None:
+    admin, papa, _ = await _admin_and_papa(client)
+    created = await client.post(
+        "/api/v1/contribution-periods", json=PERIOD, headers=admin
+    )
+    period_id = created.json()["id"]
+    await client.post(
+        f"/api/v1/contribution-periods/{period_id}/close", headers=admin
+    )
+
+    response = await client.post(
+        f"/api/v1/contribution-periods/{period_id}/reopen", headers=papa
+    )
+
+    assert response.status_code == 403
+    assert response.json()["type"] == "forbidden_role"
+
+
+@pytest.mark.asyncio
+async def test_reopening_a_period_fails_while_another_is_open(
+    client: AsyncClient,
+) -> None:
+    """Only one period is ever open at a time (`get_open_period` assumes it)."""
+    admin, _, _ = await _admin_and_papa(client)
+    first = await client.post(
+        "/api/v1/contribution-periods", json=PERIOD, headers=admin
+    )
+    first_id = first.json()["id"]
+    await client.post(f"/api/v1/contribution-periods/{first_id}/close", headers=admin)
+
+    second = await client.post(
+        "/api/v1/contribution-periods",
+        json={"period_month": "2026-10-01", "goal_amount_minor": 2_000_000},
+        headers=admin,
+    )
+    assert second.json()["status"] == "open"
+
+    response = await client.post(
+        f"/api/v1/contribution-periods/{first_id}/reopen", headers=admin
+    )
+
+    assert response.status_code == 409
+    assert response.json()["type"] == "period_already_open"

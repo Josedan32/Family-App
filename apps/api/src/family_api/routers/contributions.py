@@ -151,6 +151,19 @@ async def close_period(
     )
 
 
+@router.post("/{period_id}/reopen")
+async def reopen_period(
+    period_id: UUID, member: CurrentMember, session: SessionDep
+) -> PeriodResponse:
+    period = await contribution_service.reopen_period(session, member, period_id)
+    await session.commit()
+    return PeriodResponse(
+        id=period.id, period_month=period.period_month,
+        goal_amount_minor=period.goal_amount_minor, status=period.status,
+        currency=await _currency(session, member.household_id),
+    )
+
+
 @router.put("/{period_id}/pledges")
 async def set_pledges(
     period_id: UUID,

@@ -7,11 +7,18 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { IconHandshake } from "@/components/ui/Icons";
 import { pageFetch } from "@/lib/api/server";
 
+import { CreatePeriodButton } from "./CreatePeriodButton";
+
 interface Period {
   id: string;
   period_month: string;
   goal_amount_minor: number;
   status: string;
+  currency: string;
+}
+
+interface HouseholdDetail {
+  my_role: string;
   currency: string;
 }
 
@@ -22,12 +29,19 @@ function monthLabel(periodMonth: string): string {
 }
 
 export default async function PeriodListPage() {
-  const periods = await pageFetch<Period[]>("/contribution-periods");
+  const [periods, household] = await Promise.all([
+    pageFetch<Period[]>("/contribution-periods"),
+    pageFetch<HouseholdDetail>("/households/current"),
+  ]);
+  const isAdmin = household.my_role === "admin";
 
   return (
     <div className="flex flex-col gap-4">
       <PageHeader />
-      <h1 className="text-[1.75rem] font-bold tracking-tight">Periodos</h1>
+      <div className="flex items-center justify-between gap-4">
+        <h1 className="text-[1.75rem] font-bold tracking-tight">Periodos</h1>
+        {isAdmin ? <CreatePeriodButton currency={household.currency} /> : null}
+      </div>
 
       {periods.length === 0 ? (
         <EmptyState icon={<IconHandshake />} message="Aún no hay periodos de aportes" />
