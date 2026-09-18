@@ -98,12 +98,6 @@ export default async function DashboardPage() {
         </div>
       </Card>
 
-      {/* Spec §8.4: the totals above include every member, private ones
-          included. Saying so here is what makes the derivability acceptable. */}
-      <p className="-mt-2 text-xs text-text-muted">
-        Los totales del hogar incluyen a todos los miembros.
-      </p>
-
       <Card>
         <p className="mb-3.5 text-sm font-medium text-text-muted">
           Gastos del hogar por categoría
@@ -113,13 +107,6 @@ export default async function DashboardPage() {
           currency={data.currency}
         />
       </Card>
-
-      {/* This reflects the household ledger (libro del hogar), a different
-          record than the sum of personal transactions behind "Gastos"
-          above — the two totals are not expected to match. */}
-      <p className="-mt-2 text-xs text-text-muted">
-        Refleja el libro del hogar; puede no coincidir con el total de gastos de arriba.
-      </p>
 
       {data.contribution ? (
         <ContributionProgress
