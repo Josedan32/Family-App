@@ -78,6 +78,16 @@ describe("TransactionRow", () => {
     expect(screen.queryByText("Editar")).not.toBeInTheDocument();
   });
 
+  it("sends a household-expense row back to the household ledger, not to Aportes", () => {
+    renderRow({ ...expense, source: "household_expense" });
+    expect(screen.getByText("Gasto del hogar")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Ver gastos del hogar/ })).toHaveAttribute(
+      "href",
+      "/hogar/gastos",
+    );
+    expect(screen.queryByText("Editar")).not.toBeInTheDocument();
+  });
+
   it("offers edit and delete for a manual transaction", () => {
     renderRow(expense);
     expect(screen.getByText("Editar")).toBeInTheDocument();

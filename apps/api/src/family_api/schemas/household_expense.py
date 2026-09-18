@@ -14,6 +14,9 @@ class CreateHouseholdExpenseRequest(BaseModel):
     funding: Literal["pot", "member"]
     paid_by_member_id: UUID | None = None
     counts_as_contribution: bool = False
+    # How the payer paid. Lands on their personal ledger row; the pot has no
+    # payment method, so a pot-funded expense must not carry one.
+    payment_method: Literal["cash", "nequi", "bancolombia"] | None = None
 
     @model_validator(mode="after")
     def funding_is_consistent(self) -> "CreateHouseholdExpenseRequest":
@@ -22,6 +25,8 @@ class CreateHouseholdExpenseRequest(BaseModel):
                 raise ValueError("A pot-funded expense has no payer")
             if self.counts_as_contribution:
                 raise ValueError("Pot money is already a contribution")
+            if self.payment_method is not None:
+                raise ValueError("A pot-funded expense has no payment method")
         # A member-funded expense with no paid_by_member_id defaults to the
         # caller (the web sheet has no payer picker — see create_expense).
         return self

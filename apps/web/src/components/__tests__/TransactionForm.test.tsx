@@ -35,7 +35,7 @@ describe("TransactionForm", () => {
 
     expect(screen.queryByRole("radiogroup", { name: "Frecuencia" })).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("checkbox"));
+    fireEvent.click(screen.getByRole("checkbox", { name: /recurrente/ }));
 
     expect(screen.getByRole("radiogroup", { name: "Frecuencia" })).toBeInTheDocument();
     expect(screen.getByText("Mensual")).toBeInTheDocument();
@@ -65,7 +65,7 @@ describe("TransactionForm", () => {
 
     fireEvent.change(screen.getByLabelText("Monto"), { target: { value: "15000" } });
     fireEvent.click(screen.getByText("Comida"));
-    fireEvent.click(screen.getByRole("checkbox"));
+    fireEvent.click(screen.getByRole("checkbox", { name: /recurrente/ }));
     fireEvent.click(screen.getByText("Quincenal"));
     fireEvent.click(screen.getByText("Nequi"));
     fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
@@ -136,7 +136,7 @@ describe("TransactionForm", () => {
         "aria-checked",
         "false",
       );
-      expect(screen.getByRole("checkbox")).toBeChecked();
+      expect(screen.getByRole("checkbox", { name: /recurrente/ })).toBeChecked();
       expect(screen.getByRole("radio", { name: "Quincenal" })).toHaveAttribute(
         "aria-checked",
         "true",
@@ -154,7 +154,7 @@ describe("TransactionForm", () => {
       await waitFor(() => expect(screen.getByText("Comida")).toBeInTheDocument());
 
       fireEvent.click(screen.getByRole("radio", { name: "Bancolombia" }));
-      fireEvent.click(screen.getByRole("checkbox"));
+      fireEvent.click(screen.getByRole("checkbox", { name: /recurrente/ }));
       fireEvent.click(screen.getByRole("button", { name: "Guardar cambios" }));
 
       await waitFor(() => expect(sent).not.toBeNull());
@@ -163,6 +163,75 @@ describe("TransactionForm", () => {
         is_recurring: false,
         frequency: null,
       });
+    });
+  });
+
+  describe("as my contribution", () => {
+    function renderCreate(kind: "income" | "expense", fetchMock: ReturnType<typeof vi.fn>) {
+      vi.stubGlobal("fetch", fetchMock);
+      render(
+        <QueryClientProvider client={new QueryClient()}>
+          <TransactionForm kind={kind} currency="COP" onDone={vi.fn()} />
+        </QueryClientProvider>,
+      );
+    }
+
+    it("offers to count a new expense as my contribution", async () => {
+      renderCreate("expense", vi.fn(async () => jsonResponse(categories)));
+      await waitFor(() => expect(screen.getByText("Comida")).toBeInTheDocument());
+
+      expect(
+        screen.getByRole("checkbox", { name: /Este gasto fue mi aporte al hogar/ }),
+      ).toBeInTheDocument();
+    });
+
+    it("does not offer it for income", async () => {
+      renderCreate("income", vi.fn(async () => jsonResponse(categories)));
+      await waitFor(() => expect(screen.getByText("Comida")).toBeInTheDocument());
+
+      expect(screen.queryByRole("checkbox", { name: /mi aporte/ })).not.toBeInTheDocument();
+    });
+
+    it("records it as a member-paid household expense that counts toward the period", async () => {
+      let url = "";
+      let sent: Record<string, unknown> | null = null;
+      const fetchMock = vi.fn(async (target: string, init?: RequestInit) => {
+        if (target.includes("/categories")) return jsonResponse(categories);
+        url = target;
+        sent = JSON.parse(init?.body as string);
+        return jsonResponse({ id: "e1" }, 201);
+      });
+      renderCreate("expense", fetchMock);
+      await waitFor(() => expect(screen.getByText("Comida")).toBeInTheDocument());
+
+      fireEvent.change(screen.getByLabelText("Monto"), { target: { value: "80.000" } });
+      fireEvent.click(screen.getByRole("checkbox", { name: /mi aporte/ }));
+      fireEvent.click(screen.getByText("Comida"));
+      fireEvent.change(screen.getByLabelText("Nombre (opcional)"), {
+        target: { value: "Mercado" },
+      });
+      fireEvent.click(screen.getByRole("radio", { name: "Nequi" }));
+      fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+
+      await waitFor(() => expect(sent).not.toBeNull());
+      expect(url).toContain("/household-expenses");
+      expect(sent).toMatchObject({
+        category_id: "c1",
+        amount_minor: 80_000,
+        name: "Mercado",
+        funding: "member",
+        counts_as_contribution: true,
+        payment_method: "nequi",
+      });
+    });
+
+    it("hides recurrence, which a contribution does not have", async () => {
+      renderCreate("expense", vi.fn(async () => jsonResponse(categories)));
+      await waitFor(() => expect(screen.getByText("Comida")).toBeInTheDocument());
+
+      fireEvent.click(screen.getByRole("checkbox", { name: /mi aporte/ }));
+
+      expect(screen.queryByRole("checkbox", { name: /recurrente/ })).not.toBeInTheDocument();
     });
   });
 });

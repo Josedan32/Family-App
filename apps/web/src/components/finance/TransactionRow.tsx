@@ -11,6 +11,7 @@ import { pushToast } from "@/lib/toast";
 
 import { MoneyDisplay } from "./MoneyDisplay";
 import { TransactionForm } from "./TransactionForm";
+import { derivedSource } from "./transactionSource";
 
 export interface Transaction {
   id: string;
@@ -31,7 +32,8 @@ export function TransactionRow({ transaction }: { transaction: Transaction }) {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const isDerived = transaction.source !== "manual";
+  const derived = derivedSource(transaction.source);
+  const isDerived = derived !== null;
   const categoryNames = transaction.categories.map((c) => c.name).join(" · ");
 
   const remove = useMutation({
@@ -63,9 +65,9 @@ export function TransactionRow({ transaction }: { transaction: Transaction }) {
                   </span>
                 ))
               : null}
-            {isDerived ? (
+            {derived ? (
               <span className="rounded-full border border-brand px-1.5 py-0.5 text-[0.625rem] font-bold uppercase tracking-wide text-brand">
-                Aporte
+                {derived.pill}
               </span>
             ) : null}
           </div>
@@ -84,13 +86,11 @@ export function TransactionRow({ transaction }: { transaction: Transaction }) {
         />
       </div>
 
-      {isDerived ? (
+      {derived ? (
         <div className="flex items-center justify-between gap-3 border-t border-border pt-2.5">
-          <span className="text-xs text-text-muted">
-            Se registra automáticamente desde Aportes.
-          </span>
-          <Link href="/aportes" className="whitespace-nowrap text-sm font-semibold text-brand">
-            Ver aportes ›
+          <span className="text-xs text-text-muted">{derived.explanation}</span>
+          <Link href={derived.href} className="whitespace-nowrap text-sm font-semibold text-brand">
+            {derived.linkLabel}
           </Link>
         </div>
       ) : (
