@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { MemberCard, type DashboardMember } from "../finance/MemberCard";
@@ -53,15 +53,15 @@ describe("MemberCard", () => {
     expect(screen.getByTestId("cell-income")).not.toHaveTextContent("$0");
   });
 
-  it("shows the per-category expense breakdown when visible", () => {
+  it("shows the per-category expense breakdown collapsed, expanding on demand", () => {
     render(<MemberCard member={base} currency="COP" />);
-    expect(screen.getByText("Gastos personales por categoría")).toBeInTheDocument();
-    expect(screen.getByText("Comida")).toBeInTheDocument();
-  });
+    const toggle = screen.getByText("Gastos personales por categoría");
+    expect(toggle).toBeInTheDocument();
+    expect(screen.queryByText("Comida")).toBeNull();
 
-  it("discloses that a multi-category expense can outsum the total", () => {
-    render(<MemberCard member={base} currency="COP" />);
-    expect(screen.getByText(/puede superar el total de Gastos/)).toBeInTheDocument();
+    fireEvent.click(toggle);
+
+    expect(screen.getByText("Comida")).toBeInTheDocument();
   });
 
   it("omits the category breakdown when private", () => {
@@ -71,6 +71,5 @@ describe("MemberCard", () => {
     };
     render(<MemberCard member={hidden} currency="COP" />);
     expect(screen.queryByText("Gastos personales por categoría")).toBeNull();
-    expect(screen.queryByText(/puede superar el total de Gastos/)).toBeNull();
   });
 });

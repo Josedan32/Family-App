@@ -1,4 +1,9 @@
+"use client";
+
+import { useState } from "react";
+
 import { PrivateBlock } from "@/components/privacy/PrivateBlock";
+import { Avatar } from "@/components/ui/Avatar";
 import { Card } from "@/components/ui/Card";
 import {
   IconArrowDown,
@@ -117,16 +122,12 @@ export function MemberCard({
   currency: string;
 }) {
   const allPrivate = MODULES.every((name) => member[name].level === "private");
+  const [showByPerson, setShowByPerson] = useState(false);
 
   return (
     <Card className="flex flex-col gap-3">
       <div className="flex items-center gap-3">
-        <div
-          aria-hidden="true"
-          className="flex h-10 w-10 flex-none items-center justify-center rounded-full border border-border bg-surface-sunken text-sm font-semibold text-text-muted"
-        >
-          {member.display_name.charAt(0)}
-        </div>
+        <Avatar displayName={member.display_name} photoUrl={member.photo_url} seed={member.member_id} />
         <div className="min-w-0">
           <p className="font-semibold">{member.display_name}</p>
           {member.relationship ? (
@@ -156,21 +157,35 @@ export function MemberCard({
             ))}
           </div>
           {member.expenses_by_category.level !== "private" ? (
-            <div className="flex flex-col gap-2 border-t border-border pt-3">
-              <p className="text-xs font-medium text-text-muted">
-                Gastos personales por categoría
-              </p>
-              <CategoryBreakdownList
-                rows={member.expenses_by_category.rows ?? []}
-                currency={currency}
-              />
-              {/* A transaction tagged with more than one category counts
-                  fully in each row here, so the rows can add up to more
-                  than "Gastos" above. */}
-              <p className="text-xs text-text-muted">
-                Un gasto con más de una categoría cuenta completo en cada una, así que la suma
-                puede superar el total de Gastos de arriba.
-              </p>
+            <div className="border-t border-border pt-3">
+              <button
+                type="button"
+                onClick={(event) => {
+                  // MemberCard sits inside a Link to the member's page
+                  // (dashboard) — without this the click bubbles up and
+                  // navigates away instead of toggling the section.
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setShowByPerson((value) => !value);
+                }}
+                aria-expanded={showByPerson}
+                className="flex min-h-9 w-full items-center justify-between gap-2 text-left"
+              >
+                <span className="text-xs font-medium text-text-muted">
+                  Gastos personales por categoría
+                </span>
+                <span aria-hidden="true" className="text-xs text-text-muted">
+                  {showByPerson ? "▾" : "▸"}
+                </span>
+              </button>
+              {showByPerson ? (
+                <div className="mt-2 flex flex-col gap-2">
+                  <CategoryBreakdownList
+                    rows={member.expenses_by_category.rows ?? []}
+                    currency={currency}
+                  />
+                </div>
+              ) : null}
             </div>
           ) : null}
         </>
