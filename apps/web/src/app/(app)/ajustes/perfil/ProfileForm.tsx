@@ -7,8 +7,11 @@ import { useState } from "react";
 import { AvatarUpload } from "@/components/ui/AvatarUpload";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { PasswordStrengthMeter } from "@/components/ui/PasswordStrengthMeter";
 import { clientFetch } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/errors";
+import { logout } from "@/lib/auth";
+import { MIN_PASSWORD_LENGTH, passwordConfirmationError } from "@/lib/passwordStrength";
 import { pushToast } from "@/lib/toast";
 
 interface Profile {
@@ -28,10 +31,10 @@ export function ProfileForm({ initial }: { initial: Profile }) {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordError, setPasswordError] = useState<string | null>(null);
-  const [confirmError, setConfirmError] = useState<string | null>(null);
   const [newPasswordError, setNewPasswordError] = useState<string | null>(null);
 
-  const MIN_NEW_PASSWORD_LENGTH = 12;
+  // Recomputed on every keystroke, not only on submit — see PasswordStrengthMeter.
+  const confirmError = passwordConfirmationError(newPassword, confirmPassword);
 
   const save = useMutation({
     mutationFn: () =>
@@ -72,25 +75,19 @@ export function ProfileForm({ initial }: { initial: Profile }) {
 
   function submitPasswordChange() {
     setPasswordError(null);
-    if (newPassword.length < MIN_NEW_PASSWORD_LENGTH) {
+    if (newPassword.length < MIN_PASSWORD_LENGTH) {
       setNewPasswordError(
-        `La contraseña debe tener al menos ${MIN_NEW_PASSWORD_LENGTH} caracteres`,
+        `La contraseña debe tener al menos ${MIN_PASSWORD_LENGTH} caracteres`,
       );
       return;
     }
     setNewPasswordError(null);
-    if (newPassword !== confirmPassword) {
-      setConfirmError("Las contraseñas no coinciden");
-      return;
-    }
-    setConfirmError(null);
+    if (confirmError) return;
     changePassword.mutate();
   }
 
-  const logout = useMutation({
-    mutationFn: async () => {
-      await fetch("/api/session", { method: "DELETE" });
-    },
+  const logoutMutation = useMutation({
+    mutationFn: logout,
     onSuccess: () => {
       pushToast({ message: "Sesión cerrada", type: "info" });
       router.push("/login");
@@ -146,6 +143,7 @@ export function ProfileForm({ initial }: { initial: Profile }) {
           onChange={(event) => setNewPassword(event.target.value)}
           error={newPasswordError ?? undefined}
         />
+        <PasswordStrengthMeter password={newPassword} />
         <Input
           label="Confirmar contraseña nueva"
           type="password"
@@ -158,15 +156,23 @@ export function ProfileForm({ initial }: { initial: Profile }) {
           variant="secondary"
           onClick={submitPasswordChange}
           disabled={
-            changePassword.isPending || !currentPassword || !newPassword || !confirmPassword
+            changePassword.isPending ||
+            !currentPassword ||
+            !newPassword ||
+            !confirmPassword ||
+            !!confirmError
           }
         >
           {changePassword.isPending ? "Actualizando…" : "Actualizar contraseña"}
         </Button>
       </div>
 
-      <Button variant="secondary" onClick={() => logout.mutate()} disabled={logout.isPending}>
-        {logout.isPending ? "Saliendo…" : "Cerrar sesión"}
+      <Button
+        variant="secondary"
+        onClick={() => logoutMutation.mutate()}
+        disabled={logoutMutation.isPending}
+      >
+        {logoutMutation.isPending ? "Saliendo…" : "Cerrar sesión"}
       </Button>
     </div>
   );
