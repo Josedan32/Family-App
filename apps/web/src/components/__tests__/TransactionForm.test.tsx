@@ -99,4 +99,70 @@ describe("TransactionForm", () => {
       payment_method: "cash",
     });
   });
+
+  describe("editing", () => {
+    const existing = {
+      id: "t1",
+      categories: [{ id: "c1", name: "Comida" }],
+      amount_minor: 15000,
+      occurred_on: "2026-09-02",
+      name: null,
+      note: null,
+      is_recurring: true,
+      frequency: "biweekly",
+      payment_method: "nequi",
+    };
+
+    function renderEdit(fetchMock: ReturnType<typeof vi.fn>) {
+      vi.stubGlobal("fetch", fetchMock);
+      render(
+        <QueryClientProvider client={new QueryClient()}>
+          <TransactionForm
+            kind="expense"
+            currency="COP"
+            transaction={existing}
+            onDone={vi.fn()}
+          />
+        </QueryClientProvider>,
+      );
+    }
+
+    it("opens with the saved payment method and recurrence, not the defaults", async () => {
+      renderEdit(vi.fn(async () => jsonResponse(categories)));
+      await waitFor(() => expect(screen.getByText("Comida")).toBeInTheDocument());
+
+      expect(screen.getByRole("radio", { name: "Nequi" })).toHaveAttribute("aria-checked", "true");
+      expect(screen.getByRole("radio", { name: "Efectivo" })).toHaveAttribute(
+        "aria-checked",
+        "false",
+      );
+      expect(screen.getByRole("checkbox")).toBeChecked();
+      expect(screen.getByRole("radio", { name: "Quincenal" })).toHaveAttribute(
+        "aria-checked",
+        "true",
+      );
+    });
+
+    it("sends payment method and recurrence in the PATCH", async () => {
+      let sent: Record<string, unknown> | null = null;
+      const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+        if (url.includes("/categories")) return jsonResponse(categories);
+        sent = JSON.parse(init?.body as string);
+        return jsonResponse({ id: "t1" });
+      });
+      renderEdit(fetchMock);
+      await waitFor(() => expect(screen.getByText("Comida")).toBeInTheDocument());
+
+      fireEvent.click(screen.getByRole("radio", { name: "Bancolombia" }));
+      fireEvent.click(screen.getByRole("checkbox"));
+      fireEvent.click(screen.getByRole("button", { name: "Guardar cambios" }));
+
+      await waitFor(() => expect(sent).not.toBeNull());
+      expect(sent).toMatchObject({
+        payment_method: "bancolombia",
+        is_recurring: false,
+        frequency: null,
+      });
+    });
+  });
 });

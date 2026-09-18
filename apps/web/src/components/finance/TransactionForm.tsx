@@ -23,6 +23,9 @@ interface EditableTransaction {
   occurred_on: string;
   name: string | null;
   note: string | null;
+  is_recurring: boolean;
+  frequency: string | null;
+  payment_method: string;
 }
 
 const FREQUENCIES = ["monthly", "once", "biweekly"] as const;
@@ -42,6 +45,14 @@ const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
   nequi: "Nequi",
   bancolombia: "Bancolombia",
 };
+
+function isFrequency(value: string | null | undefined): value is Frequency {
+  return FREQUENCIES.includes(value as Frequency);
+}
+
+function isPaymentMethod(value: string | null | undefined): value is PaymentMethod {
+  return PAYMENT_METHODS.includes(value as PaymentMethod);
+}
 
 export function TransactionForm({
   kind,
@@ -67,9 +78,13 @@ export function TransactionForm({
   );
   const [name, setName] = useState(transaction?.name ?? "");
   const [note, setNote] = useState(transaction?.note ?? "");
-  const [isRecurring, setIsRecurring] = useState(false);
-  const [frequency, setFrequency] = useState<Frequency>("monthly");
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
+  const [isRecurring, setIsRecurring] = useState(transaction?.is_recurring ?? false);
+  const [frequency, setFrequency] = useState<Frequency>(
+    isFrequency(transaction?.frequency) ? transaction.frequency : "monthly",
+  );
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(
+    isPaymentMethod(transaction?.payment_method) ? transaction.payment_method : "cash",
+  );
 
   const amountError =
     amountTouched && amount <= 0 ? "Ingresa un monto mayor a cero" : undefined;
@@ -93,6 +108,9 @@ export function TransactionForm({
               occurred_on: occurredOn,
               name: name || null,
               note: note || null,
+              is_recurring: isRecurring,
+              frequency: isRecurring ? frequency : null,
+              payment_method: paymentMethod,
             }),
           })
         : clientFetch("/me/transactions", {

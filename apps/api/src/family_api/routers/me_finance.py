@@ -127,6 +127,7 @@ async def update_transaction(
         transaction = await transaction_service.update_transaction(
             session, member, transaction_id, body.category_ids,
             body.amount_minor, body.occurred_on, body.name, body.note,
+            body.is_recurring, body.frequency, body.payment_method,
         )
     except CategoryKindMismatchError:
         raise HTTPException(status_code=422, detail="Category kind mismatch") from None
