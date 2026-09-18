@@ -80,6 +80,7 @@ class AssignmentResponse(BaseModel):
     chore_expectation: str | None
     member_id: UUID
     member_name: str
+    member_photo_url: str | None
     due_on: date
     status: str
     effort_points: int

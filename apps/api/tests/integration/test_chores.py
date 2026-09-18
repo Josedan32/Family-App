@@ -141,6 +141,27 @@ async def test_any_member_can_read_chores(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
+async def test_assignments_carry_the_member_photo_for_the_avatar(
+    client: AsyncClient,
+) -> None:
+    admin, _ = await _admin_and_adult(client)
+    today = date.today()
+    await client.post(
+        "/api/v1/chore-cycles",
+        json={
+            "starts_on": (today - timedelta(days=3)).isoformat(),
+            "ends_on": (today + timedelta(days=10)).isoformat(),
+        },
+        headers=admin,
+    )
+
+    assignments = await client.get("/api/v1/chore-assignments", headers=admin)
+
+    assert assignments.status_code == 200
+    assert all("member_photo_url" in a for a in assignments.json())
+
+
+@pytest.mark.asyncio
 async def test_assignments_can_be_filtered_to_one_member(client: AsyncClient) -> None:
     admin, papa = await _admin_and_adult(client)
     today = date.today()

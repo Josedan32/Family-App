@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+import { Avatar } from "@/components/ui/Avatar";
+
 export interface Assignment {
   id: string;
   chore_id: string;
@@ -13,6 +15,7 @@ export interface Assignment {
   chore_expectation: string | null;
   member_id: string;
   member_name: string;
+  member_photo_url: string | null;
   due_on: string;
   status: string;
   effort_points: number;
@@ -109,6 +112,12 @@ export function AssignmentRow({
   return (
     <li className="flex flex-col gap-2.5 rounded-2xl border border-border bg-surface p-3.5">
       <div className="flex items-center gap-3">
+        <Avatar
+          displayName={assignment.member_name}
+          photoUrl={assignment.member_photo_url}
+          seed={assignment.member_id}
+          size="sm"
+        />
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className={`font-bold ${done ? "text-text-muted line-through" : ""}`}>
             {assignment.chore_name}

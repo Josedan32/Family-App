@@ -20,6 +20,7 @@ function assignment(over: Partial<Assignment> = {}): Assignment {
     chore_expectation: null,
     member_id: "m2",
     member_name: "Papá",
+    member_photo_url: null,
     due_on: "2026-10-01",
     status: "pending",
     effort_points: 1,

@@ -279,12 +279,15 @@ async def to_assignment_responses(
     }
     EMPTY: tuple[str, list[str], list[str], str | None] = ("", [], [], None)
 
-    member_names_result = await session.execute(
-        select(HouseholdMember.id, User.display_name)
+    member_rows_result = await session.execute(
+        select(HouseholdMember.id, User.display_name, User.photo_url)
         .join(User, User.id == HouseholdMember.user_id)
         .where(HouseholdMember.id.in_(member_ids))
     )
-    member_names: dict[UUID, str] = {row[0]: row[1] for row in member_names_result}
+    member_rows: dict[UUID, tuple[str, str | None]] = {
+        row[0]: (row[1], row[2]) for row in member_rows_result
+    }
+    EMPTY_MEMBER: tuple[str, str | None] = ("", None)
 
     return [
         AssignmentResponse(
@@ -293,7 +296,9 @@ async def to_assignment_responses(
             chore_activities=chores.get(a.chore_id, EMPTY)[1],
             chore_requirements=chores.get(a.chore_id, EMPTY)[2],
             chore_expectation=chores.get(a.chore_id, EMPTY)[3],
-            member_id=a.member_id, member_name=member_names.get(a.member_id, ""),
+            member_id=a.member_id,
+            member_name=member_rows.get(a.member_id, EMPTY_MEMBER)[0],
+            member_photo_url=member_rows.get(a.member_id, EMPTY_MEMBER)[1],
             due_on=a.due_on, status=a.status, effort_points=a.effort_points,
             completed_at=a.completed_at, completed_by_member_id=a.completed_by_member_id,
         )
