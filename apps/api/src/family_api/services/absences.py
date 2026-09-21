@@ -8,19 +8,7 @@ from family_api.db.models.chore import MemberAbsence
 from family_api.db.models.household import HouseholdMember
 from family_api.errors import ForbiddenRoleError, NotFoundError
 from family_api.ids import new_id
-
-
-async def absent_member_ids(
-    session: AsyncSession, household_id: UUID, on: date
-) -> set[UUID]:
-    rows = await session.scalars(
-        select(MemberAbsence.member_id).where(
-            MemberAbsence.household_id == household_id,
-            MemberAbsence.starts_on <= on,
-            MemberAbsence.ends_on >= on,
-        )
-    )
-    return set(rows)
+from family_api.services.assignment import hand_over_absence
 
 
 async def create_absence(
@@ -37,6 +25,7 @@ async def create_absence(
     )
     session.add(absence)
     await session.flush()
+    await hand_over_absence(session, absence)
     return absence
 
 

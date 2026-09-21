@@ -40,6 +40,19 @@ async def eligible_members(
     )
 
 
+async def absent_member_ids(
+    session: AsyncSession, household_id: UUID, on: date
+) -> set[UUID]:
+    rows = await session.scalars(
+        select(MemberAbsence.member_id).where(
+            MemberAbsence.household_id == household_id,
+            MemberAbsence.starts_on <= on,
+            MemberAbsence.ends_on >= on,
+        )
+    )
+    return set(rows)
+
+
 async def effort_balances(
     session: AsyncSession, household: Household, today: date | None = None
 ) -> dict[UUID, int]:
