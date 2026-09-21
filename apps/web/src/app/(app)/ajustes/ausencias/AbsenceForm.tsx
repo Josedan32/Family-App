@@ -34,7 +34,10 @@ export function AbsenceForm({ initial }: { initial: Absence[] }) {
         }),
       }),
     onSuccess: (created) => {
-      pushToast({ message: "Ausencia registrada", type: "success" });
+      pushToast({
+        message: "Ausencia registrada. Tus tareas de esos días pasaron a tu familia.",
+        type: "success",
+      });
       setAbsences((current) => [...current, created]);
       setStartsOn("");
       setEndsOn("");
