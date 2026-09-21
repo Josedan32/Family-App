@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AbsenceForm, type Absence } from "../(app)/ajustes/ausencias/AbsenceForm";
+import { subscribeToast } from "@/lib/toast";
 
 const absences: Absence[] = [
   { id: "a1", member_id: "m1", starts_on: "2026-09-01", ends_on: "2026-09-14", reason: "Viaje" },
@@ -59,6 +60,28 @@ describe("AbsenceForm", () => {
     fireEvent.click(screen.getByRole("button", { name: "Guardar ausencia" }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+  });
+
+  it("tells the member their chores for those days went to the family", async () => {
+    const created = { id: "a2", member_id: "m1", starts_on: "2026-10-01", ends_on: "2026-10-05" };
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ ...created, reason: null })));
+    const listener = vi.fn();
+    const unsubscribe = subscribeToast(listener);
+
+    renderForm([]);
+    fireEvent.change(screen.getByLabelText("Desde"), { target: { value: "2026-10-01" } });
+    fireEvent.change(screen.getByLabelText("Hasta"), { target: { value: "2026-10-05" } });
+    fireEvent.click(screen.getByRole("button", { name: "Guardar ausencia" }));
+
+    await waitFor(() =>
+      expect(listener).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: "Ausencia registrada. Tus tareas de esos días pasaron a tu familia.",
+          type: "success",
+        }),
+      ),
+    );
+    unsubscribe();
   });
 
   it("removes an absence through Quitar", async () => {

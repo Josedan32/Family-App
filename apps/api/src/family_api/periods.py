@@ -22,6 +22,11 @@ def month_bounds(period: str) -> tuple[date, date]:
     return date(year, month, 1), date(year, month, last_day)
 
 
+def today_in(timezone: str) -> date:
+    """The day it is *for this household*, not for the server."""
+    return datetime.now(ZoneInfo(timezone)).date()
+
+
 def current_period(timezone: str) -> str:
     """The month it is *for this household*, not for the server."""
     now = datetime.now(ZoneInfo(timezone))

@@ -10,20 +10,31 @@ import secrets
 from datetime import UTC, date, datetime
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from family_api.db.models.chore import Chore, ChoreAssignment, ChoreCycle, ChoreCycleView
+from family_api.db.models.chore import (
+    Chore,
+    ChoreAssignment,
+    ChoreCycle,
+    ChoreCycleView,
+    MemberAbsence,
+)
 from family_api.db.models.household import Household, HouseholdMember
 from family_api.db.models.user import User
 from family_api.errors import DomainError, ForbiddenRoleError, NotFoundError
 from family_api.ids import new_id
+from family_api.periods import today_in
 from family_api.recurrence import occurrences
 from family_api.schemas.chore import AssignmentResponse
-from family_api.services.absences import absent_member_ids
 from family_api.services.chores import list_chores
-from family_api.services.effort import effort_balances, eligible_members
+from family_api.services.effort import (
+    ELIGIBLE_ROLES,
+    absent_member_ids,
+    effort_balances,
+    eligible_members,
+)
 from family_api.services.members import require_admin
 
 
@@ -143,6 +154,134 @@ async def generate_cycle(
 
     await session.flush()
     return cycle
+
+
+async def _redeal(
+    session: AsyncSession,
+    household: Household,
+    assignments: list[ChoreAssignment],
+    today: date,
+) -> None:
+    """Hand already-drawn chores to whoever the draw would pick now.
+
+    The draw's own rule (FR-M8-06, FR-M8-07): the lowest balance among the
+    members free that day, ties at random. The balance also counts what each
+    member already holds from today on, so the chores being moved spread out
+    instead of piling on whoever happens to be lowest.
+    """
+    if not assignments:
+        return
+    moving = [a.id for a in assignments]
+    members = await eligible_members(session, household.id)
+    balances = await effort_balances(session, household, today)
+    held = await session.execute(
+        select(ChoreAssignment.member_id, func.sum(ChoreAssignment.effort_points))
+        .where(
+            ChoreAssignment.household_id == household.id,
+            ChoreAssignment.status == "pending",
+            ChoreAssignment.due_on >= today,
+            ChoreAssignment.id.not_in(moving),
+        )
+        .group_by(ChoreAssignment.member_id)
+    )
+    for member_id, points in held:
+        balances[member_id] = balances.get(member_id, 0) + int(points)
+
+    rng = random.Random(secrets.randbits(48))
+    for assignment in sorted(assignments, key=lambda a: a.due_on):
+        absent = await absent_member_ids(session, household.id, assignment.due_on)
+        candidates = [m.id for m in members if m.id not in absent]
+        if not candidates:
+            # Everyone is away, as in the draw: recorded, not silently dropped.
+            assignment.status = "skipped"
+            continue
+        chosen = choose_assignee(candidates, balances, rng)
+        assignment.member_id = chosen
+        balances[chosen] = balances.get(chosen, 0) + assignment.effort_points
+
+
+async def hand_over_absence(session: AsyncSession, absence: MemberAbsence) -> None:
+    """FR-M8-12 for a cycle drawn before the absence was declared.
+
+    Chores already done keep their credit. A chore everyone owes on their own
+    is dropped for the absent member: the others already hold their own row.
+    """
+    household = await session.get(Household, absence.household_id)
+    assert household is not None
+    rows = (
+        await session.execute(
+            select(ChoreAssignment, Chore.applies_to_all)
+            .join(Chore, Chore.id == ChoreAssignment.chore_id)
+            .where(
+                ChoreAssignment.member_id == absence.member_id,
+                ChoreAssignment.status == "pending",
+                ChoreAssignment.due_on >= absence.starts_on,
+                ChoreAssignment.due_on <= absence.ends_on,
+            )
+        )
+    ).all()
+    for assignment, for_everyone in rows:
+        if for_everyone:
+            assignment.status = "skipped"
+    await _redeal(
+        session, household,
+        [assignment for assignment, for_everyone in rows if not for_everyone],
+        today_in(household.timezone),
+    )
+    await session.flush()
+
+
+async def deal_in(session: AsyncSession, member: HouseholdMember) -> None:
+    """Deal someone who joins mid-cycle into what is left of it.
+
+    From today on, the chores still pending are dealt again with the newcomer
+    in the pool, exactly as if the cycle had been drawn with them in it. What
+    is past or done stays where it is. They also owe every "everyone" chore
+    from today.
+    """
+    if member.role not in ELIGIBLE_ROLES:
+        return
+    household = await session.get(Household, member.household_id)
+    assert household is not None
+    today = today_in(household.timezone)
+    cycles = list(
+        await session.scalars(
+            select(ChoreCycle).where(
+                ChoreCycle.household_id == household.id, ChoreCycle.ends_on >= today
+            )
+        )
+    )
+    if not cycles:
+        return
+
+    for_everyone = [c for c in await list_chores(session, member) if c.applies_to_all]
+    for cycle in cycles:
+        for chore in for_everyone:
+            for due_on in occurrences(chore.frequency, cycle.starts_on, cycle.ends_on):
+                if due_on >= today:
+                    session.add(
+                        ChoreAssignment(
+                            id=new_id(), household_id=household.id, cycle_id=cycle.id,
+                            chore_id=chore.id, member_id=member.id, due_on=due_on,
+                            status="pending", effort_points=chore.effort_points,
+                        )
+                    )
+    await session.flush()
+
+    remaining = list(
+        await session.scalars(
+            select(ChoreAssignment)
+            .join(Chore, Chore.id == ChoreAssignment.chore_id)
+            .where(
+                ChoreAssignment.cycle_id.in_([c.id for c in cycles]),
+                ChoreAssignment.status == "pending",
+                ChoreAssignment.due_on >= today,
+                Chore.applies_to_all.is_(False),
+            )
+        )
+    )
+    await _redeal(session, household, remaining, today)
+    await session.flush()
 
 
 async def current_cycle(
