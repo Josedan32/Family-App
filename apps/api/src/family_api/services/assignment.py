@@ -30,6 +30,7 @@ from family_api.recurrence import occurrences
 from family_api.schemas.chore import AssignmentResponse
 from family_api.services.chores import list_chores
 from family_api.services.effort import (
+    ELIGIBLE_ROLES,
     absent_member_ids,
     effort_balances,
     eligible_members,
@@ -227,6 +228,59 @@ async def hand_over_absence(session: AsyncSession, absence: MemberAbsence) -> No
         [assignment for assignment, for_everyone in rows if not for_everyone],
         today_in(household.timezone),
     )
+    await session.flush()
+
+
+async def deal_in(session: AsyncSession, member: HouseholdMember) -> None:
+    """Deal someone who joins mid-cycle into what is left of it.
+
+    From today on, the chores still pending are dealt again with the newcomer
+    in the pool, exactly as if the cycle had been drawn with them in it. What
+    is past or done stays where it is. They also owe every "everyone" chore
+    from today.
+    """
+    if member.role not in ELIGIBLE_ROLES:
+        return
+    household = await session.get(Household, member.household_id)
+    assert household is not None
+    today = today_in(household.timezone)
+    cycles = list(
+        await session.scalars(
+            select(ChoreCycle).where(
+                ChoreCycle.household_id == household.id, ChoreCycle.ends_on >= today
+            )
+        )
+    )
+    if not cycles:
+        return
+
+    for_everyone = [c for c in await list_chores(session, member) if c.applies_to_all]
+    for cycle in cycles:
+        for chore in for_everyone:
+            for due_on in occurrences(chore.frequency, cycle.starts_on, cycle.ends_on):
+                if due_on >= today:
+                    session.add(
+                        ChoreAssignment(
+                            id=new_id(), household_id=household.id, cycle_id=cycle.id,
+                            chore_id=chore.id, member_id=member.id, due_on=due_on,
+                            status="pending", effort_points=chore.effort_points,
+                        )
+                    )
+    await session.flush()
+
+    remaining = list(
+        await session.scalars(
+            select(ChoreAssignment)
+            .join(Chore, Chore.id == ChoreAssignment.chore_id)
+            .where(
+                ChoreAssignment.cycle_id.in_([c.id for c in cycles]),
+                ChoreAssignment.status == "pending",
+                ChoreAssignment.due_on >= today,
+                Chore.applies_to_all.is_(False),
+            )
+        )
+    )
+    await _redeal(session, household, remaining, today)
     await session.flush()
 
 

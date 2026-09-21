@@ -15,6 +15,7 @@ from family_api.errors import (
     NotFoundError,
 )
 from family_api.ids import new_id
+from family_api.services.assignment import deal_in
 from family_api.services.households import assert_not_in_household, seed_visibility
 from family_api.services.members import require_admin
 
@@ -107,4 +108,5 @@ async def redeem_invite(session: AsyncSession, user: User, code: str) -> Househo
 
     seed_visibility(session, member)
     await session.flush()
+    await deal_in(session, member)
     return member
