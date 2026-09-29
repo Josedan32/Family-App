@@ -116,6 +116,11 @@ async def _category_id(client: AsyncClient, headers: dict[str, str], kind: str, 
     return str(next(c["id"] for c in listed.json() if c["name"] == name))
 
 
+async def _card_id(client: AsyncClient, headers: dict[str, str]) -> str:
+    created = await client.post("/api/v1/me/credit-cards", json=CARD, headers=headers)
+    return str(created.json()["id"])
+
+
 async def _purchase_with_category(
     client: AsyncClient, headers: dict[str, str], card_id: str, category_id: str
 ) -> int:
@@ -133,7 +138,7 @@ async def _purchase_with_category(
 @pytest.mark.asyncio
 async def test_a_purchase_accepts_an_own_expense_category(client: AsyncClient) -> None:
     headers = await _member(client)
-    card_id = (await client.post("/api/v1/me/credit-cards", json=CARD, headers=headers)).json()["id"]
+    card_id = await _card_id(client, headers)
     comida = await _category_id(client, headers, "expense", "Comida")
 
     assert await _purchase_with_category(client, headers, card_id, comida) == 201
@@ -142,7 +147,7 @@ async def test_a_purchase_accepts_an_own_expense_category(client: AsyncClient) -
 @pytest.mark.asyncio
 async def test_a_purchase_rejects_a_nonexistent_category(client: AsyncClient) -> None:
     headers = await _member(client)
-    card_id = (await client.post("/api/v1/me/credit-cards", json=CARD, headers=headers)).json()["id"]
+    card_id = await _card_id(client, headers)
 
     status = await _purchase_with_category(
         client, headers, card_id, "00000000-0000-0000-0000-000000000000"
@@ -153,7 +158,7 @@ async def test_a_purchase_rejects_a_nonexistent_category(client: AsyncClient) ->
 @pytest.mark.asyncio
 async def test_a_purchase_rejects_another_households_category(client: AsyncClient) -> None:
     daniel = await _member(client, "daniel@example.com")
-    card_id = (await client.post("/api/v1/me/credit-cards", json=CARD, headers=daniel)).json()["id"]
+    card_id = await _card_id(client, daniel)
     other = await _member(client, "vecino@example.com")
     foreign = await _category_id(client, other, "expense", "Comida")
 
@@ -163,7 +168,7 @@ async def test_a_purchase_rejects_another_households_category(client: AsyncClien
 @pytest.mark.asyncio
 async def test_a_purchase_rejects_an_income_category(client: AsyncClient) -> None:
     headers = await _member(client)
-    card_id = (await client.post("/api/v1/me/credit-cards", json=CARD, headers=headers)).json()["id"]
+    card_id = await _card_id(client, headers)
     salario = await _category_id(client, headers, "income", "Salario")
 
     assert await _purchase_with_category(client, headers, card_id, salario) == 422
