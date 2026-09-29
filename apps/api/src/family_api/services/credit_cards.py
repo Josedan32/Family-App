@@ -119,6 +119,26 @@ async def _all_installment_purchases(
     )
 
 
+def _installments_due(
+    installment_purchases: list[CreditCardPurchase], starts_on: date, ends_on: date
+) -> int:
+    total = 0
+    for p in installment_purchases:
+        # Fetched with installments_total IS NOT NULL, and the all-or-nothing
+        # CHECK guarantees the other two fields follow (INV-D-13).
+        assert p.installments_total is not None
+        assert p.installment_amount_minor is not None
+        assert p.first_installment_on is not None
+        total += installment_due_in_cycle(
+            installments_total=p.installments_total,
+            installment_amount_minor=p.installment_amount_minor,
+            first_installment_on=p.first_installment_on,
+            cycle_starts_on=starts_on,
+            cycle_ends_on=ends_on,
+        )
+    return total
+
+
 async def ensure_statements_current(
     session: AsyncSession, card: CreditCard, today: date
 ) -> list[CreditCardStatement]:
@@ -159,20 +179,7 @@ async def ensure_statements_current(
                 CreditCardPayment.paid_on <= cycle_end,
             )
         )
-        installments_due = 0
-        for p in installment_purchases:
-            # The query above filters on installments_total IS NOT NULL, and the
-            # all-or-nothing CHECK guarantees the other two fields follow (INV-D-13).
-            assert p.installments_total is not None
-            assert p.installment_amount_minor is not None
-            assert p.first_installment_on is not None
-            installments_due += installment_due_in_cycle(
-                installments_total=p.installments_total,
-                installment_amount_minor=p.installment_amount_minor,
-                first_installment_on=p.first_installment_on,
-                cycle_starts_on=cycle_start,
-                cycle_ends_on=cycle_end,
-            )
+        installments_due = _installments_due(installment_purchases, cycle_start, cycle_end)
 
         figures = compute_statement(
             opening_balance_minor=opening_balance,
@@ -214,13 +221,17 @@ async def outstanding_minor(session: AsyncSession, card_id: UUID) -> int:
 
 async def current_cycle_balance(session: AsyncSession, card: CreditCard, today: date) -> int:
     """Provisional running total for the not-yet-closed cycle. Never used in
-    any visibility summary or debt total (FR-M2-30) — display only."""
+    any visibility summary or debt total (FR-M2-30) — display only.
+
+    Counts the open cycle exactly as `ensure_statements_current` will close
+    it: cash purchases in full, installment plans only for what is due."""
     last = await latest_statement(session, card.id)
     cycle_start = (last.cycle_ends_on + timedelta(days=1)) if last else card.created_at.date()
     opening = last.closing_balance_minor if last else 0
     purchases = await session.scalar(
         select(func.coalesce(func.sum(CreditCardPurchase.amount_minor), 0)).where(
             CreditCardPurchase.card_id == card.id,
+            CreditCardPurchase.installments_total.is_(None),
             CreditCardPurchase.purchased_on >= cycle_start,
             CreditCardPurchase.purchased_on <= today,
         )
@@ -232,7 +243,10 @@ async def current_cycle_balance(session: AsyncSession, card: CreditCard, today: 
             CreditCardPayment.paid_on <= today,
         )
     )
-    return max(opening + int(purchases or 0) - int(payments or 0), 0)
+    installments_due = _installments_due(
+        await _all_installment_purchases(session, card.id), cycle_start, today
+    )
+    return max(opening + int(purchases or 0) + installments_due - int(payments or 0), 0)
 
 
 async def total_outstanding(session: AsyncSession, member_id: UUID) -> int:
