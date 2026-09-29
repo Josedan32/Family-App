@@ -242,3 +242,134 @@ async def payments_in_period(
         )
     )
     return int(total or 0)
+
+
+async def add_purchase(
+    session: AsyncSession,
+    member: HouseholdMember,
+    card_id: UUID,
+    description: str,
+    category_id: UUID | None,
+    amount_minor: int,
+    purchased_on: date,
+    installments_total: int | None,
+    installment_amount_minor: int | None,
+    first_installment_on: date | None,
+) -> CreditCardPurchase:
+    card = await _get_owned_card(session, member, card_id)
+    purchase = CreditCardPurchase(
+        id=new_id(), household_id=card.household_id, card_id=card.id,
+        description=description, category_id=category_id, amount_minor=amount_minor,
+        purchased_on=purchased_on, installments_total=installments_total,
+        installment_amount_minor=installment_amount_minor,
+        first_installment_on=first_installment_on,
+    )
+    session.add(purchase)
+    await session.flush()
+    return purchase
+
+
+async def _billed_cutoff(session: AsyncSession, card_id: UUID) -> date | None:
+    last = await latest_statement(session, card_id)
+    return last.cycle_ends_on if last else None
+
+
+async def delete_purchase(
+    session: AsyncSession, member: HouseholdMember, card_id: UUID, purchase_id: UUID
+) -> None:
+    card = await _get_owned_card(session, member, card_id)
+    purchase = await session.scalar(
+        select(CreditCardPurchase).where(
+            CreditCardPurchase.id == purchase_id, CreditCardPurchase.card_id == card.id
+        )
+    )
+    if purchase is None:
+        raise NotFoundError
+    cutoff = await _billed_cutoff(session, card.id)
+    if cutoff is not None and purchase.purchased_on <= cutoff:
+        raise PurchaseAlreadyBilledError
+    await session.delete(purchase)
+    await session.flush()
+
+
+async def add_payment(
+    session: AsyncSession,
+    member: HouseholdMember,
+    card_id: UUID,
+    amount_minor: int,
+    paid_on: date,
+    note: str | None,
+) -> CreditCardPayment:
+    card = await _get_owned_card(session, member, card_id)
+    payment = CreditCardPayment(
+        id=new_id(), household_id=card.household_id, card_id=card.id,
+        amount_minor=amount_minor, paid_on=paid_on, note=note,
+    )
+    session.add(payment)
+    await session.flush()
+    return payment
+
+
+async def delete_payment(
+    session: AsyncSession, member: HouseholdMember, card_id: UUID, payment_id: UUID
+) -> None:
+    card = await _get_owned_card(session, member, card_id)
+    payment = await session.scalar(
+        select(CreditCardPayment).where(
+            CreditCardPayment.id == payment_id, CreditCardPayment.card_id == card.id
+        )
+    )
+    if payment is None:
+        raise NotFoundError
+    cutoff = await _billed_cutoff(session, card.id)
+    if cutoff is not None and payment.paid_on <= cutoff:
+        raise PaymentAlreadyBilledError
+    await session.delete(payment)
+    await session.flush()
+
+
+async def delete_card(session: AsyncSession, member: HouseholdMember, card_id: UUID) -> None:
+    card = await _get_owned_card(session, member, card_id)
+    has_purchases = await session.scalar(
+        select(func.count()).select_from(CreditCardPurchase).where(
+            CreditCardPurchase.card_id == card.id
+        )
+    )
+    has_payments = await session.scalar(
+        select(func.count()).select_from(CreditCardPayment).where(
+            CreditCardPayment.card_id == card.id
+        )
+    )
+    if has_purchases or has_payments:
+        raise CreditCardHasActivityError
+    await session.delete(card)
+    await session.flush()
+
+
+async def get_card_detail(
+    session: AsyncSession, member: HouseholdMember, card_id: UUID
+) -> tuple[CreditCard, list[CreditCardPurchase], list[CreditCardPayment], list[CreditCardStatement]]:
+    card = await _get_owned_card(session, member, card_id)
+    await ensure_statements_current(session, card, date.today())
+    purchases = list(
+        await session.scalars(
+            select(CreditCardPurchase)
+            .where(CreditCardPurchase.card_id == card.id)
+            .order_by(CreditCardPurchase.purchased_on.desc())
+        )
+    )
+    payments = list(
+        await session.scalars(
+            select(CreditCardPayment)
+            .where(CreditCardPayment.card_id == card.id)
+            .order_by(CreditCardPayment.paid_on.desc())
+        )
+    )
+    statements = list(
+        await session.scalars(
+            select(CreditCardStatement)
+            .where(CreditCardStatement.card_id == card.id)
+            .order_by(CreditCardStatement.cycle_starts_on.desc())
+        )
+    )
+    return card, purchases, payments, statements
