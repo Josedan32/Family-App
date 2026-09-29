@@ -2,11 +2,16 @@ from datetime import date
 from decimal import Decimal
 
 import pytest
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from family_api.db.models.credit_card import CreditCard, CreditCardPurchase
-from family_api.db.models.household import HouseholdMember
+from family_api.config import get_settings
+from family_api.db.models.credit_card import CreditCard, CreditCardPurchase, CreditCardStatement
+from family_api.db.models.household import Household, HouseholdMember
+from family_api.db.models.user import User
+from family_api.db.session import engine_for, session_factory_for
 from family_api.ids import new_id
+from family_api.security.passwords import hash_password
 from family_api.services import credit_cards as credit_card_service
 from family_api.services.households import create_household
 
@@ -140,6 +145,54 @@ async def test_editing_the_rate_after_a_statement_exists_does_not_change_it(
     unchanged = (await db_session.get(type(first_pass[0]), first_pass[0].id))
     assert unchanged.interest_charged_minor == 0
     assert unchanged.closing_balance_minor == 100_000
+
+
+@pytest.mark.asyncio
+async def test_generated_statements_survive_the_session_that_created_them() -> None:
+    """Every other test here shares one rolled-back transaction, which hid
+    that generation used to flush without ever committing. A second,
+    independent session must see the statement."""
+    engine = engine_for(get_settings().test_database_url)
+    factory = session_factory_for(engine)
+
+    async with factory() as session:
+        user = User(
+            id=new_id(), email=f"statement-commit-{new_id()}@example.com",
+            password_hash=hash_password("correct-horse-battery"), display_name="Commit",
+        )
+        session.add(user)
+        await session.flush()
+        household, member = await create_household(session, user, "Commit")
+        card = await _card(session, member, date(2026, 1, 1))
+        session.add(CreditCardPurchase(
+            id=new_id(), household_id=member.household_id, card_id=card.id,
+            description="Mercado", amount_minor=100_000, purchased_on=date(2026, 1, 10),
+        ))
+        await session.commit()
+        user_id, household_id, card_id = user.id, household.id, card.id
+
+    try:
+        async with factory() as session:
+            loaded = await session.get(CreditCard, card_id)
+            assert loaded is not None
+            await credit_card_service.ensure_statements_current(
+                session, loaded, today=date(2026, 1, 20)
+            )
+            # No explicit commit: closing the session is what a request does.
+
+        async with factory() as other:
+            persisted = list(await other.scalars(
+                select(CreditCardStatement).where(CreditCardStatement.card_id == card_id)
+            ))
+            assert [s.cycle_ends_on for s in persisted] == [date(2026, 1, 15)]
+            assert persisted[0].closing_balance_minor == 100_000
+    finally:
+        async with factory() as session:
+            await session.execute(delete(CreditCard).where(CreditCard.id == card_id))
+            await session.execute(delete(Household).where(Household.id == household_id))
+            await session.execute(delete(User).where(User.id == user_id))
+            await session.commit()
+        await engine.dispose()
 
 
 @pytest.mark.asyncio

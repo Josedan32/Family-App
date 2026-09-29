@@ -122,8 +122,16 @@ async def ensure_statements_current(
 ) -> list[CreditCardStatement]:
     """Generates every statement whose cut-off has already passed and that
     does not exist yet, oldest first, each depending on the previous one's
-    closing balance (FR-M2-26, FR-M2-27, FR-M2-28)."""
+    closing balance (FR-M2-26, FR-M2-27, FR-M2-28).
+
+    Owns its transaction boundary: read routes never commit, and a statement
+    that is only flushed is rebuilt from scratch on every request. The row
+    lock on the card serializes concurrent readers, so the second one sees
+    what the first committed instead of colliding on uq_ccs_card_cycle."""
     generated: list[CreditCardStatement] = []
+    await session.execute(
+        select(CreditCard.id).where(CreditCard.id == card.id).with_for_update()
+    )
     last = await latest_statement(session, card.id)
     cycle_start = (last.cycle_ends_on + timedelta(days=1)) if last else card.created_at.date()
     opening_balance = last.closing_balance_minor if last else 0
@@ -192,6 +200,8 @@ async def ensure_statements_current(
         opening_balance = figures.closing_balance_minor
         cycle_start = cycle_end + timedelta(days=1)
 
+    if generated:
+        await session.commit()
     return generated
 
 
