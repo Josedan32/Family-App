@@ -1,5 +1,12 @@
+from datetime import date
+from uuid import UUID
+
 import pytest
 from httpx import AsyncClient
+from sqlalchemy import update
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from family_api.db.models.credit_card import CreditCard
 
 
 async def _household(client: AsyncClient) -> tuple[dict, dict, str]:
@@ -306,3 +313,56 @@ async def test_the_dashboard_reports_the_pot(client: AsyncClient) -> None:
     assert response.status_code == 200
     assert "pot" in response.json()
     assert response.json()["pot"]["balance_minor"] == 0
+
+
+@pytest.mark.asyncio
+async def test_a_members_debts_cell_includes_credit_card_balances(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """The dashboard debts cell sums debts and cards, like the members debts summary."""
+    admin, papa, papa_id = await _household(client)
+    await client.put(
+        "/api/v1/me/visibility",
+        json={"income": "summary", "expenses": "summary", "savings": "summary", "debts": "summary"},
+        headers=papa,
+    )
+    await client.post(
+        "/api/v1/me/debts",
+        json={
+            "name": "Celular", "creditor_type": "addi", "creditor_label": "Addi",
+            "principal_minor": 200_000,
+        },
+        headers=papa,
+    )
+    created = await client.post(
+        "/api/v1/me/credit-cards",
+        json={
+            "nickname": "Visa", "bank_label": "Bancolombia", "credit_limit_minor": 5_000_000,
+            "interest_rate_monthly_pct": 0, "minimum_payment_pct": 5,
+            "statement_cutoff_day": 15, "payment_due_days": 15,
+        },
+        headers=papa,
+    )
+    card_id = created.json()["id"]
+    await db_session.execute(
+        update(CreditCard)
+        .where(CreditCard.id == UUID(card_id))
+        .values(created_at=date(2026, 1, 1))
+    )
+    await db_session.flush()
+    await client.post(
+        f"/api/v1/me/credit-cards/{card_id}/purchases",
+        json={"description": "Mercado", "amount_minor": 100_000, "purchased_on": "2026-01-10"},
+        headers=papa,
+    )
+    await client.post(
+        f"/api/v1/me/credit-cards/{card_id}/payments",
+        json={"amount_minor": 40_000, "paid_on": "2026-01-12"},
+        headers=papa,
+    )
+
+    response = await client.get("/api/v1/dashboard?period=2026-09", headers=admin)
+    card = next(m for m in response.json()["members"] if m["member_id"] == papa_id)
+
+    # Zero interest: the January statement closes at 60_000 and carries unchanged.
+    assert card["debts"] == {"level": "summary", "total_minor": 200_000 + 60_000}
