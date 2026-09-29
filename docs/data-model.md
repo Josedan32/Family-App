@@ -31,8 +31,9 @@ CREATE TYPE category_kind       AS ENUM ('income','expense');
 CREATE TYPE transaction_kind    AS ENUM ('income','expense');
 CREATE TYPE transaction_source  AS ENUM ('manual','contribution','household_expense');
 CREATE TYPE savings_entry_kind  AS ENUM ('deposit','withdrawal');
-CREATE TYPE debt_creditor_type  AS ENUM ('bank','family','credit_card','addi','other');
+CREATE TYPE debt_creditor_type  AS ENUM ('bank','family','addi','other');
 CREATE TYPE debt_status         AS ENUM ('active','paid','cancelled');
+CREATE TYPE credit_card_status  AS ENUM ('active','cancelled');
 CREATE TYPE loan_status         AS ENUM ('pending','partially_paid','paid','cancelled');
 CREATE TYPE visibility_module   AS ENUM ('income','expenses','savings','debts');
 CREATE TYPE visibility_level    AS ENUM ('private','summary','public');
@@ -472,6 +473,97 @@ WHERE a.completed_by_member_id = :m
 
 ---
 
+## 8D. Credit cards (Phase 1)
+
+A revolving debt with a statement cycle. Deliberately **not** a row in `debts`
+— see `docs/glossary.md` §2. Legacy `debt` rows with `creditor_type =
+'credit_card'` are backfilled into this module and the value is dropped from
+`debt_creditor_type` (migration order §9, entries 17–18).
+
+### `credit_cards`
+
+| Column | Type | Notes |
+| ------ | ---- | ----- |
+| `id` | `UUID PK` | |
+| `household_id` | `UUID NOT NULL REFERENCES households ON DELETE CASCADE` | |
+| `member_id` | `UUID NOT NULL REFERENCES household_members ON DELETE RESTRICT` | |
+| `nickname` | `TEXT NOT NULL` | "Visa Bancolombia". |
+| `bank_label` | `TEXT NOT NULL` | |
+| `credit_limit_minor` | `BIGINT NOT NULL CHECK (> 0)` | |
+| `interest_rate_monthly_pct` | `NUMERIC(5,2) NOT NULL CHECK (>= 0)` | |
+| `minimum_payment_pct` | `NUMERIC(5,2) NOT NULL CHECK (>= 0)` | |
+| `minimum_payment_floor_minor` | `BIGINT NULL CHECK (IS NULL OR > 0)` | |
+| `statement_cutoff_day` | `SMALLINT NOT NULL CHECK (BETWEEN 1 AND 28)` | |
+| `payment_due_days` | `SMALLINT NOT NULL DEFAULT 15 CHECK (> 0)` | Days from cutoff to due date. |
+| `status` | `credit_card_status NOT NULL DEFAULT 'active'` | |
+| `created_at`, `updated_at` | `TIMESTAMPTZ` | |
+
+### `credit_card_purchases`
+
+| Column | Type | Notes |
+| ------ | ---- | ----- |
+| `id` | `UUID PK` | |
+| `household_id` | `UUID NOT NULL` | |
+| `card_id` | `UUID NOT NULL REFERENCES credit_cards ON DELETE CASCADE` | |
+| `description` | `TEXT NOT NULL` | |
+| `category_id` | `UUID NULL REFERENCES categories ON DELETE RESTRICT` | |
+| `amount_minor` | `BIGINT NOT NULL CHECK (> 0)` | |
+| `purchased_on` | `DATE NOT NULL` | |
+| `installments_total` | `SMALLINT NULL CHECK (IS NULL OR > 0)` | |
+| `installment_amount_minor` | `BIGINT NULL CHECK (IS NULL OR > 0)` | |
+| `first_installment_on` | `DATE NULL` | |
+| `created_at`, `updated_at` | `TIMESTAMPTZ` | |
+
+- `CHECK ((installments_total IS NULL AND installment_amount_minor IS NULL AND first_installment_on IS NULL) OR (installments_total IS NOT NULL AND installment_amount_minor IS NOT NULL AND first_installment_on IS NOT NULL))`
+  — same all-or-nothing shape as the `debts` installment `CHECK` (INV-D-13).
+- Index: `(card_id, purchased_on)`
+- Increases the card's balance only. Never an expense until paid — see the
+  `debt` vs `member_loan` note in `docs/glossary.md` §2, same principle.
+
+### `credit_card_payments`
+
+| Column | Type | Notes |
+| ------ | ---- | ----- |
+| `id` | `UUID PK` | |
+| `household_id` | `UUID NOT NULL` | |
+| `card_id` | `UUID NOT NULL REFERENCES credit_cards ON DELETE CASCADE` | |
+| `amount_minor` | `BIGINT NOT NULL CHECK (> 0)` | |
+| `paid_on` | `DATE NOT NULL` | |
+| `note` | `TEXT NULL` | |
+| `created_at`, `updated_at` | `TIMESTAMPTZ` | |
+
+- Index: `(card_id, paid_on)`
+- Never writes a row to `transactions` and never affects `expenses_minor` in
+  any summary (INV-D-16) — it reduces the card's outstanding balance, the same
+  way a `debt_payment` does.
+
+### `credit_card_statements`
+
+| Column | Type | Notes |
+| ------ | ---- | ----- |
+| `id` | `UUID PK` | |
+| `household_id` | `UUID NOT NULL` | |
+| `card_id` | `UUID NOT NULL REFERENCES credit_cards ON DELETE CASCADE` | |
+| `cycle_starts_on` | `DATE NOT NULL` | |
+| `cycle_ends_on` | `DATE NOT NULL` | |
+| `generated_at` | `TIMESTAMPTZ NOT NULL DEFAULT now()` | |
+| `opening_balance_minor` | `BIGINT NOT NULL CHECK (>= 0)` | |
+| `purchases_total_minor` | `BIGINT NOT NULL CHECK (>= 0)` | |
+| `installments_due_minor` | `BIGINT NOT NULL CHECK (>= 0)` | |
+| `interest_charged_minor` | `BIGINT NOT NULL CHECK (>= 0)` | |
+| `payments_total_minor` | `BIGINT NOT NULL CHECK (>= 0)` | |
+| `closing_balance_minor` | `BIGINT NOT NULL CHECK (>= 0)` | |
+| `minimum_payment_minor` | `BIGINT NOT NULL CHECK (>= 0)` | |
+| `payment_due_on` | `DATE NOT NULL` | |
+
+- `UNIQUE (card_id, cycle_starts_on)` — a statement is generated once per cycle.
+- Index: `(card_id, cycle_starts_on)`
+- **Frozen at generation, never updated or regenerated** (INV-D-14). A
+  purchase or payment already folded into a generated statement cannot be
+  deleted (INV-D-15).
+
+---
+
 ## 9. Migration order
 
 Alembic revisions, in dependency order. One concern per revision.
@@ -492,6 +584,8 @@ Alembic revisions, in dependency order. One concern per revision.
 14. `chores`, `chore_cycles`, `chore_assignments` — Phase 3
 15. `member_absences`, `effort_adjustments`, `households.effort_window_days` — Phase 3
 16. `chores.{activities,requirements,expectation}` + `chore_cycles.seed` — Phase 3
+17. `credit_card_status`, `credit_cards`, `credit_card_purchases`, `credit_card_payments`, `credit_card_statements` — Phase 1
+18. Backfill legacy `credit_card` debts into `credit_cards`, then drop `credit_card` from `debt_creditor_type` — Phase 1
 
 Every revision must have a working `downgrade()`. Every revision is applied and
 rolled back once in CI against an empty database before it is considered done.
@@ -518,3 +612,7 @@ it, each with a named test.
 | INV-D-10 | A chore assignment's `effort_points` equals the chore's weight **at assignment time**, not its current weight. |
 | INV-D-11 | No member is assigned a chore whose `due_on` falls inside one of their absences. |
 | INV-D-12 | A guest is never assigned a chore. |
+| INV-D-13 | A credit card purchase's installment plan is all-or-nothing, identical in shape to the debts installment CHECK. |
+| INV-D-14 | A `credit_card_statement` is never regenerated or edited once created. |
+| INV-D-15 | A purchase or payment already folded into a generated statement cannot be deleted. |
+| INV-D-16 | `credit_card_payments` never write a row to `transactions` and never affect `expenses_minor` in any summary. |

@@ -131,6 +131,13 @@ a member always sees their own data in full.
 | `PATCH` / `DELETE` | `/me/debts/{id}` | |
 | `POST` | `/me/debts/{id}/payments` | `{amount_minor, paid_on, note?}`. Flips status to `paid` at zero. |
 | `DELETE` | `/me/debts/{id}/payments/{payment_id}` | Reopens the debt if it was `paid`. |
+| `GET` / `POST` | `/me/credit-cards` | Each with derived `outstanding_minor`, `current_cycle_balance_minor`, `latest_statement`. |
+| `GET` | `/me/credit-cards/{id}` | Adds `purchases`, `payments`, `statements`. |
+| `DELETE` | `/me/credit-cards/{id}` | `409 credit_card_has_activity` if purchases or payments exist. |
+| `POST` | `/me/credit-cards/{id}/purchases` | `{description, amount_minor, purchased_on, category_id?, installments_total?, installment_amount_minor?, first_installment_on?}`. |
+| `DELETE` | `/me/credit-cards/{id}/purchases/{purchase_id}` | `409 purchase_already_billed` if folded into a generated statement. |
+| `POST` | `/me/credit-cards/{id}/payments` | `{amount_minor, paid_on, note?}`. Feeds `debt_payments_minor`, not `expenses_minor`. |
+| `DELETE` | `/me/credit-cards/{id}/payments/{payment_id}` | `409 payment_already_billed` if folded into a generated statement. |
 
 ---
 
@@ -146,6 +153,10 @@ the union.
 | `GET` | `/members/{id}/expenses?period=` | Transaction list | `{period, total_minor, currency}` | `403 not_visible` |
 | `GET` | `/members/{id}/savings` | Goals with balances | `{total_balance_minor, currency}` | `403 not_visible` |
 | `GET` | `/members/{id}/debts` | Debts with outstanding | `{total_outstanding_minor, currency}` | `403 not_visible` |
+| `GET` | `/members/{id}/credit-cards` | Credit cards with outstanding | `{total_outstanding_minor, currency}` | `403 not_visible` |
+
+`/members/{id}/debts`'s `total_outstanding_minor` now sums both `debts` and
+`credit_cards` — same visibility module (`debts`), one figure.
 
 The summary payload has a **fixed shape** — same fields whether the member has
 one record or a thousand — and carries no count, no dates beyond the period
