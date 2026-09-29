@@ -2,8 +2,9 @@ from family_api.schemas.credit_card import CreateCreditCardPurchaseRequest
 
 
 def test_installment_plan_must_be_all_or_nothing() -> None:
-    import pytest
     from datetime import date
+
+    import pytest
     from pydantic import ValidationError
 
     with pytest.raises(ValidationError):

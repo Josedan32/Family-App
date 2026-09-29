@@ -20,7 +20,8 @@ def test_first_statement_charges_no_interest_on_zero_opening_balance() -> None:
     )
     assert figures.interest_charged_minor == 0
     assert figures.closing_balance_minor == 100_000
-    # revolving principal = 100_000; min = 0 (interest) + 0 (installments) + ceil(5% of 100000) = 5000
+    # revolving principal = 100_000
+    # min = 0 (interest) + 0 (installments) + ceil(5% of 100000) = 5000
     assert figures.minimum_payment_minor == 5_000
 
 

@@ -1,4 +1,3 @@
-from datetime import date
 
 import pytest
 from httpx import AsyncClient
@@ -14,7 +13,11 @@ CARD = {
 async def test_debt_and_card_payments_sum_into_one_bucket(client: AsyncClient) -> None:
     registered = await client.post(
         "/api/v1/auth/register",
-        json={"email": "daniel@example.com", "password": "correct-horse-battery", "display_name": "Daniel"},
+        json={
+            "email": "daniel@example.com",
+            "password": "correct-horse-battery",
+            "display_name": "Daniel",
+        },
     )
     headers = {"Authorization": f"Bearer {registered.json()['access_token']}"}
     await client.post("/api/v1/households", json={"name": "Hogar"}, headers=headers)

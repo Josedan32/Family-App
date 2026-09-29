@@ -47,7 +47,9 @@ class CreditCard(Base, TimestampMixin):
         PgUUID(as_uuid=True), ForeignKey("households.id", ondelete="CASCADE"), nullable=False
     )
     member_id: Mapped[UUID] = mapped_column(
-        PgUUID(as_uuid=True), ForeignKey("household_members.id", ondelete="RESTRICT"), nullable=False
+        PgUUID(as_uuid=True),
+        ForeignKey("household_members.id", ondelete="RESTRICT"),
+        nullable=False,
     )
     nickname: Mapped[str] = mapped_column(String(120), nullable=False)
     bank_label: Mapped[str] = mapped_column(String(120), nullable=False)

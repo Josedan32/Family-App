@@ -1,6 +1,5 @@
 from datetime import date
 from decimal import Decimal
-from uuid import UUID
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -90,8 +89,12 @@ async def test_calling_ensure_statements_current_twice_does_not_duplicate(
     card = await _card(db_session, member, date(2026, 1, 1))
     await db_session.flush()
 
-    first = await credit_card_service.ensure_statements_current(db_session, card, today=date(2026, 1, 20))
-    second = await credit_card_service.ensure_statements_current(db_session, card, today=date(2026, 1, 20))
+    first = await credit_card_service.ensure_statements_current(
+        db_session, card, today=date(2026, 1, 20)
+    )
+    second = await credit_card_service.ensure_statements_current(
+        db_session, card, today=date(2026, 1, 20)
+    )
 
     assert len(first) == 1
     assert second == []

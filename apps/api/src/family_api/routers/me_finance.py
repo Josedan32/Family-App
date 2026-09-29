@@ -1,11 +1,13 @@
 from datetime import date
 from datetime import date as date_type
+from decimal import Decimal
 from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from family_api.db.models.credit_card import CreditCard
 from family_api.db.models.household import Household, HouseholdMember
 from family_api.db.models.savings import SavingsGoal
 from family_api.db.session import get_session
@@ -385,11 +387,13 @@ async def delete_debt_payment(
 
 
 async def _card_response(
-    session: AsyncSession, member: HouseholdMember, card
+    session: AsyncSession, member: HouseholdMember, card: CreditCard
 ) -> CreditCardResponse:
     await credit_card_service.ensure_statements_current(session, card, date_type.today())
     outstanding = await credit_card_service.outstanding_minor(session, card.id)
-    current_cycle = await credit_card_service.current_cycle_balance(session, card, date_type.today())
+    current_cycle = await credit_card_service.current_cycle_balance(
+        session, card, date_type.today()
+    )
     last = await credit_card_service.latest_statement(session, card.id)
     return credit_card_response(
         card, outstanding, current_cycle, last, await _currency(session, member.household_id)
@@ -410,7 +414,7 @@ async def create_credit_card(
 ) -> CreditCardResponse:
     card = await credit_card_service.create_card(
         session, member, body.nickname, body.bank_label, body.credit_limit_minor,
-        body.interest_rate_monthly_pct, body.minimum_payment_pct,
+        Decimal(str(body.interest_rate_monthly_pct)), Decimal(str(body.minimum_payment_pct)),
         body.minimum_payment_floor_minor, body.statement_cutoff_day, body.payment_due_days,
     )
     await session.commit()

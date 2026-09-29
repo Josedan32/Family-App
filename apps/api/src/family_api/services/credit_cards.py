@@ -6,7 +6,6 @@ path that touches a card, exactly like `debt_figures` is recomputed on every
 read of a debt — nothing here is a background job.
 """
 
-from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import Decimal
 from uuid import UUID
@@ -96,12 +95,13 @@ async def list_cards(session: AsyncSession, member_id: UUID) -> list[CreditCard]
 
 
 async def latest_statement(session: AsyncSession, card_id: UUID) -> CreditCardStatement | None:
-    return await session.scalar(
+    statement = await session.scalar(
         select(CreditCardStatement)
         .where(CreditCardStatement.card_id == card_id)
         .order_by(CreditCardStatement.cycle_starts_on.desc())
         .limit(1)
     )
+    return statement
 
 
 async def _all_installment_purchases(
@@ -149,16 +149,20 @@ async def ensure_statements_current(
                 CreditCardPayment.paid_on <= cycle_end,
             )
         )
-        installments_due = sum(
-            installment_due_in_cycle(
+        installments_due = 0
+        for p in installment_purchases:
+            # The query above filters on installments_total IS NOT NULL, and the
+            # all-or-nothing CHECK guarantees the other two fields follow (INV-D-13).
+            assert p.installments_total is not None
+            assert p.installment_amount_minor is not None
+            assert p.first_installment_on is not None
+            installments_due += installment_due_in_cycle(
                 installments_total=p.installments_total,
                 installment_amount_minor=p.installment_amount_minor,
                 first_installment_on=p.first_installment_on,
                 cycle_starts_on=cycle_start,
                 cycle_ends_on=cycle_end,
             )
-            for p in installment_purchases
-        )
 
         figures = compute_statement(
             opening_balance_minor=opening_balance,
@@ -346,9 +350,14 @@ async def delete_card(session: AsyncSession, member: HouseholdMember, card_id: U
     await session.flush()
 
 
+CardDetail = tuple[
+    CreditCard, list[CreditCardPurchase], list[CreditCardPayment], list[CreditCardStatement]
+]
+
+
 async def get_card_detail(
     session: AsyncSession, member: HouseholdMember, card_id: UUID
-) -> tuple[CreditCard, list[CreditCardPurchase], list[CreditCardPayment], list[CreditCardStatement]]:
+) -> CardDetail:
     card = await _get_owned_card(session, member, card_id)
     await ensure_statements_current(session, card, date.today())
     purchases = list(

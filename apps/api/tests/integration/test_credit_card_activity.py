@@ -6,7 +6,6 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from family_api.db.models.household import HouseholdMember
-from family_api.ids import new_id
 from family_api.services import credit_cards as credit_card_service
 from family_api.services.households import create_household
 
@@ -73,8 +72,12 @@ async def test_overpayment_style_full_payment_zeroes_the_provisional_balance(
         db_session, member, card.id, "Mercado", None, 50_000, date(2026, 1, 10),
         None, None, None,
     )
-    await credit_card_service.add_payment(db_session, member, card.id, 50_000, date(2026, 1, 11), None)
-    balance = await credit_card_service.current_cycle_balance(db_session, card, date(2026, 1, 12))
+    await credit_card_service.add_payment(
+        db_session, member, card.id, 50_000, date(2026, 1, 11), None
+    )
+    balance = await credit_card_service.current_cycle_balance(
+        db_session, card, date(2026, 1, 12)
+    )
     assert balance == 0
 
 

@@ -26,7 +26,11 @@ class CreateCreditCardPurchaseRequest(BaseModel):
 
     @model_validator(mode="after")
     def plan_is_all_or_nothing(self) -> "CreateCreditCardPurchaseRequest":
-        provided = [self.installments_total, self.installment_amount_minor, self.first_installment_on]
+        provided = [
+            self.installments_total,
+            self.installment_amount_minor,
+            self.first_installment_on,
+        ]
         if any(v is not None for v in provided) and not all(v is not None for v in provided):
             raise ValueError(
                 "An installment plan needs installments_total, "

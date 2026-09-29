@@ -15,7 +15,11 @@ ADDI_DEBT = {
 async def _household_of_two(client: AsyncClient) -> tuple[dict[str, str], dict[str, str], str]:
     registered = await client.post(
         "/api/v1/auth/register",
-        json={"email": "daniel@example.com", "password": "correct-horse-battery", "display_name": "Daniel"},
+        json={
+            "email": "daniel@example.com",
+            "password": "correct-horse-battery",
+            "display_name": "Daniel",
+        },
     )
     daniel = {"Authorization": f"Bearer {registered.json()['access_token']}"}
     await client.post("/api/v1/households", json={"name": "Hogar"}, headers=daniel)
@@ -24,7 +28,11 @@ async def _household_of_two(client: AsyncClient) -> tuple[dict[str, str], dict[s
     )
     registered2 = await client.post(
         "/api/v1/auth/register",
-        json={"email": "papa@example.com", "password": "correct-horse-battery", "display_name": "Papá"},
+        json={
+            "email": "papa@example.com",
+            "password": "correct-horse-battery",
+            "display_name": "Papá",
+        },
     )
     papa = {"Authorization": f"Bearer {registered2.json()['access_token']}"}
     await client.post("/api/v1/households/join", json={"code": invite.json()["code"]}, headers=papa)
