@@ -20,7 +20,7 @@ from family_api.db.base import Base, TimestampMixin
 from family_api.db.models.transaction import transaction_payment_method
 
 debt_creditor_type = PgEnum(
-    "bank", "family", "credit_card", "addi", "other",
+    "bank", "family", "addi", "other",
     name="debt_creditor_type", create_type=False,
 )
 debt_status = PgEnum("active", "paid", "cancelled", name="debt_status", create_type=False)
