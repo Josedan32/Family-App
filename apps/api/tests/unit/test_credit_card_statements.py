@@ -40,7 +40,7 @@ def test_unpaid_balance_compounds_next_cycle() -> None:
     assert figures.closing_balance_minor == 102_500
 
 
-def test_minimum_payment_floor_applies_to_a_small_balance() -> None:
+def test_minimum_payment_floor_is_capped_at_the_closing_balance() -> None:
     figures = compute_statement(
         opening_balance_minor=0,
         purchases_total_minor=10_000,
@@ -50,8 +50,37 @@ def test_minimum_payment_floor_applies_to_a_small_balance() -> None:
         minimum_payment_pct=Decimal("5"),
         minimum_payment_floor_minor=15_000,
     )
-    # computed minimum would be ceil(5% of 10_000) = 500, floor wins
+    # computed minimum would be ceil(5% of 10_000) = 500 and the floor 15_000,
+    # but nobody is asked to pay more than they owe.
+    assert figures.minimum_payment_minor == 10_000
+
+
+def test_minimum_payment_floor_applies_on_a_balance_just_above_it() -> None:
+    figures = compute_statement(
+        opening_balance_minor=0,
+        purchases_total_minor=20_000,
+        installments_due_minor=0,
+        payments_total_minor=0,
+        interest_rate_monthly_pct=Decimal("2.5"),
+        minimum_payment_pct=Decimal("5"),
+        minimum_payment_floor_minor=15_000,
+    )
+    # computed minimum = ceil(5% of 20_000) = 1_000; the floor is below the balance.
     assert figures.minimum_payment_minor == 15_000
+
+
+def test_a_zero_closing_balance_has_a_zero_minimum_even_with_a_floor() -> None:
+    figures = compute_statement(
+        opening_balance_minor=0,
+        purchases_total_minor=10_000,
+        installments_due_minor=0,
+        payments_total_minor=10_000,
+        interest_rate_monthly_pct=Decimal("2.5"),
+        minimum_payment_pct=Decimal("5"),
+        minimum_payment_floor_minor=15_000,
+    )
+    assert figures.closing_balance_minor == 0
+    assert figures.minimum_payment_minor == 0
 
 
 def test_minimum_payment_floor_applies_even_on_a_large_balance() -> None:

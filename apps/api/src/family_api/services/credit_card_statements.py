@@ -57,9 +57,9 @@ def compute_statement(
         + installments_due_minor
         + _ceil_pct(revolving_principal, minimum_payment_pct)
     )
-    minimum_payment = max(minimum_payment_floor_minor or 0, computed_minimum)
-    if closing_balance == 0:
-        minimum_payment = 0
+    minimum_payment = min(
+        closing_balance, max(minimum_payment_floor_minor or 0, computed_minimum)
+    )
     return StatementFigures(
         interest_charged_minor=interest_charged,
         closing_balance_minor=closing_balance,
