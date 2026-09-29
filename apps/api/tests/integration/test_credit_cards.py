@@ -104,3 +104,4 @@ async def test_deleting_a_billed_purchase_is_rejected(
         f"/api/v1/me/credit-cards/{card_id}/purchases/{purchase_id}", headers=headers
     )
     assert response.status_code == 409
+    assert response.json()["type"] == "purchase_already_billed"
