@@ -138,6 +138,38 @@ async def test_matrix(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("viewer_role", ["admin", "adult", "teen"])
+@pytest.mark.parametrize("level", LEVELS)
+async def test_credit_cards_matrix(client: AsyncClient, viewer_role: str, level: str) -> None:
+    """Credit cards have no module of their own; the `debts` setting governs them."""
+    viewer, papa, papa_id = await _build_household(client, viewer_role)
+    await _give_papa_data(client, papa)
+    await client.post(
+        "/api/v1/me/credit-cards",
+        json={
+            "nickname": "Visa", "bank_label": "Bancolombia", "credit_limit_minor": 5_000_000,
+            "interest_rate_monthly_pct": 2.5, "minimum_payment_pct": 5,
+            "statement_cutoff_day": 15, "payment_due_days": 15,
+        },
+        headers=papa,
+    )
+    await _set_all(client, papa, level)
+
+    response = await client.get(f"/api/v1/members/{papa_id}/credit-cards", headers=viewer)
+
+    if level == "private":
+        assert response.status_code == 403
+        assert response.json()["type"] == "not_visible"
+    elif level == "summary":
+        assert response.status_code == 200
+        assert set(response.json()) == {"total_outstanding_minor", "currency"}
+    else:
+        assert response.status_code == 200
+        assert isinstance(response.json(), list)
+        assert len(response.json()) == 1
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("module", MODULES)
 async def test_a_guest_sees_nothing_even_when_public(
     client: AsyncClient, module: str

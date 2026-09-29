@@ -20,6 +20,10 @@ override, no per-viewer matrix, and no global dial.
 | Savings | `savings` | `summary` |
 | Debts | `debts` | **`private`** |
 
+Credit cards have no module of their own. They are governed by the member's
+`debts` setting: `/members/{id}/credit-cards` declares `visibility_for("debts")`,
+and a card's outstanding balance is part of the `debts` summary number.
+
 Levels:
 
 | Level | Meaning |
@@ -72,7 +76,7 @@ A summary response carries **exactly one number** plus the period it covers.
 | `income` | Sum of income transactions in the period. |
 | `expenses` | Sum of expense transactions in the period. |
 | `savings` | Sum of all goal balances as of the period end. |
-| `debts` | Sum of outstanding balances as of the period end. |
+| `debts` | Sum of outstanding balances as of the period end, credit card statements included. |
 
 ### 3.1 Forbidden in a summary response
 
@@ -280,6 +284,8 @@ Additional required cases:
 - A contribution is visible to the household when the contributor has
   `expenses` set to `private`, while the derived expense is not.
 - Changing a setting takes effect on the next request with no caching window.
+- `/members/{id}/credit-cards` resolves against the owner's `debts` setting,
+  with the summary shape `{total_outstanding_minor, currency}`.
 
 ---
 
