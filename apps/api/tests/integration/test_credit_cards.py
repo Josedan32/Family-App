@@ -109,3 +109,61 @@ async def test_deleting_a_billed_purchase_is_rejected(
     )
     assert response.status_code == 409
     assert response.json()["type"] == "purchase_already_billed"
+
+
+async def _category_id(client: AsyncClient, headers: dict[str, str], kind: str, name: str) -> str:
+    listed = await client.get(f"/api/v1/categories?kind={kind}", headers=headers)
+    return str(next(c["id"] for c in listed.json() if c["name"] == name))
+
+
+async def _purchase_with_category(
+    client: AsyncClient, headers: dict[str, str], card_id: str, category_id: str
+) -> int:
+    response = await client.post(
+        f"/api/v1/me/credit-cards/{card_id}/purchases",
+        json={
+            "description": "Mercado", "category_id": category_id,
+            "amount_minor": 100_000, "purchased_on": "2026-01-10",
+        },
+        headers=headers,
+    )
+    return response.status_code
+
+
+@pytest.mark.asyncio
+async def test_a_purchase_accepts_an_own_expense_category(client: AsyncClient) -> None:
+    headers = await _member(client)
+    card_id = (await client.post("/api/v1/me/credit-cards", json=CARD, headers=headers)).json()["id"]
+    comida = await _category_id(client, headers, "expense", "Comida")
+
+    assert await _purchase_with_category(client, headers, card_id, comida) == 201
+
+
+@pytest.mark.asyncio
+async def test_a_purchase_rejects_a_nonexistent_category(client: AsyncClient) -> None:
+    headers = await _member(client)
+    card_id = (await client.post("/api/v1/me/credit-cards", json=CARD, headers=headers)).json()["id"]
+
+    status = await _purchase_with_category(
+        client, headers, card_id, "00000000-0000-0000-0000-000000000000"
+    )
+    assert status == 404
+
+
+@pytest.mark.asyncio
+async def test_a_purchase_rejects_another_households_category(client: AsyncClient) -> None:
+    daniel = await _member(client, "daniel@example.com")
+    card_id = (await client.post("/api/v1/me/credit-cards", json=CARD, headers=daniel)).json()["id"]
+    other = await _member(client, "vecino@example.com")
+    foreign = await _category_id(client, other, "expense", "Comida")
+
+    assert await _purchase_with_category(client, daniel, card_id, foreign) == 404
+
+
+@pytest.mark.asyncio
+async def test_a_purchase_rejects_an_income_category(client: AsyncClient) -> None:
+    headers = await _member(client)
+    card_id = (await client.post("/api/v1/me/credit-cards", json=CARD, headers=headers)).json()["id"]
+    salario = await _category_id(client, headers, "income", "Salario")
+
+    assert await _purchase_with_category(client, headers, card_id, salario) == 422

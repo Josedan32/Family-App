@@ -20,6 +20,7 @@ from family_api.db.models.credit_card import (
     CreditCardStatement,
 )
 from family_api.db.models.household import HouseholdMember
+from family_api.db.models.seeded import Category
 from family_api.errors import DomainError, NotFoundError
 from family_api.ids import new_id
 from family_api.services.credit_card_statements import (
@@ -27,6 +28,7 @@ from family_api.services.credit_card_statements import (
     installment_due_in_cycle,
     next_cutoff_on_or_after,
 )
+from family_api.services.transactions import CategoryKindMismatchError
 
 
 class CreditCardHasActivityError(DomainError):
@@ -258,6 +260,22 @@ async def payments_in_period(
     return int(total or 0)
 
 
+async def _assert_expense_category(
+    session: AsyncSession, member: HouseholdMember, category_id: UUID
+) -> None:
+    """Same rule as a transaction's categories (INV-D-04): the household's
+    own, and of the matching kind. A purchase is spending."""
+    category = await session.scalar(
+        select(Category).where(
+            Category.id == category_id, Category.household_id == member.household_id
+        )
+    )
+    if category is None:
+        raise NotFoundError
+    if category.kind != "expense":
+        raise CategoryKindMismatchError
+
+
 async def add_purchase(
     session: AsyncSession,
     member: HouseholdMember,
@@ -271,6 +289,8 @@ async def add_purchase(
     first_installment_on: date | None,
 ) -> CreditCardPurchase:
     card = await _get_owned_card(session, member, card_id)
+    if category_id is not None:
+        await _assert_expense_category(session, member, category_id)
     purchase = CreditCardPurchase(
         id=new_id(), household_id=card.household_id, card_id=card.id,
         description=description, category_id=category_id, amount_minor=amount_minor,

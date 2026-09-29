@@ -461,11 +461,16 @@ async def remove_credit_card(card_id: UUID, member: CurrentMember, session: Sess
 async def add_credit_card_purchase(
     card_id: UUID, body: CreateCreditCardPurchaseRequest, member: CurrentMember, session: SessionDep
 ) -> CreditCardPurchaseResponse:
-    purchase = await credit_card_service.add_purchase(
-        session, member, card_id, body.description, body.category_id, body.amount_minor,
-        body.purchased_on, body.installments_total, body.installment_amount_minor,
-        body.first_installment_on,
-    )
+    try:
+        purchase = await credit_card_service.add_purchase(
+            session, member, card_id, body.description, body.category_id, body.amount_minor,
+            body.purchased_on, body.installments_total, body.installment_amount_minor,
+            body.first_installment_on,
+        )
+    except CategoryKindMismatchError:
+        raise HTTPException(
+            status_code=422, detail="A card purchase needs an expense category"
+        ) from None
     await session.commit()
     return CreditCardPurchaseResponse(
         id=purchase.id, description=purchase.description, category_id=purchase.category_id,
