@@ -1,10 +1,11 @@
-from datetime import date
+from datetime import date, datetime
 from uuid import UUID
 
 from sqlalchemy import (
     BigInteger,
     CheckConstraint,
     Date,
+    DateTime,
     ForeignKey,
     Index,
     Numeric,
@@ -12,6 +13,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    func,
 )
 from sqlalchemy.dialects.postgresql import ENUM as PgEnum
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
@@ -69,6 +71,14 @@ class CreditCardPurchase(Base, TimestampMixin):
             "AND first_installment_on IS NOT NULL",
             name="ck_ccp_installment_plan_complete",
         ),
+        CheckConstraint(
+            "installments_total IS NULL OR installments_total > 0",
+            name="ck_ccp_installments_positive",
+        ),
+        CheckConstraint(
+            "installment_amount_minor IS NULL OR installment_amount_minor > 0",
+            name="ck_ccp_installment_amount_positive",
+        ),
         Index("ix_ccp_card_purchased_on", "card_id", "purchased_on"),
     )
 
@@ -112,6 +122,13 @@ class CreditCardStatement(Base):
     __table_args__ = (
         UniqueConstraint("card_id", "cycle_starts_on", name="uq_ccs_card_cycle"),
         Index("ix_ccs_card_cycle_desc", "card_id", "cycle_starts_on"),
+        CheckConstraint("opening_balance_minor >= 0", name="ck_ccs_opening_nonneg"),
+        CheckConstraint("purchases_total_minor >= 0", name="ck_ccs_purchases_nonneg"),
+        CheckConstraint("installments_due_minor >= 0", name="ck_ccs_installments_nonneg"),
+        CheckConstraint("interest_charged_minor >= 0", name="ck_ccs_interest_nonneg"),
+        CheckConstraint("payments_total_minor >= 0", name="ck_ccs_payments_nonneg"),
+        CheckConstraint("closing_balance_minor >= 0", name="ck_ccs_closing_nonneg"),
+        CheckConstraint("minimum_payment_minor >= 0", name="ck_ccs_minpay_nonneg"),
     )
 
     id: Mapped[UUID] = mapped_column(PgUUID(as_uuid=True), primary_key=True)
@@ -121,6 +138,9 @@ class CreditCardStatement(Base):
     )
     cycle_starts_on: Mapped[date] = mapped_column(Date, nullable=False)
     cycle_ends_on: Mapped[date] = mapped_column(Date, nullable=False)
+    generated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
     opening_balance_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
     purchases_total_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
     installments_due_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
