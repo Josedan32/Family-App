@@ -6,6 +6,7 @@ build. That is deliberate.
 """
 
 from datetime import date
+from datetime import date as date_type
 from typing import Annotated
 from uuid import UUID
 
@@ -15,7 +16,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from family_api.db.models.household import Household
 from family_api.db.session import get_session
 from family_api.periods import parse_period
+from family_api.routers.credit_card_views import credit_card_response
 from family_api.routers.debt_views import debt_response
+from family_api.schemas.credit_card import CreditCardResponse, CreditCardSummaryResponse
 from family_api.schemas.debt import DebtResponse, DebtSummaryResponse
 from family_api.schemas.finance_summary import MonthlySummaryResponse
 from family_api.schemas.savings import SavingsGoalResponse, SavingsSummaryResponse
@@ -25,6 +28,7 @@ from family_api.schemas.transaction import (
     TransactionListResponse,
     TransactionResponse,
 )
+from family_api.services import credit_cards as credit_card_service
 from family_api.services import debts as debt_service
 from family_api.services import finance_summary as finance_summary_service
 from family_api.services import savings as savings_service
@@ -131,15 +135,45 @@ async def member_debts(
     household = await _household(session, scope.owner.household_id)
 
     if scope.level is Level.SUMMARY:
+        debts_total = await debt_service.total_outstanding(session, scope.owner.id)
+        cards_total = await credit_card_service.total_outstanding(session, scope.owner.id)
         return DebtSummaryResponse(
-            total_outstanding_minor=await debt_service.total_outstanding(
-                session, scope.owner.id
-            ),
+            total_outstanding_minor=debts_total + cards_total,
             currency=household.currency,
         )
 
     rows = await debt_service.list_debts_with_figures(session, scope.owner.id)
     return [debt_response(d, figures, household.currency) for d, figures in rows]
+
+
+@router.get("/{member_id}/credit-cards")
+async def member_credit_cards(
+    scope: Annotated[VisibilityScope, Depends(visibility_for("debts"))],
+    session: SessionDep,
+) -> list[CreditCardResponse] | CreditCardSummaryResponse:
+    household = await _household(session, scope.owner.household_id)
+
+    if scope.level is Level.SUMMARY:
+        return CreditCardSummaryResponse(
+            total_outstanding_minor=await credit_card_service.total_outstanding(
+                session, scope.owner.id
+            ),
+            currency=household.currency,
+        )
+
+    cards = await credit_card_service.list_cards(session, scope.owner.id)
+    responses = []
+    for card in cards:
+        await credit_card_service.ensure_statements_current(session, card, date_type.today())
+        outstanding = await credit_card_service.outstanding_minor(session, card.id)
+        current_cycle = await credit_card_service.current_cycle_balance(
+            session, card, date_type.today()
+        )
+        last = await credit_card_service.latest_statement(session, card.id)
+        responses.append(
+            credit_card_response(card, outstanding, current_cycle, last, household.currency)
+        )
+    return responses
 
 
 @router.get("/{member_id}/monthly-summary")
