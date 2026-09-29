@@ -1,4 +1,5 @@
 from datetime import date
+from datetime import date as date_type
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -10,7 +11,17 @@ from family_api.db.models.savings import SavingsGoal
 from family_api.db.session import get_session
 from family_api.errors import NotFoundError
 from family_api.periods import parse_period
+from family_api.routers.credit_card_views import credit_card_response, statement_response
 from family_api.routers.debt_views import debt_response
+from family_api.schemas.credit_card import (
+    CreateCreditCardPaymentRequest,
+    CreateCreditCardPurchaseRequest,
+    CreateCreditCardRequest,
+    CreditCardDetailResponse,
+    CreditCardPaymentResponse,
+    CreditCardPurchaseResponse,
+    CreditCardResponse,
+)
 from family_api.schemas.debt import (
     CreateDebtPaymentRequest,
     CreateDebtRequest,
@@ -33,6 +44,7 @@ from family_api.schemas.transaction import (
     TransactionResponse,
     UpdateTransactionRequest,
 )
+from family_api.services import credit_cards as credit_card_service
 from family_api.services import debts as debt_service
 from family_api.services import finance_summary as finance_summary_service
 from family_api.services import savings as savings_service
@@ -369,4 +381,124 @@ async def delete_debt_payment(
     debt_id: UUID, payment_id: UUID, member: CurrentMember, session: SessionDep
 ) -> None:
     await debt_service.delete_payment(session, member, debt_id, payment_id)
+    await session.commit()
+
+
+async def _card_response(
+    session: AsyncSession, member: HouseholdMember, card
+) -> CreditCardResponse:
+    await credit_card_service.ensure_statements_current(session, card, date_type.today())
+    outstanding = await credit_card_service.outstanding_minor(session, card.id)
+    current_cycle = await credit_card_service.current_cycle_balance(session, card, date_type.today())
+    last = await credit_card_service.latest_statement(session, card.id)
+    return credit_card_response(
+        card, outstanding, current_cycle, last, await _currency(session, member.household_id)
+    )
+
+
+@router.get("/credit-cards")
+async def list_credit_cards(
+    member: CurrentMember, session: SessionDep
+) -> list[CreditCardResponse]:
+    cards = await credit_card_service.list_cards(session, member.id)
+    return [await _card_response(session, member, c) for c in cards]
+
+
+@router.post("/credit-cards", status_code=status.HTTP_201_CREATED)
+async def create_credit_card(
+    body: CreateCreditCardRequest, member: CurrentMember, session: SessionDep
+) -> CreditCardResponse:
+    card = await credit_card_service.create_card(
+        session, member, body.nickname, body.bank_label, body.credit_limit_minor,
+        body.interest_rate_monthly_pct, body.minimum_payment_pct,
+        body.minimum_payment_floor_minor, body.statement_cutoff_day, body.payment_due_days,
+    )
+    await session.commit()
+    return await _card_response(session, member, card)
+
+
+@router.get("/credit-cards/{card_id}")
+async def get_credit_card(
+    card_id: UUID, member: CurrentMember, session: SessionDep
+) -> CreditCardDetailResponse:
+    card, purchases, payments, statements = await credit_card_service.get_card_detail(
+        session, member, card_id
+    )
+    base = await _card_response(session, member, card)
+    return CreditCardDetailResponse(
+        **base.model_dump(),
+        purchases=[
+            CreditCardPurchaseResponse(
+                id=p.id, description=p.description, category_id=p.category_id,
+                amount_minor=p.amount_minor, purchased_on=p.purchased_on,
+                installments_total=p.installments_total,
+                installment_amount_minor=p.installment_amount_minor,
+                first_installment_on=p.first_installment_on,
+            )
+            for p in purchases
+        ],
+        payments=[
+            CreditCardPaymentResponse(
+                id=p.id, amount_minor=p.amount_minor, paid_on=p.paid_on, note=p.note
+            )
+            for p in payments
+        ],
+        statements=[statement_response(s) for s in statements],
+    )
+
+
+@router.delete("/credit-cards/{card_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_credit_card(card_id: UUID, member: CurrentMember, session: SessionDep) -> None:
+    await credit_card_service.delete_card(session, member, card_id)
+    await session.commit()
+
+
+@router.post("/credit-cards/{card_id}/purchases", status_code=status.HTTP_201_CREATED)
+async def add_credit_card_purchase(
+    card_id: UUID, body: CreateCreditCardPurchaseRequest, member: CurrentMember, session: SessionDep
+) -> CreditCardPurchaseResponse:
+    purchase = await credit_card_service.add_purchase(
+        session, member, card_id, body.description, body.category_id, body.amount_minor,
+        body.purchased_on, body.installments_total, body.installment_amount_minor,
+        body.first_installment_on,
+    )
+    await session.commit()
+    return CreditCardPurchaseResponse(
+        id=purchase.id, description=purchase.description, category_id=purchase.category_id,
+        amount_minor=purchase.amount_minor, purchased_on=purchase.purchased_on,
+        installments_total=purchase.installments_total,
+        installment_amount_minor=purchase.installment_amount_minor,
+        first_installment_on=purchase.first_installment_on,
+    )
+
+
+@router.delete(
+    "/credit-cards/{card_id}/purchases/{purchase_id}", status_code=status.HTTP_204_NO_CONTENT
+)
+async def delete_credit_card_purchase(
+    card_id: UUID, purchase_id: UUID, member: CurrentMember, session: SessionDep
+) -> None:
+    await credit_card_service.delete_purchase(session, member, card_id, purchase_id)
+    await session.commit()
+
+
+@router.post("/credit-cards/{card_id}/payments", status_code=status.HTTP_201_CREATED)
+async def add_credit_card_payment(
+    card_id: UUID, body: CreateCreditCardPaymentRequest, member: CurrentMember, session: SessionDep
+) -> CreditCardResponse:
+    await credit_card_service.add_payment(
+        session, member, card_id, body.amount_minor, body.paid_on, body.note
+    )
+    await session.commit()
+    card, *_ = await credit_card_service.get_card_detail(session, member, card_id)
+    return await _card_response(session, member, card)
+
+
+@router.delete(
+    "/credit-cards/{card_id}/payments/{payment_id}", status_code=status.HTTP_204_NO_CONTENT
+)
+async def delete_credit_card_payment(
+    card_id: UUID, payment_id: UUID, member: CurrentMember, session: SessionDep
+) -> None:
+    await credit_card_service.delete_payment(session, member, card_id, payment_id)
     await session.commit()
