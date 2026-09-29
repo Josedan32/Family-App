@@ -16,7 +16,7 @@ def test_first_statement_charges_no_interest_on_zero_opening_balance() -> None:
         payments_total_minor=0,
         interest_rate_monthly_pct=Decimal("2.5"),
         minimum_payment_pct=Decimal("5"),
-        minimum_payment_floor_minor=15_000,
+        minimum_payment_floor_minor=None,
     )
     assert figures.interest_charged_minor == 0
     assert figures.closing_balance_minor == 100_000
@@ -50,6 +50,21 @@ def test_minimum_payment_floor_applies_to_a_small_balance() -> None:
         minimum_payment_floor_minor=15_000,
     )
     # computed minimum would be ceil(5% of 10_000) = 500, floor wins
+    assert figures.minimum_payment_minor == 15_000
+
+
+def test_minimum_payment_floor_applies_even_on_a_large_balance() -> None:
+    figures = compute_statement(
+        opening_balance_minor=1_000_000,
+        purchases_total_minor=0,
+        installments_due_minor=0,
+        payments_total_minor=0,
+        interest_rate_monthly_pct=Decimal("0"),
+        minimum_payment_pct=Decimal("0.5"),
+        minimum_payment_floor_minor=15_000,
+    )
+    # computed minimum = ceil(0.5% of 1_000_000) = 5_000, but the floor (15_000)
+    # must win regardless of how large the balance is (FR-M2-29).
     assert figures.minimum_payment_minor == 15_000
 
 
