@@ -306,7 +306,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Get Transaction
+         * @description Own ledger only, derived rows included (they are read, never edited).
+         */
+        get: operations["get_transaction_api_v1_me_transactions__transaction_id__get"];
         put?: never;
         post?: never;
         /** Delete Transaction */
@@ -352,6 +356,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/savings-goals/{goal_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Goal */
+        get: operations["get_goal_api_v1_me_savings_goals__goal_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/savings-goals/{goal_id}/entries": {
         parameters: {
             query?: never;
@@ -365,6 +386,24 @@ export interface paths {
         /** Add Entry */
         post: operations["add_entry_api_v1_me_savings_goals__goal_id__entries_post"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/savings-goals/{goal_id}/use": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Use Goal */
+        post: operations["use_goal_api_v1_me_savings_goals__goal_id__use_post"];
+        /** Unuse Goal */
+        delete: operations["unuse_goal_api_v1_me_savings_goals__goal_id__use_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -435,6 +474,110 @@ export interface paths {
         post?: never;
         /** Delete Debt Payment */
         delete: operations["delete_debt_payment_api_v1_me_debts__debt_id__payments__payment_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/credit-cards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Credit Cards */
+        get: operations["list_credit_cards_api_v1_me_credit_cards_get"];
+        put?: never;
+        /** Create Credit Card */
+        post: operations["create_credit_card_api_v1_me_credit_cards_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/credit-cards/{card_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Credit Card */
+        get: operations["get_credit_card_api_v1_me_credit_cards__card_id__get"];
+        put?: never;
+        post?: never;
+        /** Remove Credit Card */
+        delete: operations["remove_credit_card_api_v1_me_credit_cards__card_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/credit-cards/{card_id}/purchases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Credit Card Purchase */
+        post: operations["add_credit_card_purchase_api_v1_me_credit_cards__card_id__purchases_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/credit-cards/{card_id}/purchases/{purchase_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Credit Card Purchase */
+        delete: operations["delete_credit_card_purchase_api_v1_me_credit_cards__card_id__purchases__purchase_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/credit-cards/{card_id}/payments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Credit Card Payment */
+        post: operations["add_credit_card_payment_api_v1_me_credit_cards__card_id__payments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/credit-cards/{card_id}/payments/{payment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Credit Card Payment */
+        delete: operations["delete_credit_card_payment_api_v1_me_credit_cards__card_id__payments__payment_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -587,6 +730,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/members/{member_id}/credit-cards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Member Credit Cards */
+        get: operations["member_credit_cards_api_v1_members__member_id__credit_cards_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/members/{member_id}/monthly-summary": {
         parameters: {
             query?: never;
@@ -683,6 +843,23 @@ export interface paths {
         put?: never;
         /** Close Period */
         post: operations["close_period_api_v1_contribution_periods__period_id__close_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contribution-periods/{period_id}/reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reopen Period */
+        post: operations["reopen_period_api_v1_contribution_periods__period_id__reopen_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1105,6 +1282,8 @@ export interface components {
             member_id: string;
             /** Member Name */
             member_name: string;
+            /** Member Photo Url */
+            member_photo_url: string | null;
             /**
              * Due On
              * Format: date
@@ -1146,6 +1325,8 @@ export interface components {
             is_system: boolean;
             /** Is Contribution Category */
             is_contribution_category: boolean;
+            /** Is Reserved */
+            is_reserved: boolean;
             /** Archived At */
             archived_at: string | null;
         };
@@ -1210,8 +1391,8 @@ export interface components {
              * Format: uuid
              */
             expense_transaction_id: string;
-            /** Category Id */
-            category_id: string | null;
+            /** Category Ids */
+            category_ids: string[];
         };
         /** CreateAbsenceRequest */
         CreateAbsenceRequest: {
@@ -1288,8 +1469,62 @@ export interface components {
             paid_on: string;
             /** Note */
             note?: string | null;
+            /** Category Ids */
+            category_ids?: string[];
+        };
+        /** CreateCreditCardPaymentRequest */
+        CreateCreditCardPaymentRequest: {
+            /** Amount Minor */
+            amount_minor: number;
+            /**
+             * Paid On
+             * Format: date
+             */
+            paid_on: string;
+            /** Note */
+            note?: string | null;
+        };
+        /** CreateCreditCardPurchaseRequest */
+        CreateCreditCardPurchaseRequest: {
+            /** Description */
+            description: string;
             /** Category Id */
             category_id?: string | null;
+            /** Amount Minor */
+            amount_minor: number;
+            /**
+             * Purchased On
+             * Format: date
+             */
+            purchased_on: string;
+            /** Installments Total */
+            installments_total?: number | null;
+            /** Installment Amount Minor */
+            installment_amount_minor?: number | null;
+            /** First Installment On */
+            first_installment_on?: string | null;
+        };
+        /** CreateCreditCardRequest */
+        CreateCreditCardRequest: {
+            /** Nickname */
+            nickname: string;
+            /** Bank Label */
+            bank_label: string;
+            /** Credit Limit Minor */
+            credit_limit_minor: number;
+            /** Interest Rate Monthly Pct */
+            interest_rate_monthly_pct: number;
+            /** Minimum Payment Pct */
+            minimum_payment_pct: number;
+            /** Minimum Payment Floor Minor */
+            minimum_payment_floor_minor?: number | null;
+            /** Statement Cutoff Day */
+            statement_cutoff_day: number;
+            /**
+             * Payment Due Days
+             * @default 15
+             */
+            payment_due_days: number;
         };
         /** CreateCycleRequest */
         CreateCycleRequest: {
@@ -1330,7 +1565,7 @@ export interface components {
              * Creditor Type
              * @enum {string}
              */
-            creditor_type: "bank" | "family" | "credit_card" | "addi" | "other";
+            creditor_type: "bank" | "family" | "addi" | "other";
             /** Creditor Label */
             creditor_label: string;
             /** Principal Minor */
@@ -1410,6 +1645,8 @@ export interface components {
              * @default false
              */
             counts_as_contribution: boolean;
+            /** Payment Method */
+            payment_method?: ("cash" | "nequi" | "bancolombia") | null;
         };
         /** CreateHouseholdRequest */
         CreateHouseholdRequest: {
@@ -1481,6 +1718,8 @@ export interface components {
             period_month: string;
             /** Goal Amount Minor */
             goal_amount_minor: number;
+            /** Pledges */
+            pledges?: components["schemas"]["PledgeItem"][];
         };
         /** CreateTransactionRequest */
         CreateTransactionRequest: {
@@ -1515,6 +1754,167 @@ export interface components {
              * @enum {string}
              */
             payment_method: "cash" | "nequi" | "bancolombia";
+        };
+        /** CreditCardDetailResponse */
+        CreditCardDetailResponse: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Nickname */
+            nickname: string;
+            /** Bank Label */
+            bank_label: string;
+            /** Credit Limit Minor */
+            credit_limit_minor: number;
+            /** Interest Rate Monthly Pct */
+            interest_rate_monthly_pct: number;
+            /** Minimum Payment Pct */
+            minimum_payment_pct: number;
+            /** Minimum Payment Floor Minor */
+            minimum_payment_floor_minor: number | null;
+            /** Statement Cutoff Day */
+            statement_cutoff_day: number;
+            /** Payment Due Days */
+            payment_due_days: number;
+            /** Status */
+            status: string;
+            /** Currency */
+            currency: string;
+            /** Outstanding Minor */
+            outstanding_minor: number;
+            /** Current Cycle Balance Minor */
+            current_cycle_balance_minor: number;
+            latest_statement: components["schemas"]["CreditCardStatementResponse"] | null;
+            /** Purchases */
+            purchases: components["schemas"]["CreditCardPurchaseResponse"][];
+            /** Payments */
+            payments: components["schemas"]["CreditCardPaymentResponse"][];
+            /** Statements */
+            statements: components["schemas"]["CreditCardStatementResponse"][];
+        };
+        /** CreditCardPaymentResponse */
+        CreditCardPaymentResponse: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Amount Minor */
+            amount_minor: number;
+            /**
+             * Paid On
+             * Format: date
+             */
+            paid_on: string;
+            /** Note */
+            note: string | null;
+        };
+        /** CreditCardPurchaseResponse */
+        CreditCardPurchaseResponse: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Description */
+            description: string;
+            /** Category Id */
+            category_id: string | null;
+            /** Amount Minor */
+            amount_minor: number;
+            /**
+             * Purchased On
+             * Format: date
+             */
+            purchased_on: string;
+            /** Installments Total */
+            installments_total: number | null;
+            /** Installment Amount Minor */
+            installment_amount_minor: number | null;
+            /** First Installment On */
+            first_installment_on: string | null;
+        };
+        /** CreditCardResponse */
+        CreditCardResponse: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Nickname */
+            nickname: string;
+            /** Bank Label */
+            bank_label: string;
+            /** Credit Limit Minor */
+            credit_limit_minor: number;
+            /** Interest Rate Monthly Pct */
+            interest_rate_monthly_pct: number;
+            /** Minimum Payment Pct */
+            minimum_payment_pct: number;
+            /** Minimum Payment Floor Minor */
+            minimum_payment_floor_minor: number | null;
+            /** Statement Cutoff Day */
+            statement_cutoff_day: number;
+            /** Payment Due Days */
+            payment_due_days: number;
+            /** Status */
+            status: string;
+            /** Currency */
+            currency: string;
+            /** Outstanding Minor */
+            outstanding_minor: number;
+            /** Current Cycle Balance Minor */
+            current_cycle_balance_minor: number;
+            latest_statement: components["schemas"]["CreditCardStatementResponse"] | null;
+        };
+        /** CreditCardStatementResponse */
+        CreditCardStatementResponse: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Cycle Starts On
+             * Format: date
+             */
+            cycle_starts_on: string;
+            /**
+             * Cycle Ends On
+             * Format: date
+             */
+            cycle_ends_on: string;
+            /** Opening Balance Minor */
+            opening_balance_minor: number;
+            /** Purchases Total Minor */
+            purchases_total_minor: number;
+            /** Installments Due Minor */
+            installments_due_minor: number;
+            /** Interest Charged Minor */
+            interest_charged_minor: number;
+            /** Payments Total Minor */
+            payments_total_minor: number;
+            /** Closing Balance Minor */
+            closing_balance_minor: number;
+            /** Minimum Payment Minor */
+            minimum_payment_minor: number;
+            /**
+             * Payment Due On
+             * Format: date
+             */
+            payment_due_on: string;
+        };
+        /**
+         * CreditCardSummaryResponse
+         * @description Total outstanding across cards only. No nicknames, no bank labels.
+         */
+        CreditCardSummaryResponse: {
+            /** Total Outstanding Minor */
+            total_outstanding_minor: number;
+            /** Currency */
+            currency: string;
         };
         /** CycleResponse */
         CycleResponse: {
@@ -1583,6 +1983,15 @@ export interface components {
             is_overdue?: boolean | null;
             /** Last Payment Id */
             last_payment_id?: string | null;
+            /**
+             * Standing
+             * @enum {string}
+             */
+            standing: "paid" | "overdue" | "due_soon" | "up_to_date" | "cancelled";
+            /** Next Due On */
+            next_due_on?: string | null;
+            /** Progress */
+            progress: number;
             /** Payments */
             payments: components["schemas"]["DebtPaymentResponse"][];
         };
@@ -1648,6 +2057,15 @@ export interface components {
             is_overdue?: boolean | null;
             /** Last Payment Id */
             last_payment_id?: string | null;
+            /**
+             * Standing
+             * @enum {string}
+             */
+            standing: "paid" | "overdue" | "due_soon" | "up_to_date" | "cancelled";
+            /** Next Due On */
+            next_due_on?: string | null;
+            /** Progress */
+            progress: number;
         };
         /**
          * DebtSummaryResponse
@@ -1997,6 +2415,8 @@ export interface components {
             goal_amount_minor: number;
             /** Collected Minor */
             collected_minor: number;
+            /** Pledged Minor */
+            pledged_minor: number;
             /** Progress */
             progress: number;
             /** Currency */
@@ -2017,6 +2437,8 @@ export interface components {
             pledged_minor: number;
             /** Contributed Minor */
             contributed_minor: number;
+            /** Missing Minor */
+            missing_minor: number;
         };
         /** PeriodResponse */
         PeriodResponse: {
@@ -2139,7 +2561,9 @@ export interface components {
              * State
              * @enum {string}
              */
-            state: "completado" | "en_progreso";
+            state: "completado" | "en_progreso" | "usada";
+            /** Used On */
+            used_on: string | null;
         };
         /**
          * SavingsSummaryResponse
@@ -2242,6 +2666,8 @@ export interface components {
             paid_on?: string | null;
             /** Note */
             note?: string | null;
+            /** Category Ids */
+            category_ids?: string[] | null;
         };
         /**
          * UpdateHouseholdExpenseRequest
@@ -2291,7 +2717,14 @@ export interface components {
             /** Birth Date */
             birth_date?: string | null;
         };
-        /** UpdateTransactionRequest */
+        /**
+         * UpdateTransactionRequest
+         * @description Every field optional: an omitted field is left as it is.
+         *
+         *     Recurrence is validated against the resulting row in the service, since
+         *     `is_recurring: true` alone is valid for a row that already has a
+         *     frequency and invalid for one that does not.
+         */
         UpdateTransactionRequest: {
             /** Category Ids */
             category_ids?: string[] | null;
@@ -2303,6 +2736,17 @@ export interface components {
             name?: string | null;
             /** Note */
             note?: string | null;
+            /** Is Recurring */
+            is_recurring?: boolean | null;
+            /** Frequency */
+            frequency?: ("monthly" | "once" | "biweekly") | null;
+            /** Payment Method */
+            payment_method?: ("cash" | "nequi" | "bancolombia") | null;
+        };
+        /** UseGoalRequest */
+        UseGoalRequest: {
+            /** Used On */
+            used_on?: string | null;
         };
         /**
          * UserResponse
@@ -3155,6 +3599,39 @@ export interface operations {
             };
         };
     };
+    get_transaction_api_v1_me_transactions__transaction_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                transaction_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransactionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     delete_transaction_api_v1_me_transactions__transaction_id__delete: {
         parameters: {
             query?: never;
@@ -3322,6 +3799,39 @@ export interface operations {
             };
         };
     };
+    get_goal_api_v1_me_savings_goals__goal_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                goal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavingsGoalResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_entries_api_v1_me_savings_goals__goal_id__entries_get: {
         parameters: {
             query?: never;
@@ -3374,6 +3884,76 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavingsGoalResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    use_goal_api_v1_me_savings_goals__goal_id__use_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                goal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UseGoalRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavingsGoalResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unuse_goal_api_v1_me_savings_goals__goal_id__use_delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                goal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3567,6 +4147,274 @@ export interface operations {
             };
             path: {
                 debt_id: string;
+                payment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_credit_cards_api_v1_me_credit_cards_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreditCardResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_credit_card_api_v1_me_credit_cards_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateCreditCardRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreditCardResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_credit_card_api_v1_me_credit_cards__card_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                card_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreditCardDetailResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_credit_card_api_v1_me_credit_cards__card_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                card_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_credit_card_purchase_api_v1_me_credit_cards__card_id__purchases_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                card_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateCreditCardPurchaseRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreditCardPurchaseResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_credit_card_purchase_api_v1_me_credit_cards__card_id__purchases__purchase_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                card_id: string;
+                purchase_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_credit_card_payment_api_v1_me_credit_cards__card_id__payments_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                card_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateCreditCardPaymentRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreditCardResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_credit_card_payment_api_v1_me_credit_cards__card_id__payments__payment_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                card_id: string;
                 payment_id: string;
             };
             cookie?: never;
@@ -3963,6 +4811,39 @@ export interface operations {
             };
         };
     };
+    member_credit_cards_api_v1_members__member_id__credit_cards_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                member_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreditCardResponse"][] | components["schemas"]["CreditCardSummaryResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     member_monthly_summary_api_v1_members__member_id__monthly_summary_get: {
         parameters: {
             query?: {
@@ -4168,6 +5049,39 @@ export interface operations {
         };
     };
     close_period_api_v1_contribution_periods__period_id__close_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                period_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PeriodResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reopen_period_api_v1_contribution_periods__period_id__reopen_post: {
         parameters: {
             query?: never;
             header?: {
@@ -4879,7 +5793,7 @@ export interface operations {
         parameters: {
             query?: {
                 member_id?: string | null;
-                status?: string | null;
+                status?: ("pending" | "done" | "skipped" | "reassigned") | null;
                 from?: string | null;
                 to?: string | null;
             };
