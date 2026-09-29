@@ -16,18 +16,34 @@ depends_on = None
 def upgrade() -> None:
     connection = op.get_bind()
 
-    # Best-effort backfill: an existing credit_card debt becomes a card whose
-    # first statement is synthesized from the debt's principal. No purchase
-    # or payment history is reconstructed — there is none to reconstruct.
+    # Best-effort backfill: an open credit_card debt becomes a card whose first
+    # statement is synthesized from what is still owed on it, and its payments
+    # move over as card payments. A paid or cancelled debt owes nothing, so it
+    # is dropped rather than resurrected as an active card.
     rows = connection.execute(
         sa.text(
-            "SELECT id, household_id, member_id, creditor_label, principal_minor, "
-            "annual_interest_rate, due_day, created_at "
+            "SELECT id, household_id, member_id, name, creditor_label, principal_minor, "
+            "annual_interest_rate, due_day, status, created_at "
             "FROM debts WHERE creditor_type = 'credit_card'"
         )
     ).fetchall()
 
     for row in rows:
+        if row.status in ("paid", "cancelled"):
+            connection.execute(
+                sa.text("DELETE FROM debt_payments WHERE debt_id = :id"), {"id": row.id}
+            )
+            connection.execute(sa.text("DELETE FROM debts WHERE id = :id"), {"id": row.id})
+            continue
+
+        paid_minor = connection.execute(
+            sa.text(
+                "SELECT COALESCE(SUM(amount_minor), 0) FROM debt_payments WHERE debt_id = :id"
+            ),
+            {"id": row.id},
+        ).scalar()
+        outstanding_minor = max(row.principal_minor - paid_minor, 0)
+
         card_id = connection.execute(sa.text("SELECT gen_random_uuid()")).scalar()
         connection.execute(
             sa.text(
@@ -42,14 +58,24 @@ def upgrade() -> None:
                 "id": card_id,
                 "hh": row.household_id,
                 "mem": row.member_id,
-                "nick": row.creditor_label,
+                "nick": row.name,
                 "bank": row.creditor_label,
                 "limit": max(row.principal_minor * 2, 1),
                 "rate": row.annual_interest_rate / 12 if row.annual_interest_rate else 0,
                 "minpct": 5,
-                "cutoff": row.due_day or 1,
+                # debts.due_day allows 29-31; ck_credit_card_cutoff_day does not.
+                "cutoff": min(row.due_day or 1, 28),
                 "created": row.created_at,
             },
+        )
+        connection.execute(
+            sa.text(
+                "INSERT INTO credit_card_payments "
+                "(id, household_id, card_id, amount_minor, paid_on, note, created_at, updated_at) "
+                "SELECT id, household_id, :card, amount_minor, paid_on, note, created_at, "
+                "updated_at FROM debt_payments WHERE debt_id = :debt"
+            ),
+            {"card": card_id, "debt": row.id},
         )
         statement_id = connection.execute(sa.text("SELECT gen_random_uuid()")).scalar()
         connection.execute(
@@ -59,15 +85,17 @@ def upgrade() -> None:
                 "opening_balance_minor, purchases_total_minor, installments_due_minor, "
                 "interest_charged_minor, payments_total_minor, closing_balance_minor, "
                 "minimum_payment_minor, payment_due_on) "
-                "VALUES (:id, :hh, :card, :start, CURRENT_DATE, 0, :principal, 0, 0, 0, "
-                ":principal, :principal, CURRENT_DATE + 15)"
+                "VALUES (:id, :hh, :card, :start, CURRENT_DATE, 0, :principal, 0, 0, :paid, "
+                ":outstanding, :outstanding, CURRENT_DATE + 15)"
             ),
             {
                 "id": statement_id,
                 "hh": row.household_id,
                 "card": card_id,
-                "start": row.created_at,
+                "start": row.created_at.date(),
                 "principal": row.principal_minor,
+                "paid": paid_minor,
+                "outstanding": outstanding_minor,
             },
         )
         connection.execute(sa.text("DELETE FROM debt_payments WHERE debt_id = :id"), {"id": row.id})
