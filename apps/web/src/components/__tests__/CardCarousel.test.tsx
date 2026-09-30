@@ -3,10 +3,7 @@ import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CardCarousel } from "../creditCards/CardCarousel";
-import { CARD_TILE_GAP, CARD_TILE_WIDTH } from "../creditCards/CardTile";
 import type { CreditCard } from "@/lib/creditCards";
-
-const STEP = CARD_TILE_WIDTH + CARD_TILE_GAP;
 
 function makeCard(id: string): CreditCard {
   return {
@@ -47,9 +44,39 @@ function Harness() {
   );
 }
 
-function scrollerTo(left: number) {
-  const scroller = screen.getByRole("group", { name: "Card a" })
+const TILE_LEFTS = [16, 328, 640];
+const TILE_WIDTH = 300;
+const VIEWPORT = 360;
+const restingLeft = (index: number) =>
+  TILE_LEFTS[index] + TILE_WIDTH / 2 - VIEWPORT / 2;
+
+function getScroller() {
+  return screen.getByRole("group", { name: "Card a" })
     .parentElement as HTMLElement;
+}
+
+function mount() {
+  const view = render(<Harness />);
+  const scroller = getScroller();
+  Object.defineProperty(scroller, "clientWidth", {
+    value: VIEWPORT,
+    configurable: true,
+  });
+  Array.from(scroller.children).forEach((tile, index) => {
+    Object.defineProperty(tile, "offsetLeft", {
+      value: TILE_LEFTS[index],
+      configurable: true,
+    });
+    Object.defineProperty(tile, "offsetWidth", {
+      value: TILE_WIDTH,
+      configurable: true,
+    });
+  });
+  return view;
+}
+
+function scrollerTo(left: number) {
+  const scroller = getScroller();
   Object.defineProperty(scroller, "scrollLeft", {
     value: left,
     configurable: true,
@@ -69,32 +96,80 @@ afterEach(() => {
 });
 
 describe("CardCarousel", () => {
-  it("ignores intermediate scroll positions while animating to a tapped tile", () => {
-    render(<Harness />);
+  it("selects a swiped-to tile without scrolling against the user", () => {
+    mount();
+    scrollerTo(restingLeft(1));
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    expect(onSelect).toHaveBeenCalledWith("b");
     expect(scrollTo).not.toHaveBeenCalled();
+  });
 
+  it("scrolls a tapped non-adjacent tile to its snap-centre position", () => {
+    mount();
     fireEvent.click(screen.getByRole("group", { name: "Card c" }));
     expect(scrollTo).toHaveBeenCalledTimes(1);
     expect(scrollTo).toHaveBeenCalledWith({
-      left: 2 * STEP,
+      left: restingLeft(2),
       behavior: "smooth",
     });
+  });
 
-    scrollerTo(STEP);
+  it("ignores intermediate scroll positions while animating to a tapped tile", () => {
+    mount();
+    fireEvent.click(screen.getByRole("group", { name: "Card c" }));
+    scrollerTo(restingLeft(1));
     expect(onSelect).toHaveBeenCalledTimes(1);
     expect(onSelect).toHaveBeenCalledWith("c");
     expect(scrollTo).toHaveBeenCalledTimes(1);
   });
 
   it("follows the user again once the programmatic scroll arrives", () => {
-    render(<Harness />);
+    mount();
     fireEvent.click(screen.getByRole("group", { name: "Card c" }));
-    scrollerTo(STEP);
-    scrollerTo(2 * STEP);
+    scrollerTo(restingLeft(1));
+    scrollerTo(restingLeft(2));
 
-    scrollerTo(STEP);
+    scrollerTo(restingLeft(1));
     expect(onSelect).toHaveBeenLastCalledWith("b");
     expect(scrollTo).toHaveBeenCalledTimes(1);
+  });
+
+  it("follows the user again after scrollend", () => {
+    mount();
+    fireEvent.click(screen.getByRole("group", { name: "Card c" }));
+    getScroller().dispatchEvent(new Event("scrollend"));
+
+    scrollerTo(restingLeft(1));
+    expect(onSelect).toHaveBeenLastCalledWith("b");
+  });
+
+  describe("lock fallback", () => {
+    beforeEach(() => vi.useFakeTimers());
+    afterEach(() => vi.useRealTimers());
+
+    it("extends the lock while scroll events keep arriving, then releases", () => {
+      mount();
+      fireEvent.click(screen.getByRole("group", { name: "Card c" }));
+
+      vi.advanceTimersByTime(400);
+      scrollerTo(restingLeft(1));
+      vi.advanceTimersByTime(400);
+      scrollerTo(restingLeft(0));
+      expect(onSelect).toHaveBeenCalledTimes(1);
+
+      vi.advanceTimersByTime(700);
+      scrollerTo(restingLeft(1));
+      expect(onSelect).toHaveBeenLastCalledWith("b");
+      expect(onSelect).toHaveBeenCalledTimes(2);
+    });
+
+    it("clears its timer on unmount", () => {
+      const { unmount } = mount();
+      fireEvent.click(screen.getByRole("group", { name: "Card c" }));
+      expect(vi.getTimerCount()).toBeGreaterThan(0);
+      unmount();
+      expect(vi.getTimerCount()).toBe(0);
+    });
   });
 
   it("bleeds by the app gutter so the page does not scroll sideways", () => {

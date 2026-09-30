@@ -137,13 +137,32 @@ export function installmentsBilled(
   return billed;
 }
 
-/** Which tile a snap-scrolling carousel is centred on. */
-export function selectedIndexFromScroll(
+export interface TileBox {
+  left: number;
+  width: number;
+}
+
+/** The scrollLeft at which a `snap-center` tile rests in the viewport. */
+export function snapCenterLeft(tile: TileBox, viewportWidth: number): number {
+  return tile.left + tile.width / 2 - viewportWidth / 2;
+}
+
+/** Which tile a snap-scrolling carousel is centred on: the one whose centre
+ *  is nearest the centre of the viewport. */
+export function nearestTileIndex(
+  tiles: TileBox[],
   scrollLeft: number,
-  itemWidth: number,
-  gap: number,
-  count: number,
+  viewportWidth: number,
 ): number {
-  const raw = Math.round(scrollLeft / (itemWidth + gap));
-  return Math.min(Math.max(raw, 0), Math.max(count - 1, 0));
+  const viewportCentre = scrollLeft + viewportWidth / 2;
+  let nearest = 0;
+  let nearestDistance = Infinity;
+  tiles.forEach((tile, index) => {
+    const distance = Math.abs(tile.left + tile.width / 2 - viewportCentre);
+    if (distance < nearestDistance) {
+      nearest = index;
+      nearestDistance = distance;
+    }
+  });
+  return nearest;
 }

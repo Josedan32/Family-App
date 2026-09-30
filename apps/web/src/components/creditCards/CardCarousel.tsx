@@ -1,14 +1,33 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
-import { selectedIndexFromScroll, type CreditCard } from "@/lib/creditCards";
+import {
+  nearestTileIndex,
+  snapCenterLeft,
+  type CreditCard,
+  type TileBox,
+} from "@/lib/creditCards";
 
-import { CARD_TILE_GAP, CARD_TILE_WIDTH, CardTile } from "./CardTile";
+import { CARD_TILE_GAP, CardTile } from "./CardTile";
 
-const STEP = CARD_TILE_WIDTH + CARD_TILE_GAP;
 const ARRIVED_PX = 2;
 const LOCK_FALLBACK_MS = 600;
+
+function tileBoxes(scroller: HTMLElement): TileBox[] {
+  return Array.from(scroller.children as HTMLCollectionOf<HTMLElement>).map(
+    (tile) => ({ left: tile.offsetLeft, width: tile.offsetWidth }),
+  );
+}
+
+/** Where a snap-centred tile rests, within what the browser can reach. */
+function restingLeft(scroller: HTMLElement, index: number): number {
+  const tile = tileBoxes(scroller)[index];
+  if (!tile) return scroller.scrollLeft;
+  const left = Math.max(snapCenterLeft(tile, scroller.clientWidth), 0);
+  const reachable = scroller.scrollWidth - scroller.clientWidth;
+  return reachable > 0 ? Math.min(left, reachable) : left;
+}
 
 export function CardCarousel({
   cards,
@@ -25,27 +44,39 @@ export function CardCarousel({
   // Where our own smooth scroll is heading. While set, scroll events are
   // the animation passing by, not the member choosing a tile.
   const programmaticLeft = useRef<number | null>(null);
+  // The selection the member just made by swiping: the tile is already
+  // where they put it, so scrolling again would fight the gesture.
+  const selectedByScroll = useRef<string | null>(null);
   const fallback = useRef<ReturnType<typeof setTimeout>>(undefined);
   const selectedIndex = Math.max(
     cards.findIndex((card) => card.id === selectedId),
     0,
   );
 
-  function releaseLock() {
+  const releaseLock = useCallback(() => {
     programmaticLeft.current = null;
     clearTimeout(fallback.current);
-  }
+  }, []);
+
+  const armFallback = useCallback(() => {
+    clearTimeout(fallback.current);
+    fallback.current = setTimeout(releaseLock, LOCK_FALLBACK_MS);
+  }, [releaseLock]);
 
   // Tapping a tile (or a filter change) brings it to the centre.
   useEffect(() => {
+    if (selectedByScroll.current === selectedId) {
+      selectedByScroll.current = null;
+      return;
+    }
     const element = scroller.current;
-    const left = selectedIndex * STEP;
-    if (!element || Math.abs(element.scrollLeft - left) <= ARRIVED_PX) return;
+    if (!element) return;
+    const left = restingLeft(element, selectedIndex);
+    if (Math.abs(element.scrollLeft - left) <= ARRIVED_PX) return;
     programmaticLeft.current = left;
-    clearTimeout(fallback.current);
-    fallback.current = setTimeout(releaseLock, LOCK_FALLBACK_MS);
+    armFallback();
     element.scrollTo?.({ left, behavior: "smooth" });
-  }, [selectedIndex]);
+  }, [selectedId, selectedIndex, armFallback]);
 
   useEffect(() => {
     const element = scroller.current;
@@ -54,27 +85,35 @@ export function CardCarousel({
       element?.removeEventListener("scrollend", releaseLock);
       clearTimeout(fallback.current);
     };
-  }, []);
+  }, [releaseLock]);
 
   return (
     <div className="flex flex-col gap-3.5">
       <div
         ref={scroller}
         onScroll={(event) => {
-          const { scrollLeft } = event.currentTarget;
+          const element = event.currentTarget;
           if (programmaticLeft.current !== null) {
-            if (Math.abs(scrollLeft - programmaticLeft.current) <= ARRIVED_PX)
+            if (
+              Math.abs(element.scrollLeft - programmaticLeft.current) <=
+              ARRIVED_PX
+            )
               releaseLock();
+            else armFallback();
             return;
           }
-          const index = selectedIndexFromScroll(
-            scrollLeft,
-            CARD_TILE_WIDTH,
-            CARD_TILE_GAP,
-            cards.length,
-          );
-          if (cards[index] && cards[index].id !== selectedId)
-            onSelect(cards[index].id);
+          const card =
+            cards[
+              nearestTileIndex(
+                tileBoxes(element),
+                element.scrollLeft,
+                element.clientWidth,
+              )
+            ];
+          if (card && card.id !== selectedId) {
+            selectedByScroll.current = card.id;
+            onSelect(card.id);
+          }
         }}
         style={{ gap: CARD_TILE_GAP }}
         className="relative -mx-4 flex snap-x snap-mandatory overflow-x-auto px-4 md:-mx-6 md:px-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"

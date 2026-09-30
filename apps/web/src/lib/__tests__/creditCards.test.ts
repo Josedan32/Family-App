@@ -7,7 +7,8 @@ import {
   filterCards,
   installmentsBilled,
   isBilled,
-  selectedIndexFromScroll,
+  nearestTileIndex,
+  snapCenterLeft,
   type CreditCard,
   type CreditCardPurchase,
   type CreditCardStatement,
@@ -152,20 +153,37 @@ describe("installmentsBilled", () => {
   });
 });
 
-describe("selectedIndexFromScroll", () => {
-  it("rounds to the nearest snapped tile", () => {
-    expect(selectedIndexFromScroll(0, 300, 12, 3)).toBe(0);
-    expect(selectedIndexFromScroll(300, 300, 12, 3)).toBe(1);
-    expect(selectedIndexFromScroll(620, 300, 12, 3)).toBe(2);
+describe("snapCenterLeft", () => {
+  it("is the scrollLeft that centres a tile in the viewport", () => {
+    expect(snapCenterLeft({ left: 16, width: 300 }, 360)).toBe(-14);
+    expect(snapCenterLeft({ left: 328, width: 300 }, 360)).toBe(298);
+  });
+});
+
+describe("nearestTileIndex", () => {
+  const tiles = [
+    { left: 16, width: 300 },
+    { left: 328, width: 300 },
+    { left: 640, width: 300 },
+  ];
+
+  it("picks the tile whose centre is nearest the viewport centre", () => {
+    expect(nearestTileIndex(tiles, 0, 360)).toBe(0);
+    expect(nearestTileIndex(tiles, 298, 360)).toBe(1);
+    expect(nearestTileIndex(tiles, 620, 360)).toBe(2);
+  });
+
+  it("switches at the midpoint between two centres", () => {
+    expect(nearestTileIndex(tiles, 130, 360)).toBe(0);
+    expect(nearestTileIndex(tiles, 150, 360)).toBe(1);
   });
 
   it("never leaves the list", () => {
-    expect(selectedIndexFromScroll(5000, 300, 12, 3)).toBe(2);
-    expect(selectedIndexFromScroll(-40, 300, 12, 3)).toBe(0);
+    expect(nearestTileIndex(tiles, 5000, 360)).toBe(2);
+    expect(nearestTileIndex(tiles, -400, 360)).toBe(0);
   });
 
   it("stays at zero for an empty list", () => {
-    expect(selectedIndexFromScroll(0, 300, 12, 0)).toBe(0);
-    expect(selectedIndexFromScroll(600, 300, 12, 0)).toBe(0);
+    expect(nearestTileIndex([], 600, 360)).toBe(0);
   });
 });
