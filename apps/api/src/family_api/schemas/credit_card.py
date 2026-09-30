@@ -91,6 +91,7 @@ class CreditCardResponse(BaseModel):
     currency: str
     outstanding_minor: int
     current_cycle_balance_minor: int
+    credit_used_ratio: float
     latest_statement: CreditCardStatementResponse | None
 
 

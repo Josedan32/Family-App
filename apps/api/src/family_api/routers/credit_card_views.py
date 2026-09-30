@@ -41,5 +41,10 @@ def credit_card_response(
         payment_due_days=card.payment_due_days, status=card.status, currency=currency,
         outstanding_minor=outstanding_minor,
         current_cycle_balance_minor=current_cycle_balance_minor,
+        credit_used_ratio=(
+            (outstanding_minor + current_cycle_balance_minor) / card.credit_limit_minor
+            if card.credit_limit_minor
+            else 0.0
+        ),
         latest_statement=statement_response(latest_statement) if latest_statement else None,
     )

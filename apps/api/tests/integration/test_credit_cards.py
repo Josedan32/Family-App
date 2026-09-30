@@ -172,3 +172,23 @@ async def test_a_purchase_rejects_an_income_category(client: AsyncClient) -> Non
     salario = await _category_id(client, headers, "income", "Salario")
 
     assert await _purchase_with_category(client, headers, card_id, salario) == 422
+
+
+@pytest.mark.asyncio
+async def test_card_reports_the_share_of_the_limit_in_use(client: AsyncClient) -> None:
+    headers = await _member(client)
+    created = await client.post("/api/v1/me/credit-cards", json=CARD, headers=headers)
+    card_id = created.json()["id"]
+    assert created.json()["credit_used_ratio"] == 0
+
+    await client.post(
+        f"/api/v1/me/credit-cards/{card_id}/purchases",
+        json={
+            "description": "Mercado",
+            "amount_minor": 500_000,
+            "purchased_on": date.today().isoformat(),
+        },
+        headers=headers,
+    )
+    fetched = await client.get(f"/api/v1/me/credit-cards/{card_id}", headers=headers)
+    assert fetched.json()["credit_used_ratio"] == pytest.approx(0.1)
