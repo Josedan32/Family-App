@@ -1,5 +1,5 @@
-import { render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 
 import { CardTile } from "../creditCards/CardTile";
 import { OpenCycleBox, OutstandingBox } from "../creditCards/BalanceBoxes";
@@ -89,6 +89,33 @@ describe("CardTile", () => {
   it("marks a cancelled card", () => {
     render(<CardTile card={{ ...card, status: "cancelled", outstanding_minor: 0 }} today="2026-09-30" />);
     expect(screen.getByText(/Cancelada/)).toBeInTheDocument();
+  });
+});
+
+describe("CardTile selection", () => {
+  it("is focusable only when it can be selected", () => {
+    const { rerender } = render(<CardTile card={card} today="2026-09-30" onSelect={() => {}} />);
+    expect(screen.getByRole("group", { name: "Visa del día a día" })).toHaveAttribute("tabindex", "0");
+    rerender(<CardTile card={card} today="2026-09-30" />);
+    expect(screen.getByRole("group", { name: "Visa del día a día" })).not.toHaveAttribute("tabindex");
+  });
+
+  it("selects on click, Enter and Space", () => {
+    const onSelect = vi.fn();
+    render(<CardTile card={card} today="2026-09-30" onSelect={onSelect} />);
+    const tile = screen.getByRole("group", { name: "Visa del día a día" });
+    fireEvent.click(tile);
+    fireEvent.keyDown(tile, { key: "Enter" });
+    fireEvent.keyDown(tile, { key: " " });
+    fireEvent.keyDown(tile, { key: "a" });
+    expect(onSelect).toHaveBeenCalledTimes(3);
+  });
+
+  it("marks the selected tile with aria-current only", () => {
+    const { rerender } = render(<CardTile card={card} today="2026-09-30" selected />);
+    expect(screen.getByRole("group")).toHaveAttribute("aria-current", "true");
+    rerender(<CardTile card={card} today="2026-09-30" />);
+    expect(screen.getByRole("group")).not.toHaveAttribute("aria-current");
   });
 });
 

@@ -18,10 +18,12 @@ export function dueLine(card: CreditCard, today: string): string | null {
 export function CardTile({
   card,
   today,
+  selected,
   onSelect,
 }: {
   card: CreditCard;
   today: string;
+  selected?: boolean;
   onSelect?: () => void;
 }) {
   const standing = cardStanding(card, today);
@@ -34,8 +36,23 @@ export function CardTile({
     <div
       role="group"
       aria-label={card.nickname}
+      aria-current={selected ? "true" : undefined}
+      tabIndex={onSelect ? 0 : undefined}
       onClick={onSelect}
+      onKeyDown={
+        onSelect
+          ? (event) => {
+              if (event.target !== event.currentTarget) return;
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onSelect();
+              }
+            }
+          : undefined
+      }
       className={`flex min-h-[184px] w-[300px] flex-none snap-center flex-col gap-2.5 rounded-2xl border border-border border-l-4 p-3.5 pl-4 ${
+        selected ? "ring-2 ring-brand " : ""
+      }${
         cancelled ? "border-dashed text-text-muted" : ""
       }`}
       style={{ backgroundColor: look.tint, borderLeftColor: look.edge }}

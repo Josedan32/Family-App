@@ -3,7 +3,11 @@ import { IconLock } from "@/components/ui/Icons";
 import { daysBetween, formatDateRange, formatDayMonthYear } from "@/lib/dates";
 import type { CreditCardStatement } from "@/lib/creditCards";
 
-const LINES: { sign: string; label: string; key: keyof CreditCardStatement }[] = [
+type AmountKey = {
+  [K in keyof CreditCardStatement]: CreditCardStatement[K] extends number ? K : never;
+}[keyof CreditCardStatement];
+
+const LINES: { sign: string; label: string; key: AmountKey }[] = [
   { sign: "", label: "Saldo anterior", key: "opening_balance_minor" },
   { sign: "+", label: "Compras", key: "purchases_total_minor" },
   { sign: "+", label: "Cuotas del mes", key: "installments_due_minor" },
@@ -48,7 +52,7 @@ export function StatementSummary({
             <span className="text-text-muted">{sign}</span>
             <dt className="text-text-muted">{label}</dt>
             <dd>
-              <MoneyDisplay amountMinor={statement[key] as number} currency={currency} />
+              <MoneyDisplay amountMinor={statement[key]} currency={currency} />
             </dd>
           </div>
         ))}
