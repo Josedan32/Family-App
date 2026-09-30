@@ -8,6 +8,7 @@ vi.mock("@/lib/api/client", () => ({
 }));
 
 import { CardForm } from "../creditCards/CardForm";
+import { PaymentForm } from "../creditCards/PaymentForm";
 import { PurchaseForm } from "../creditCards/PurchaseForm";
 import type { CreditCard } from "@/lib/creditCards";
 
@@ -170,5 +171,49 @@ describe("PurchaseForm", () => {
       installment_amount_minor: 180_000,
     });
     expect(body.first_installment_on).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+});
+
+describe("PaymentForm", () => {
+  it("offers the statement's two figures as shortcuts, taken from the API", () => {
+    wrap(<PaymentForm card={card} onDone={() => {}} />);
+    const minimum = screen.getByRole("radio", { name: /Pago mínimo/ });
+    const full = screen.getByRole("radio", { name: /Saldo pendiente/ });
+    expect(minimum).toHaveTextContent("184.230");
+    expect(full).toHaveTextContent("1.842.300");
+    expect(full).toHaveAttribute("aria-checked", "true");
+  });
+
+  it("posts the chosen shortcut's exact minor-unit amount", async () => {
+    clientFetch.mockResolvedValue({});
+    const done = vi.fn();
+    wrap(<PaymentForm card={card} onDone={done} />);
+    fireEvent.click(screen.getByRole("radio", { name: /Pago mínimo/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Registrar pago" }));
+    await waitFor(() => expect(done).toHaveBeenCalled());
+    const [path, init] = clientFetch.mock.calls[0];
+    expect(path).toBe("/me/credit-cards/c1/payments");
+    expect(JSON.parse(init.body)).toMatchObject({ amount_minor: 184_230, note: null });
+  });
+
+  it("clears the amount for another value and keeps submit disabled at zero", () => {
+    wrap(<PaymentForm card={card} onDone={() => {}} />);
+    fireEvent.click(screen.getByRole("radio", { name: /Otro valor/ }));
+    expect(screen.getByLabelText("Monto")).toHaveValue("");
+    expect(screen.getByRole("button", { name: "Registrar pago" })).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("Monto"), { target: { value: "90.000" } });
+    expect(screen.getByRole("button", { name: "Registrar pago" })).toBeEnabled();
+  });
+
+  it("works for a card with no statement: only a free amount", () => {
+    wrap(
+      <PaymentForm
+        card={{ ...card, latest_statement: null, outstanding_minor: 0 }}
+        onDone={() => {}}
+      />,
+    );
+    expect(screen.queryByRole("radio", { name: /Pago mínimo/ })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Monto")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Registrar pago" })).toBeDisabled();
   });
 });
