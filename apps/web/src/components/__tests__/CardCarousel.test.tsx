@@ -96,4 +96,15 @@ describe("CardCarousel", () => {
     expect(onSelect).toHaveBeenLastCalledWith("b");
     expect(scrollTo).toHaveBeenCalledTimes(1);
   });
+
+  it("bleeds by the app gutter so the page does not scroll sideways", () => {
+    render(<Harness />);
+    const scroller = screen.getByRole("group", { name: "Card a" })
+      .parentElement as HTMLElement;
+    const classes = scroller.className.split(" ");
+    expect(classes).toEqual(
+      expect.arrayContaining(["-mx-4", "px-4", "md:-mx-6", "md:px-6"]),
+    );
+    expect(classes).not.toContain("-mx-5");
+  });
 });

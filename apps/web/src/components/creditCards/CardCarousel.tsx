@@ -77,7 +77,7 @@ export function CardCarousel({
             onSelect(cards[index].id);
         }}
         style={{ gap: CARD_TILE_GAP }}
-        className="-mx-5 flex snap-x snap-mandatory overflow-x-auto px-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="relative -mx-4 flex snap-x snap-mandatory overflow-x-auto px-4 md:-mx-6 md:px-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {cards.map((card) => (
           <CardTile
