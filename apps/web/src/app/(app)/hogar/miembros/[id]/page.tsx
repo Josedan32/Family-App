@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { InstallmentLine } from "@/components/finance/InstallmentLine";
 import { MoneyDisplay } from "@/components/finance/MoneyDisplay";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -329,6 +331,14 @@ export default async function MemberProfilePage({
           );
         }}
       />
+
+      <Link
+        href={`/hogar/miembros/${id}/tarjetas`}
+        className="flex items-center justify-between rounded-2xl border border-border bg-surface px-4 py-3.5 text-[0.9375rem] font-medium active:bg-surface-sunken"
+      >
+        Tarjetas de crédito
+        <span aria-hidden="true" className="text-text-muted">›</span>
+      </Link>
 
       {contribution ? (
         <div className="flex items-baseline justify-between gap-3 rounded-2xl border border-border bg-surface-sunken px-4 py-3.5">
