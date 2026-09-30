@@ -166,3 +166,8 @@ export function nearestTileIndex(
   });
   return nearest;
 }
+
+/** Whole percent of the limit in use, kept inside the bar: 0 to 100. */
+export function usedLimitPercent(ratio: number): number {
+  return Math.min(Math.max(Math.round(ratio * 100), 0), 100);
+}

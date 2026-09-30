@@ -9,6 +9,7 @@ import {
   isBilled,
   nearestTileIndex,
   snapCenterLeft,
+  usedLimitPercent,
   type CreditCard,
   type CreditCardPurchase,
   type CreditCardStatement,
@@ -185,5 +186,16 @@ describe("nearestTileIndex", () => {
 
   it("stays at zero for an empty list", () => {
     expect(nearestTileIndex([], 600, 360)).toBe(0);
+  });
+});
+
+describe("usedLimitPercent", () => {
+  it("rounds the ratio to a whole percent", () => {
+    expect(usedLimitPercent(0.314)).toBe(31);
+  });
+
+  it("clamps to 0..100", () => {
+    expect(usedLimitPercent(-0.2)).toBe(0);
+    expect(usedLimitPercent(1.4)).toBe(100);
   });
 });

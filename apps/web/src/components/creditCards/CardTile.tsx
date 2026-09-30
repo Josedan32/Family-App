@@ -3,6 +3,7 @@ import { daysBetween, formatDayMonth } from "@/lib/dates";
 import {
   cardStanding,
   cardStandingLook,
+  usedLimitPercent,
   type CreditCard,
 } from "@/lib/creditCards";
 
@@ -36,7 +37,7 @@ export function CardTile({
 }) {
   const standing = cardStanding(card, today);
   const look = cardStandingLook(standing);
-  const percent = Math.min(Math.round(card.credit_used_ratio * 100), 100);
+  const percent = usedLimitPercent(card.credit_used_ratio);
   const line = dueLine(card, today);
   const cancelled = standing === "cancelled";
 

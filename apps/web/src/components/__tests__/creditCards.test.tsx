@@ -64,6 +64,13 @@ describe("CardTile", () => {
     );
   });
 
+  it("floors the bar at 0 when the ratio is negative", () => {
+    render(<CardTile card={{ ...card, credit_used_ratio: -0.2 }} today="2026-09-30" />);
+    const bar = screen.getByRole("progressbar", { name: /Cupo usado/ });
+    expect(bar).toHaveAttribute("aria-valuenow", "0");
+    expect(bar.firstElementChild).toHaveStyle({ width: "0%" });
+  });
+
   it("says when the limit date has passed", () => {
     render(<CardTile card={card} today="2026-10-12" />);
     expect(screen.getByText(/En mora/)).toBeInTheDocument();
