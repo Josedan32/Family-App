@@ -4,10 +4,11 @@ import { useEffect, useRef } from "react";
 
 import { selectedIndexFromScroll, type CreditCard } from "@/lib/creditCards";
 
-import { CardTile } from "./CardTile";
+import { CARD_TILE_GAP, CARD_TILE_WIDTH, CardTile } from "./CardTile";
 
-const TILE_WIDTH = 300;
-const GAP = 12;
+const STEP = CARD_TILE_WIDTH + CARD_TILE_GAP;
+const ARRIVED_PX = 2;
+const LOCK_FALLBACK_MS = 600;
 
 export function CardCarousel({
   cards,
@@ -21,34 +22,62 @@ export function CardCarousel({
   onSelect: (id: string) => void;
 }) {
   const scroller = useRef<HTMLDivElement>(null);
+  // Where our own smooth scroll is heading. While set, scroll events are
+  // the animation passing by, not the member choosing a tile.
+  const programmaticLeft = useRef<number | null>(null);
+  const fallback = useRef<ReturnType<typeof setTimeout>>(undefined);
   const selectedIndex = Math.max(
     cards.findIndex((card) => card.id === selectedId),
     0,
   );
 
+  function releaseLock() {
+    programmaticLeft.current = null;
+    clearTimeout(fallback.current);
+  }
+
   // Tapping a tile (or a filter change) brings it to the centre.
   useEffect(() => {
-    scroller.current?.scrollTo?.({
-      left: selectedIndex * (TILE_WIDTH + GAP),
-      behavior: "smooth",
-    });
+    const element = scroller.current;
+    const left = selectedIndex * STEP;
+    if (!element || Math.abs(element.scrollLeft - left) <= ARRIVED_PX) return;
+    programmaticLeft.current = left;
+    clearTimeout(fallback.current);
+    fallback.current = setTimeout(releaseLock, LOCK_FALLBACK_MS);
+    element.scrollTo?.({ left, behavior: "smooth" });
   }, [selectedIndex]);
+
+  useEffect(() => {
+    const element = scroller.current;
+    element?.addEventListener("scrollend", releaseLock);
+    return () => {
+      element?.removeEventListener("scrollend", releaseLock);
+      clearTimeout(fallback.current);
+    };
+  }, []);
 
   return (
     <div className="flex flex-col gap-3.5">
       <div
         ref={scroller}
         onScroll={(event) => {
+          const { scrollLeft } = event.currentTarget;
+          if (programmaticLeft.current !== null) {
+            if (Math.abs(scrollLeft - programmaticLeft.current) <= ARRIVED_PX)
+              releaseLock();
+            return;
+          }
           const index = selectedIndexFromScroll(
-            event.currentTarget.scrollLeft,
-            TILE_WIDTH,
-            GAP,
+            scrollLeft,
+            CARD_TILE_WIDTH,
+            CARD_TILE_GAP,
             cards.length,
           );
           if (cards[index] && cards[index].id !== selectedId)
             onSelect(cards[index].id);
         }}
-        className="-mx-5 flex snap-x snap-mandatory gap-3 overflow-x-auto px-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        style={{ gap: CARD_TILE_GAP }}
+        className="-mx-5 flex snap-x snap-mandatory overflow-x-auto px-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {cards.map((card) => (
           <CardTile

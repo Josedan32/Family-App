@@ -1,6 +1,14 @@
 import { MoneyDisplay } from "@/components/finance/MoneyDisplay";
 import { daysBetween, formatDayMonth } from "@/lib/dates";
-import { cardStanding, cardStandingLook, type CreditCard } from "@/lib/creditCards";
+import {
+  cardStanding,
+  cardStandingLook,
+  type CreditCard,
+} from "@/lib/creditCards";
+
+/** Shared with the carousel, which snaps and scrolls by these. */
+export const CARD_TILE_WIDTH = 300;
+export const CARD_TILE_GAP = 12;
 
 export function dueLine(card: CreditCard, today: string): string | null {
   const statement = card.latest_statement;
@@ -50,17 +58,21 @@ export function CardTile({
             }
           : undefined
       }
-      className={`flex min-h-[184px] w-[300px] flex-none snap-center flex-col gap-2.5 rounded-2xl border border-border border-l-4 p-3.5 pl-4 ${
+      className={`flex min-h-[184px] flex-none snap-center flex-col gap-2.5 rounded-2xl border border-border border-l-4 p-3.5 pl-4 ${
         selected ? "ring-2 ring-brand " : ""
-      }${
-        cancelled ? "border-dashed text-text-muted" : ""
-      }`}
-      style={{ backgroundColor: look.tint, borderLeftColor: look.edge }}
+      }${cancelled ? "border-dashed text-text-muted" : ""}`}
+      style={{
+        width: CARD_TILE_WIDTH,
+        backgroundColor: look.tint,
+        borderLeftColor: look.edge,
+      }}
     >
       <div className="flex items-start gap-2">
         <div className="flex min-w-0 flex-1 flex-col">
           <span className="truncate font-bold">{card.nickname}</span>
-          <span className="truncate text-[0.8125rem] text-text-muted">{card.bank_label}</span>
+          <span className="truncate text-[0.8125rem] text-text-muted">
+            {card.bank_label}
+          </span>
         </div>
         <span
           className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full border bg-surface px-2 py-0.5 text-[0.6875rem] font-bold ${look.pill}`}
@@ -81,8 +93,12 @@ export function CardTile({
         />
         {!cancelled && card.current_cycle_balance_minor > 0 ? (
           <span className="text-[0.8125rem] text-text-muted">
-            + <MoneyDisplay amountMinor={card.current_cycle_balance_minor} currency={card.currency} /> en el
-            ciclo abierto
+            +{" "}
+            <MoneyDisplay
+              amountMinor={card.current_cycle_balance_minor}
+              currency={card.currency}
+            />{" "}
+            en el ciclo abierto
           </span>
         ) : null}
       </div>
@@ -96,11 +112,18 @@ export function CardTile({
           aria-valuemax={100}
           className="h-1.5 overflow-hidden rounded-full bg-border"
         >
-          <div className="h-full rounded-full" style={{ width: `${percent}%`, backgroundColor: look.edge }} />
+          <div
+            className="h-full rounded-full"
+            style={{ width: `${percent}%`, backgroundColor: look.edge }}
+          />
         </div>
       ) : null}
 
-      {line ? <span className={`text-[0.8125rem] font-semibold ${look.text}`}>{line}</span> : null}
+      {line ? (
+        <span className={`text-[0.8125rem] font-semibold ${look.text}`}>
+          {line}
+        </span>
+      ) : null}
     </div>
   );
 }
