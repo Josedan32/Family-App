@@ -22,6 +22,7 @@ import {
   cardStanding,
   cardStandingLook,
   type CreditCardDetail,
+  type CreditCardStatement,
 } from "@/lib/creditCards";
 import { formatDayMonthYear, todayLocal } from "@/lib/dates";
 import { formatMoney } from "@/lib/money";
@@ -37,6 +38,7 @@ type TabId = (typeof TABS)[number]["id"];
 type Billed = {
   kind: "purchase" | "payment";
   entry: { title: string; detail: string; amountMinor: number };
+  statement: CreditCardStatement;
 };
 
 export function CardDetailPage({ id }: { id: string }) {
@@ -56,6 +58,26 @@ export function CardDetailPage({ id }: { id: string }) {
     await queryClient.invalidateQueries({ queryKey: ["credit-cards"] });
   };
 
+  // A 409 means this page's card is stale: a statement closed over the entry
+  // after it loaded. Refetch, then show the statement that really holds it.
+  const explainBilled = async (
+    kind: Billed["kind"],
+    entry: Billed["entry"],
+    entryDate: string,
+  ) => {
+    await invalidate();
+    const fresh = queryClient.getQueryData<CreditCardDetail>(["credit-card", id]);
+    const statement = fresh?.statements.find(
+      (s) => s.cycle_starts_on <= entryDate && entryDate <= s.cycle_ends_on,
+    );
+    if (statement) setBilled({ kind, entry, statement });
+    else
+      pushToast({
+        message: "No se pudo borrar: el movimiento ya está en un extracto cerrado",
+        type: "warning",
+      });
+  };
+
   const removePurchase = useMutation({
     mutationFn: (purchaseId: string) =>
       clientFetch(
@@ -70,14 +92,15 @@ export function CardDetailPage({ id }: { id: string }) {
     onError: (error, purchaseId) => {
       const purchase = card.data?.purchases.find((p) => p.id === purchaseId);
       if (purchase && error instanceof ApiError && error.type === "purchase_already_billed") {
-        setBilled({
-          kind: "purchase",
-          entry: {
+        void explainBilled(
+          "purchase",
+          {
             title: purchase.description,
             detail: formatDayMonthYear(purchase.purchased_on),
             amountMinor: purchase.amount_minor,
           },
-        });
+          purchase.purchased_on,
+        );
       }
     },
   });
@@ -96,14 +119,15 @@ export function CardDetailPage({ id }: { id: string }) {
     onError: (error, paymentId) => {
       const payment = card.data?.payments.find((p) => p.id === paymentId);
       if (payment && error instanceof ApiError && error.type === "payment_already_billed") {
-        setBilled({
-          kind: "payment",
-          entry: {
+        void explainBilled(
+          "payment",
+          {
             title: "Pago",
             detail: formatDayMonthYear(payment.paid_on),
             amountMinor: payment.amount_minor,
           },
-        });
+          payment.paid_on,
+        );
       }
     },
   });
@@ -190,12 +214,12 @@ export function CardDetailPage({ id }: { id: string }) {
         </Sheet>
       ) : null}
 
-      {billed && data.latest_statement ? (
+      {billed ? (
         <BilledSheet
           open
           kind={billed.kind}
           entry={billed.entry}
-          statement={data.latest_statement}
+          statement={billed.statement}
           currency={data.currency}
           onClose={() => setBilled(null)}
           onViewStatement={() => {

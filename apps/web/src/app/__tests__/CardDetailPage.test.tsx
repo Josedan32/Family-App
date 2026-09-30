@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -16,6 +16,7 @@ vi.mock("@/lib/api/client", () => ({
 import { CardDetailPage } from "@/app/(app)/finanzas/tarjetas/CardDetailPage";
 import { ApiError } from "@/lib/api/errors";
 import type { CreditCardDetail, CreditCardStatement } from "@/lib/creditCards";
+import { subscribeToast, type ToastEvent } from "@/lib/toast";
 
 const statementSep: CreditCardStatement = {
   id: "s-sep",
@@ -39,6 +40,16 @@ const statementAug: CreditCardStatement = {
   closing_balance_minor: 1_120_000,
   minimum_payment_minor: 112_000,
   payment_due_on: "2026-09-01",
+};
+
+const statementOct: CreditCardStatement = {
+  ...statementSep,
+  id: "s-oct",
+  cycle_starts_on: "2026-09-16",
+  cycle_ends_on: "2026-10-15",
+  closing_balance_minor: 300_000,
+  minimum_payment_minor: 50_000,
+  payment_due_on: "2099-11-02",
 };
 
 const detail: CreditCardDetail = {
@@ -78,12 +89,29 @@ function respondWith(card: unknown, overrides?: (path: string, init?: RequestIni
   });
 }
 
-function rejectDeleteWith(type: string) {
-  return (_path: string, init?: RequestInit) =>
-    init?.method === "DELETE"
-      ? Promise.reject(new ApiError({ type, title: "x", status: 409 }))
-      : undefined;
+/** Serves `before` until a DELETE answers 409, then `after`: a statement
+ *  closed over the entry while the page was open. */
+function respondStale(
+  before: CreditCardDetail,
+  after: CreditCardDetail,
+  type: string,
+) {
+  let deleted = false;
+  clientFetch.mockImplementation((path: string, init?: RequestInit) => {
+    if (init?.method === "DELETE") {
+      deleted = true;
+      return Promise.reject(new ApiError({ type, title: "x", status: 409 }));
+    }
+    if (path.startsWith("/categories")) return Promise.resolve([]);
+    return Promise.resolve(deleted ? after : before);
+  });
 }
+
+const withOctStatement: CreditCardDetail = {
+  ...detail,
+  latest_statement: statementOct,
+  statements: [statementAug, statementSep, statementOct],
+};
 
 function Wrapped({ children }: { children: ReactNode }) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -141,13 +169,12 @@ describe("CardDetailPage", () => {
     expect(text.indexOf("16 ago – 15 sep 2026")).toBeLessThan(text.indexOf("16 jul – 15 ago 2026"));
   });
 
-  it("opens the billed sheet, and no toast, when the API answers 409", async () => {
-    respondWith(detail, rejectDeleteWith("purchase_already_billed"));
+  it("opens the billed sheet on the refetched statement that holds the entry", async () => {
+    respondStale(detail, withOctStatement, "purchase_already_billed");
     render(<Wrapped><CardDetailPage id="c1" /></Wrapped>);
     fireEvent.click(await screen.findByRole("button", { name: "Borrar compra Almacenes Éxito" }));
-    expect(
-      await screen.findByRole("alertdialog", { name: /ya está en un extracto cerrado/ }),
-    ).toBeInTheDocument();
+    const dialog = await screen.findByRole("alertdialog", { name: /ya está en un extracto cerrado/ });
+    expect(dialog.textContent).toContain("16 sep – 15 oct 2026");
     expect(clientFetch).toHaveBeenCalledWith(
       expect.stringContaining("/purchases/p-open"),
       expect.objectContaining({ method: "DELETE" }),
@@ -155,12 +182,36 @@ describe("CardDetailPage", () => {
     );
   });
 
+  it("opens the billed sheet when the cached card had no statement yet", async () => {
+    const cached = { ...detail, latest_statement: null, statements: [], outstanding_minor: 0 };
+    respondStale(cached, withOctStatement, "purchase_already_billed");
+    render(<Wrapped><CardDetailPage id="c1" /></Wrapped>);
+    fireEvent.click(await screen.findByRole("button", { name: "Borrar compra Almacenes Éxito" }));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(dialog.textContent).toContain("16 sep – 15 oct 2026");
+  });
+
+  it("warns instead of staying silent when no refetched statement holds the entry", async () => {
+    const toasts: ToastEvent[] = [];
+    const unsubscribe = subscribeToast((toast) => toasts.push(toast));
+    respondStale(detail, detail, "purchase_already_billed");
+    render(<Wrapped><CardDetailPage id="c1" /></Wrapped>);
+    fireEvent.click(await screen.findByRole("button", { name: "Borrar compra Almacenes Éxito" }));
+    await waitFor(() => expect(toasts).toHaveLength(1));
+    unsubscribe();
+    expect(toasts[0]).toMatchObject({
+      type: "warning",
+      message: "No se pudo borrar: el movimiento ya está en un extracto cerrado",
+    });
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  });
+
   it("uses the payment wording when a payment delete answers 409", async () => {
     const withOpenPayment = {
       ...detail,
       payments: [{ id: "pay-open", amount_minor: 90_000, paid_on: "2026-09-20", note: null }],
     };
-    respondWith(withOpenPayment, rejectDeleteWith("payment_already_billed"));
+    respondStale(withOpenPayment, { ...withOctStatement, payments: withOpenPayment.payments }, "payment_already_billed");
     render(<Wrapped><CardDetailPage id="c1" /></Wrapped>);
     await screen.findByText("Colchón Spring");
     fireEvent.click(screen.getByRole("tab", { name: "Pagos" }));
@@ -176,7 +227,7 @@ describe("CardDetailPage", () => {
   });
 
   it("switches to statements from the billed sheet and closes it", async () => {
-    respondWith(detail, rejectDeleteWith("purchase_already_billed"));
+    respondStale(detail, withOctStatement, "purchase_already_billed");
     render(<Wrapped><CardDetailPage id="c1" /></Wrapped>);
     fireEvent.click(await screen.findByRole("button", { name: "Borrar compra Almacenes Éxito" }));
     const dialog = await screen.findByRole("alertdialog");
