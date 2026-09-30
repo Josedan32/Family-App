@@ -223,6 +223,16 @@ describe("PurchaseForm", () => {
     expect(screen.getByRole("button", { name: "Registrar compra" })).toBeDisabled();
   });
 
+  it("names the cutoff of the cycle holding an edited first installment date", () => {
+    answerCategories();
+    wrap(<PurchaseForm card={card} onDone={() => {}} />);
+    fillInstallments("6");
+    fireEvent.change(screen.getByLabelText("Primera cuota"), { target: { value: "2026-10-20" } });
+    expect(screen.getByText(/desde el extracto que cierra el 15 nov\./)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Primera cuota"), { target: { value: "2026-10-15" } });
+    expect(screen.getByText(/desde el extracto que cierra el 15 oct\./)).toBeInTheDocument();
+  });
+
   it("posts a single-payment purchase without installment fields", async () => {
     answerCategories();
     const done = vi.fn();

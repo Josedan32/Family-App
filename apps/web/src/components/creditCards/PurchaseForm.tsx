@@ -216,7 +216,7 @@ export function PurchaseForm({ card, onDone }: { card: CreditCard; onDone: () =>
           {planComplete ? (
             <span className="text-xs text-text-muted">
               {total} cuotas de {formatMoney(installmentAmount, card.currency)}, desde el extracto
-              que cierra el {formatDayMonth(first)}.
+              que cierra el {formatDayMonth(nextCutoffOn(card.statement_cutoff_day, first))}.
             </span>
           ) : null}
         </div>
