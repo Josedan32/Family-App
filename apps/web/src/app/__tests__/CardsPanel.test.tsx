@@ -1,5 +1,13 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { VIEW_MODE_STORAGE_KEY } from "@/lib/viewMode";
@@ -48,15 +56,15 @@ const base: CreditCard = {
 };
 
 function renderPanel() {
-  return render(
-    <QueryClientProvider
-      client={
-        new QueryClient({ defaultOptions: { queries: { retry: false } } })
-      }
-    >
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  render(
+    <QueryClientProvider client={client}>
       <CardsPanel />
     </QueryClientProvider>,
   );
+  return client;
 }
 
 afterEach(() => {
@@ -177,6 +185,74 @@ describe("CardsPanel", () => {
     fireEvent.click(screen.getByRole("radio", { name: /Canceladas/ }));
     expect(
       await screen.findByText("Ninguna tarjeta coincide con el filtro."),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps an open sheet on the card it was opened for", async () => {
+    const second: CreditCard = {
+      ...base,
+      id: "c2",
+      nickname: "Mastercard Mercado",
+    };
+    clientFetch.mockResolvedValue([base, second]);
+    renderPanel();
+    await screen.findByRole("group", { name: "Visa del día a día" });
+    fireEvent.click(screen.getByRole("button", { name: "Registrar pago" }));
+
+    fireEvent.click(screen.getByRole("group", { name: "Mastercard Mercado" }));
+    clientFetch.mockImplementation(async (path: string) =>
+      path.endsWith("/payments") ? {} : [base, second],
+    );
+    const dialog = screen.getByRole("dialog", { name: "Registrar pago" });
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Registrar pago" }),
+    );
+
+    await waitFor(() =>
+      expect(clientFetch).toHaveBeenCalledWith(
+        "/me/credit-cards/c1/payments",
+        expect.objectContaining({ method: "POST" }),
+      ),
+    );
+  });
+
+  it("closes the sheet when its card disappears after a refetch", async () => {
+    const second: CreditCard = {
+      ...base,
+      id: "c2",
+      nickname: "Mastercard Mercado",
+    };
+    clientFetch.mockResolvedValue([base, second]);
+    const client = renderPanel();
+    await screen.findByRole("group", { name: "Visa del día a día" });
+    fireEvent.click(screen.getByRole("button", { name: "Registrar compra" }));
+    expect(
+      screen.getByRole("dialog", { name: "Registrar compra" }),
+    ).toBeInTheDocument();
+
+    clientFetch.mockResolvedValue([second]);
+    await act(() => client.invalidateQueries({ queryKey: ["credit-cards"] }));
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "Registrar compra" }),
+      ).not.toBeInTheDocument(),
+    );
+  });
+
+  it("shows an error with retry, not the empty invitation, when loading fails", async () => {
+    clientFetch.mockRejectedValueOnce(new Error("boom"));
+    renderPanel();
+    expect(
+      await screen.findByText("No pudimos cargar tus tarjetas."),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("Aún no tienes tarjetas"),
+    ).not.toBeInTheDocument();
+
+    clientFetch.mockResolvedValue([base]);
+    fireEvent.click(screen.getByRole("button", { name: "Reintentar" }));
+    expect(
+      await screen.findByRole("group", { name: "Visa del día a día" }),
     ).toBeInTheDocument();
   });
 });
