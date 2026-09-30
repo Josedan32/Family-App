@@ -236,6 +236,18 @@ describe("CardDetailPage", () => {
     expect(screen.getByRole("tab", { name: "Extractos" })).toHaveAttribute("aria-selected", "true");
   });
 
+  it("links the statements tab to the full history page", async () => {
+    respondWith(detail);
+    render(<Wrapped><CardDetailPage id="c1" /></Wrapped>);
+    await screen.findByText("Colchón Spring");
+    expect(screen.queryByRole("link", { name: /Ver historial completo/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "Extractos" }));
+    expect(screen.getByRole("link", { name: /Ver historial completo/ })).toHaveAttribute(
+      "href",
+      "/finanzas/tarjetas/c1/extractos",
+    );
+  });
+
   it("locks purchases dated on the cutoff and frees the next day", async () => {
     respondWith({
       ...detail,

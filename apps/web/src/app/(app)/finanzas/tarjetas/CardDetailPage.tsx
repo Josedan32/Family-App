@@ -190,7 +190,17 @@ export function CardDetailPage({ id }: { id: string }) {
         ) : tab === "payments" ? (
           <PaymentsTab {...listProps} onDelete={(pid) => removePayment.mutate(pid)} />
         ) : (
-          <StatementsTab card={data} today={today} />
+          <div className="flex flex-col gap-3">
+            <StatementsTab card={data} today={today} />
+            {data.statements.length ? (
+              <Link
+                href={`/finanzas/tarjetas/${id}/extractos`}
+                className="self-center text-sm font-semibold text-brand"
+              >
+                Ver historial completo ›
+              </Link>
+            ) : null}
+          </div>
         )}
       </div>
 
