@@ -145,5 +145,5 @@ export function selectedIndexFromScroll(
   count: number,
 ): number {
   const raw = Math.round(scrollLeft / (itemWidth + gap));
-  return Math.min(Math.max(raw, 0), count - 1);
+  return Math.min(Math.max(raw, 0), Math.max(count - 1, 0));
 }

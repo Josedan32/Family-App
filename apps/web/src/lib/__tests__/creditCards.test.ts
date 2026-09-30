@@ -163,4 +163,9 @@ describe("selectedIndexFromScroll", () => {
     expect(selectedIndexFromScroll(5000, 300, 12, 3)).toBe(2);
     expect(selectedIndexFromScroll(-40, 300, 12, 3)).toBe(0);
   });
+
+  it("stays at zero for an empty list", () => {
+    expect(selectedIndexFromScroll(0, 300, 12, 0)).toBe(0);
+    expect(selectedIndexFromScroll(600, 300, 12, 0)).toBe(0);
+  });
 });
