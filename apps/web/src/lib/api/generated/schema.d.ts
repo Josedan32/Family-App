@@ -1786,6 +1786,8 @@ export interface components {
             outstanding_minor: number;
             /** Current Cycle Balance Minor */
             current_cycle_balance_minor: number;
+            /** Credit Used Ratio */
+            credit_used_ratio: number;
             latest_statement: components["schemas"]["CreditCardStatementResponse"] | null;
             /** Purchases */
             purchases: components["schemas"]["CreditCardPurchaseResponse"][];
@@ -1867,6 +1869,8 @@ export interface components {
             outstanding_minor: number;
             /** Current Cycle Balance Minor */
             current_cycle_balance_minor: number;
+            /** Credit Used Ratio */
+            credit_used_ratio: number;
             latest_statement: components["schemas"]["CreditCardStatementResponse"] | null;
         };
         /** CreditCardStatementResponse */
