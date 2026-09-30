@@ -255,4 +255,60 @@ describe("CardsPanel", () => {
       await screen.findByRole("group", { name: "Visa del día a día" }),
     ).toBeInTheDocument();
   });
+
+  describe("sorting", () => {
+    const due = (payment_due_on: string) => ({
+      ...base.latest_statement!,
+      payment_due_on,
+    });
+    const sortable: CreditCard[] = [
+      { ...base, id: "s1", nickname: "Beta", outstanding_minor: 500, latest_statement: due("2099-10-02") },
+      { ...base, id: "s2", nickname: "Alfa", outstanding_minor: 900, latest_statement: due("2099-11-10") },
+      { ...base, id: "s3", nickname: "Ñandú", outstanding_minor: 0, latest_statement: null },
+      { ...base, id: "s4", nickname: "Oso", outstanding_minor: 300, latest_statement: due("2099-12-01") },
+    ];
+    const NAMES = sortable.map((card) => card.nickname);
+    const tileNames = () =>
+      screen
+        .getAllByRole("group")
+        .map((group) => group.getAttribute("aria-label") ?? "")
+        .filter((name) => NAMES.includes(name));
+    const sortBy = (label: string) =>
+      fireEvent.change(screen.getByRole("combobox", { name: /Ordenar/ }), {
+        target: { value: label },
+      });
+
+    it("orders by nearest limit date first, cards without a statement last", async () => {
+      clientFetch.mockResolvedValue(sortable);
+      renderPanel();
+      await screen.findByRole("group", { name: "Beta" });
+      expect(tileNames()).toEqual(["Beta", "Alfa", "Oso", "Ñandú"]);
+    });
+
+    it("orders by largest outstanding balance", async () => {
+      clientFetch.mockResolvedValue(sortable);
+      renderPanel();
+      await screen.findByRole("group", { name: "Beta" });
+      sortBy("outstanding");
+      expect(tileNames()).toEqual(["Alfa", "Beta", "Oso", "Ñandú"]);
+    });
+
+    it("orders by name using Spanish collation", async () => {
+      clientFetch.mockResolvedValue(sortable);
+      renderPanel();
+      await screen.findByRole("group", { name: "Beta" });
+      sortBy("name");
+      expect(tileNames()).toEqual(["Alfa", "Beta", "Ñandú", "Oso"]);
+    });
+
+    it("offers the same sort in the table view", async () => {
+      window.localStorage.setItem(VIEW_MODE_STORAGE_KEY, "table");
+      clientFetch.mockResolvedValue(sortable);
+      renderPanel();
+      await screen.findByRole("table", { name: "Tarjetas de crédito" });
+      sortBy("name");
+      const links = within(screen.getByRole("table")).getAllByRole("link");
+      expect(links.map((link) => link.textContent)).toEqual(["Alfa", "Beta", "Ñandú", "Oso"]);
+    });
+  });
 });

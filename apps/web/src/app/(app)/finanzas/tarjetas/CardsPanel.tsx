@@ -23,10 +23,17 @@ import {
   cardStatusCounts,
   filterCards,
   type CardFilters,
+  type CardSort,
   type CreditCard,
 } from "@/lib/creditCards";
 import { todayLocal } from "@/lib/dates";
 import { setViewMode, useViewMode } from "@/lib/viewMode";
+
+const SORT_LABEL: Record<CardSort, string> = {
+  due: "Fecha límite más próxima",
+  outstanding: "Mayor saldo pendiente",
+  name: "Nombre",
+};
 
 type OpenSheet = { kind: "new" | "purchase" | "payment"; cardId?: string };
 
@@ -127,6 +134,26 @@ export function CardsPanel() {
               },
             ]}
           />
+
+          <label className="flex min-h-11 items-center gap-2 rounded-xl border border-border bg-surface px-3 text-sm">
+            <span className="whitespace-nowrap text-text-muted">Ordenar</span>
+            <select
+              value={filters.sort}
+              onChange={(event) =>
+                setFilters({
+                  ...filters,
+                  sort: event.target.value as CardSort,
+                })
+              }
+              className="min-w-0 flex-1 bg-transparent font-semibold outline-none"
+            >
+              {Object.entries(SORT_LABEL).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
 
           {!selected ? (
             <p className="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-text-muted">
