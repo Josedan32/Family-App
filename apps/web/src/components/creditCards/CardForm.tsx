@@ -11,7 +11,7 @@ import { addDays, formatDayMonth, nextCutoffOn, todayLocal } from "@/lib/dates";
 import { formatMoney } from "@/lib/money";
 import { pushToast } from "@/lib/toast";
 
-import { isDay, parsePercent } from "./decimal";
+import { isDay, isPercent, parsePercent } from "./decimal";
 
 const CURRENCY = "COP";
 
@@ -51,7 +51,7 @@ export function CardForm({ onDone }: { onDone: () => void }) {
     },
   });
 
-  const cutoffValid = isDay(cutoff, 31);
+  const cutoffValid = isDay(cutoff, 28);
   const daysValid = isDay(days, 90);
   const canSubmit =
     !!name &&
@@ -59,15 +59,20 @@ export function CardForm({ onDone }: { onDone: () => void }) {
     limit > 0 &&
     cutoffValid &&
     daysValid &&
-    rate !== "" &&
-    parsePercent(rate) >= 0 &&
+    isPercent(rate) &&
+    isPercent(minPct) &&
     parsePercent(minPct) > 0;
   const nameError = nameTouched && !name ? "Dale un nombre a esta tarjeta" : undefined;
   const bankError = bankTouched && !bank ? "Dinos de qué banco es" : undefined;
   const limitError = limitTouched && limit <= 0 ? "Ingresa un cupo mayor a cero" : undefined;
   const cutoffError =
-    cutoff !== "" && !cutoffValid ? "Elige un día entre 1 y 31" : undefined;
+    cutoff !== "" && !cutoffValid ? "Elige un día entre 1 y 28" : undefined;
   const daysError = days !== "" && !daysValid ? "Elige entre 1 y 90 días" : undefined;
+
+  const rateError =
+    rate !== "" && !isPercent(rate) ? "Ingresa un porcentaje entre 0 y 999,99" : undefined;
+  const minPctError =
+    minPct !== "" && !isPercent(minPct) ? "Ingresa un porcentaje entre 0 y 999,99" : undefined;
 
   const next = cutoffValid ? nextCutoffOn(Number(cutoff), todayLocal()) : "";
 
@@ -114,7 +119,7 @@ export function CardForm({ onDone }: { onDone: () => void }) {
           type="number"
           inputMode="numeric"
           min={1}
-          max={31}
+          max={28}
           required
           value={cutoff}
           onChange={(e) => setCutoff(e.target.value)}
@@ -147,6 +152,7 @@ export function CardForm({ onDone }: { onDone: () => void }) {
         helperText="Porcentaje mensual, por ejemplo 1,89"
         value={rate}
         onChange={(e) => setRate(e.target.value)}
+        error={rateError}
       />
 
       <div className="flex flex-col gap-3 rounded-xl border border-border p-3.5">
@@ -160,6 +166,7 @@ export function CardForm({ onDone }: { onDone: () => void }) {
           required
           value={minPct}
           onChange={(e) => setMinPct(e.target.value)}
+          error={minPctError}
         />
         <MoneyInput label="Mínimo desde" value={floor} onChange={setFloor} currency={CURRENCY} />
         {floor > 0 && minPct !== "" ? (

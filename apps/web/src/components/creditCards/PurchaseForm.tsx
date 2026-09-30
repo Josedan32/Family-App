@@ -13,6 +13,8 @@ import { formatDayMonth, nextCutoffOn, todayLocal } from "@/lib/dates";
 import { formatMoney } from "@/lib/money";
 import { pushToast } from "@/lib/toast";
 
+import { isIsoDate } from "./decimal";
+
 interface Category {
   id: string;
   name: string;
@@ -21,6 +23,7 @@ interface Category {
 }
 
 const PRESETS = [3, 6, 12, 24];
+const MAX_INSTALLMENTS = 60;
 
 export function PurchaseForm({ card, onDone }: { card: CreditCard; onDone: () => void }) {
   const queryClient = useQueryClient();
@@ -41,7 +44,10 @@ export function PurchaseForm({ card, onDone }: { card: CreditCard; onDone: () =>
     queryFn: () => clientFetch<Category[]>("/categories?kind=expense"),
   });
 
-  const cutoffAfterPurchase = nextCutoffOn(card.statement_cutoff_day, purchasedOn);
+  const purchaseDateValid = isIsoDate(purchasedOn);
+  const cutoffAfterPurchase = purchaseDateValid
+    ? nextCutoffOn(card.statement_cutoff_day, purchasedOn)
+    : "";
   const first = firstOverride ?? cutoffAfterPurchase;
 
   const create = useMutation({
@@ -70,8 +76,14 @@ export function PurchaseForm({ card, onDone }: { card: CreditCard; onDone: () =>
     },
   });
 
-  const planComplete = total >= 2 && installmentAmount > 0 && !!first;
-  const canSubmit = !!description && amount > 0 && (!installments || planComplete);
+  const planComplete =
+    Number.isInteger(total) &&
+    total >= 2 &&
+    total <= MAX_INSTALLMENTS &&
+    installmentAmount > 0 &&
+    isIsoDate(first);
+  const canSubmit =
+    !!description && amount > 0 && purchaseDateValid && (!installments || planComplete);
   const descriptionError = descriptionTouched && !description ? "Describe la compra" : undefined;
   const amountError = amountTouched && amount <= 0 ? "Ingresa un monto mayor a cero" : undefined;
 
@@ -103,7 +115,8 @@ export function PurchaseForm({ card, onDone }: { card: CreditCard; onDone: () =>
         required
       />
       <span className="-mt-3 text-xs text-text-muted">
-        Queda en el ciclo abierto hasta el corte del {formatDayMonth(cutoffAfterPurchase)}. No
+        Queda en el ciclo abierto
+        {purchaseDateValid ? ` hasta el corte del ${formatDayMonth(cutoffAfterPurchase)}` : ""}. No
         cuenta como gasto.
       </span>
 
@@ -181,7 +194,7 @@ export function PurchaseForm({ card, onDone }: { card: CreditCard; onDone: () =>
               type="number"
               inputMode="numeric"
               min={2}
-              max={120}
+              max={MAX_INSTALLMENTS}
               value={total === 0 ? "" : String(total)}
               onChange={(e) => setTotal(Number(e.target.value))}
             />

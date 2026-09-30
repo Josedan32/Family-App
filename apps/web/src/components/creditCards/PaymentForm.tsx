@@ -17,6 +17,8 @@ import {
 import { formatMoney } from "@/lib/money";
 import { pushToast } from "@/lib/toast";
 
+import { isIsoDate } from "./decimal";
+
 type Choice = "minimum" | "full" | "other";
 
 function dueCopy(days: number): string {
@@ -49,7 +51,7 @@ export function PaymentForm({ card, onDone }: { card: CreditCard; onDone: () => 
     },
   });
 
-  const canSubmit = amount > 0;
+  const canSubmit = amount > 0 && isIsoDate(paidOn);
   const amountError =
     amountTouched && amount <= 0 ? "Ingresa un monto mayor a cero" : undefined;
 

@@ -69,10 +69,53 @@ describe("CardForm", () => {
     ).toBeInTheDocument();
   });
 
-  it.each(["32", "0"])("rejects cutoff day %s and keeps submit disabled", (day) => {
+  function fillCard(overrides: Record<string, string> = {}) {
+    const values: Record<string, string> = {
+      Nombre: "Visa",
+      Banco: "Bancolombia",
+      Cupo: "8.000.000",
+      "Día de corte": "15",
+      "Días para pagar": "17",
+      "Interés mensual": "1,89",
+      Porcentaje: "10",
+      ...overrides,
+    };
+    for (const [label, value] of Object.entries(values)) {
+      fireEvent.change(screen.getByLabelText(label), { target: { value } });
+    }
+  }
+
+  it.each(["29", "30", "31", "32", "0"])(
+    "rejects cutoff day %s and keeps submit disabled",
+    (day) => {
+      wrap(<CardForm onDone={() => {}} />);
+      fillCard({ "Día de corte": day });
+      expect(screen.getByRole("button", { name: "Registrar tarjeta" })).toBeDisabled();
+    },
+  );
+
+  it("accepts cutoff day 28", () => {
     wrap(<CardForm onDone={() => {}} />);
-    fireEvent.change(screen.getByLabelText("Día de corte"), { target: { value: day } });
+    fillCard({ "Día de corte": "28" });
+    expect(screen.getByRole("button", { name: "Registrar tarjeta" })).toBeEnabled();
+  });
+
+  it.each([
+    ["Interés mensual", "1000"],
+    ["Interés mensual", "abc"],
+    ["Interés mensual", "1,5,5"],
+    ["Porcentaje", "1000"],
+    ["Porcentaje", "abc"],
+  ])("rejects %s = %s", (label, value) => {
+    wrap(<CardForm onDone={() => {}} />);
+    fillCard({ [label]: value });
     expect(screen.getByRole("button", { name: "Registrar tarjeta" })).toBeDisabled();
+  });
+
+  it("accepts percentages at the 999.99 cap", () => {
+    wrap(<CardForm onDone={() => {}} />);
+    fillCard({ "Interés mensual": "999,99", Porcentaje: "999.99" });
+    expect(screen.getByRole("button", { name: "Registrar tarjeta" })).toBeEnabled();
   });
 
   it("sends decimals with a comma as numbers and the floor as integer minor units", async () => {
@@ -135,6 +178,49 @@ describe("PurchaseForm", () => {
     expect(screen.getByLabelText("Valor cuota")).toHaveValue("");
     fireEvent.change(screen.getByLabelText("Valor cuota"), { target: { value: "180.000" } });
     expect(screen.getByRole("button", { name: "Registrar compra" })).toBeEnabled();
+  });
+
+  function fillInstallments(total: "6" | "Otro", custom?: string) {
+    fireEvent.click(screen.getByRole("switch", { name: /A cuotas/ }));
+    fireEvent.click(screen.getByRole("button", { name: total }));
+    if (custom !== undefined) {
+      fireEvent.change(screen.getByLabelText("Número de cuotas"), { target: { value: custom } });
+    }
+    fireEvent.change(screen.getByLabelText("Descripción"), { target: { value: "Colchón" } });
+    fireEvent.change(screen.getByLabelText("Monto"), { target: { value: "1.080.000" } });
+    fireEvent.change(screen.getByLabelText("Valor cuota"), { target: { value: "18.000" } });
+  }
+
+  it.each(["61", "120", "2.5", "1"])("rejects a custom count of %s", (count) => {
+    answerCategories();
+    wrap(<PurchaseForm card={card} onDone={() => {}} />);
+    fillInstallments("Otro", count);
+    expect(screen.getByRole("button", { name: "Registrar compra" })).toBeDisabled();
+  });
+
+  it("accepts a custom count of 60", () => {
+    answerCategories();
+    wrap(<PurchaseForm card={card} onDone={() => {}} />);
+    fillInstallments("Otro", "60");
+    expect(screen.getByRole("button", { name: "Registrar compra" })).toBeEnabled();
+  });
+
+  it("does not crash or enable submit when the purchase date is cleared", () => {
+    answerCategories();
+    wrap(<PurchaseForm card={card} onDone={() => {}} />);
+    fireEvent.change(screen.getByLabelText("Descripción"), { target: { value: "Mercado" } });
+    fireEvent.change(screen.getByLabelText("Monto"), { target: { value: "1.000" } });
+    fireEvent.change(screen.getByLabelText("Fecha de compra"), { target: { value: "" } });
+    expect(screen.getByRole("button", { name: "Registrar compra" })).toBeDisabled();
+  });
+
+  it("does not crash or enable submit when the first installment date is cleared", () => {
+    answerCategories();
+    wrap(<PurchaseForm card={card} onDone={() => {}} />);
+    fillInstallments("6");
+    expect(screen.getByRole("button", { name: "Registrar compra" })).toBeEnabled();
+    fireEvent.change(screen.getByLabelText("Primera cuota"), { target: { value: "" } });
+    expect(screen.getByRole("button", { name: "Registrar compra" })).toBeDisabled();
   });
 
   it("posts a single-payment purchase without installment fields", async () => {
@@ -203,6 +289,13 @@ describe("PaymentForm", () => {
     expect(screen.getByRole("button", { name: "Registrar pago" })).toBeDisabled();
     fireEvent.change(screen.getByLabelText("Monto"), { target: { value: "90.000" } });
     expect(screen.getByRole("button", { name: "Registrar pago" })).toBeEnabled();
+  });
+
+  it("does not crash or enable submit when the payment date is cleared", () => {
+    wrap(<PaymentForm card={card} onDone={() => {}} />);
+    expect(screen.getByRole("button", { name: "Registrar pago" })).toBeEnabled();
+    fireEvent.change(screen.getByLabelText("Fecha"), { target: { value: "" } });
+    expect(screen.getByRole("button", { name: "Registrar pago" })).toBeDisabled();
   });
 
   it("works for a card with no statement: only a free amount", () => {
