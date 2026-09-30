@@ -7,8 +7,8 @@ import { currentMonth, monthLabel, shiftMonth } from "@/lib/months";
 
 /**
  * ‹ Septiembre 2026 › — step a month at a time, or tap the name for the
- * native month picker (iOS's own wheel beats anything custom). The future is
- * off limits: there is nothing recorded there yet.
+ * native month picker (iOS's own wheel beats anything custom). Future months
+ * are navigable too, e.g. to plan or pre-register something ahead of time.
  */
 export function MonthStepper({
   value,
@@ -19,7 +19,7 @@ export function MonthStepper({
 }) {
   const picker = useRef<HTMLInputElement>(null);
   const latest = currentMonth();
-  const isLatest = value >= latest;
+  const isCurrent = value === latest;
 
   return (
     <div className="flex items-center gap-1 rounded-2xl border border-border bg-surface p-1 shadow-sm">
@@ -51,14 +51,13 @@ export function MonthStepper({
           type="month"
           aria-label="Elegir mes"
           value={value}
-          max={latest}
           onChange={(event) => event.target.value && onChange(event.target.value)}
           className="pointer-events-none absolute inset-0 opacity-0"
           tabIndex={-1}
         />
       </div>
 
-      {isLatest ? null : (
+      {isCurrent ? null : (
         <button
           type="button"
           onClick={() => onChange(latest)}
@@ -70,9 +69,8 @@ export function MonthStepper({
       <button
         type="button"
         aria-label="Mes siguiente"
-        disabled={isLatest}
         onClick={() => onChange(shiftMonth(value, 1))}
-        className="flex h-11 w-11 flex-none items-center justify-center rounded-xl text-xl text-text-muted active:bg-surface-sunken disabled:opacity-30"
+        className="flex h-11 w-11 flex-none items-center justify-center rounded-xl text-xl text-text-muted active:bg-surface-sunken"
       >
         <IconChevronRight />
       </button>
