@@ -68,7 +68,8 @@ Hermana, Abuelo, Abuela, Tío, Tía, Otro.
 | Recurrente | `is_recurring` | Whether a transaction repeats. |
 | Frecuencia (movimiento) | `frequency` (on `Transaction`) | `monthly` / `once` / `biweekly`, shown as Mensual / Único / Quincenal. Set only when `is_recurring` is true. **Not** the same enum as "Frecuencia (tarea)" in §5B — see the disambiguation note there. |
 | Tarjeta de crédito | `credit_card` | A revolving debt with a statement cycle. Its own module — not a row in `debts`. |
-| Corte | `statement` (`credit_card_statements`) | The frozen monthly snapshot: balance, interest charged, minimum payment. Never recomputed once generated. |
+| Extracto | `statement` (`credit_card_statements`) | The frozen monthly snapshot: balance, interest charged, minimum payment. Never recomputed once generated. The UI says "extracto". |
+| Corte | `statement_cutoff_day` | The day of the month a statement closes. "Corte" names the date, never the statement itself. |
 | Compra | `purchase` (`credit_card_purchases`) | Increases the card's balance only. Never an expense until paid (see `debt` vs `member_loan` note above, same principle). |
 | Diferido / cuotas | `installments_total` / `installment_amount_minor` on a purchase | A fixed monthly due amount, independent of the card's revolving interest rate. |
 | Pago mínimo | `minimum_payment_minor` | Derived once per statement, frozen. |
