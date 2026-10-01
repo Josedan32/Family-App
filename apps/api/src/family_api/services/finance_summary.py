@@ -15,6 +15,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from family_api.services import credit_cards as credit_card_service
 from family_api.services import debts as debt_service
 from family_api.services import savings as savings_service
 from family_api.services import transactions as transaction_service
@@ -58,12 +59,14 @@ async def monthly_summary(
     expenses = await transaction_service.total_for(session, member_id, "expense", start, end)
     saved = await savings_service.deposits_in_period(session, member_id, start, end)
     debt_payments = await debt_service.payments_in_period(session, member_id, start, end)
-    remaining = income - expenses - saved - debt_payments
+    card_payments = await credit_card_service.payments_in_period(session, member_id, start, end)
+    total_debt_payments = debt_payments + card_payments
+    remaining = income - expenses - saved - total_debt_payments
     return MonthlySummaryFigures(
         income_minor=income,
         expenses_minor=expenses,
         saved_minor=saved,
-        debt_payments_minor=debt_payments,
+        debt_payments_minor=total_debt_payments,
         remaining_minor=remaining,
-        status=_status(income, expenses, saved, debt_payments, remaining),
+        status=_status(income, expenses, saved, total_debt_payments, remaining),
     )

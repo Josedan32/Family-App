@@ -7,6 +7,7 @@ import { useState } from "react";
 import { DebtCard, type Debt } from "@/components/finance/DebtCard";
 import { DebtsTable } from "@/components/finance/tables";
 import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import {
   ActiveFilters,
@@ -15,7 +16,7 @@ import {
   FilterChip,
   FilterSection,
 } from "@/components/ui/filters";
-import { IconCircleFilled } from "@/components/ui/Icons";
+import { IconChevronRight, IconCircleFilled } from "@/components/ui/Icons";
 import { Sheet } from "@/components/ui/Sheet";
 import { clientFetch } from "@/lib/api/client";
 import {
@@ -34,6 +35,19 @@ const SORT_LABEL: Record<DebtSort, string> = {
   name: "Nombre",
 };
 
+function CardsLink() {
+  return (
+    <Link href="/finanzas/tarjetas" className="block">
+      <Card className="flex min-h-11 items-center gap-3 active:bg-surface-sunken">
+        <p className="min-w-0 flex-1 font-semibold">Tarjetas de crédito</p>
+        <span aria-hidden="true" className="text-text-muted">
+          <IconChevronRight />
+        </span>
+      </Card>
+    </Link>
+  );
+}
+
 export function DebtsPanel({ onCreate }: { onCreate: () => void }) {
   const asTable = useViewMode() === "table";
   const [filters, setFilters] = useState<DebtFilters>(NO_DEBT_FILTERS);
@@ -50,11 +64,14 @@ export function DebtsPanel({ onCreate }: { onCreate: () => void }) {
   const all = debts.data ?? [];
   if (!all.length) {
     return (
-      <EmptyState
-        icon={<IconCircleFilled />}
-        message="Registra lo que debes para llevar el saldo pendiente."
-        action={<Button onClick={onCreate}>Registrar una deuda</Button>}
-      />
+      <div className="flex flex-col gap-3">
+        <CardsLink />
+        <EmptyState
+          icon={<IconCircleFilled />}
+          message="Registra lo que debes para llevar el saldo pendiente."
+          action={<Button onClick={onCreate}>Registrar una deuda</Button>}
+        />
+      </div>
     );
   }
 
@@ -71,6 +88,8 @@ export function DebtsPanel({ onCreate }: { onCreate: () => void }) {
 
   return (
     <div className="flex flex-col gap-3">
+      <CardsLink />
+
       <ChipChoice
         label="Estado de la deuda"
         value={filters.status}

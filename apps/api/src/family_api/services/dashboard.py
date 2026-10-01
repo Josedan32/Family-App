@@ -15,6 +15,7 @@ from family_api.schemas.dashboard import (
     PotSummary,
 )
 from family_api.services import contributions as contribution_service
+from family_api.services import credit_cards as credit_card_service
 from family_api.services import debts as debt_service
 from family_api.services import savings as savings_service
 from family_api.services import transactions as transaction_service
@@ -86,6 +87,7 @@ async def build_dashboard(
         )
         savings = await savings_service.total_balance(session, owner.id)
         debts = await debt_service.total_outstanding(session, owner.id)
+        debts += await credit_card_service.total_outstanding(session, owner.id)
         expense_rows = await transaction_service.category_breakdown_for(
             session, owner.id, "expense", start, end
         )
