@@ -48,3 +48,52 @@ export function weekdayDayMonth(isoDate: string): string {
   const weekday = WEEKDAYS_ES[new Date(year, month - 1, day).getDay()];
   return `${weekday} ${day} ${MONTHS_ES[month - 1]}`;
 }
+
+/** Whole days from `fromIso` to `toIso` (negative when `toIso` is earlier). */
+export function daysBetween(fromIso: string, toIso: string): number {
+  const from = parse(fromIso);
+  const to = parse(toIso);
+  const ms =
+    Date.UTC(to.year, to.month - 1, to.day) - Date.UTC(from.year, from.month - 1, from.day);
+  return Math.round(ms / 86_400_000);
+}
+
+/** "2026-10-02" → "2 oct". */
+export function formatDayMonth(isoDate: string): string {
+  const { month, day } = parse(isoDate);
+  return `${day} ${MONTHS_ES[month - 1]}`;
+}
+
+/** "16 ago – 15 sep 2026"; the start repeats its year only when the years differ. */
+export function formatDateRange(startIso: string, endIso: string): string {
+  const start = parse(startIso);
+  const end = parse(endIso);
+  const left =
+    start.year === end.year ? formatDayMonth(startIso) : formatDayMonthYear(startIso);
+  return `${left} – ${formatDayMonthYear(endIso)}`;
+}
+
+function lastDayOf(year: number, month: number): number {
+  return new Date(year, month, 0).getDate();
+}
+
+/** Adds calendar months, clamping the day to the target month's last day. */
+export function addMonths(isoDate: string, months: number): string {
+  const { year, month, day } = parse(isoDate);
+  const index = year * 12 + (month - 1) + months;
+  const targetYear = Math.floor(index / 12);
+  const targetMonth = (index % 12) + 1;
+  const clamped = Math.min(day, lastDayOf(targetYear, targetMonth));
+  return toIso(new Date(targetYear, targetMonth - 1, clamped));
+}
+
+/** The first statement cutoff on or after `fromIso`. Mirrors the API's
+ *  `next_cutoff_on_or_after`: the day clamps to short months. */
+export function nextCutoffOn(cutoffDay: number, fromIso: string): string {
+  const { year, month } = parse(fromIso);
+  const inMonth = (y: number, m: number) =>
+    toIso(new Date(y, m - 1, Math.min(cutoffDay, lastDayOf(y, m))));
+  const thisMonth = inMonth(year, month);
+  if (thisMonth >= fromIso) return thisMonth;
+  return month === 12 ? inMonth(year + 1, 1) : inMonth(year, month + 1);
+}

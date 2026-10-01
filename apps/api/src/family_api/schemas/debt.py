@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field, model_validator
 
 class CreateDebtRequest(BaseModel):
     name: str = Field(min_length=1, max_length=120)
-    creditor_type: Literal["bank", "family", "credit_card", "addi", "other"]
+    creditor_type: Literal["bank", "family", "addi", "other"]
     creditor_label: str = Field(min_length=1, max_length=120)
     principal_minor: int = Field(gt=0)
     annual_interest_rate: float | None = Field(default=None, ge=0, le=999.99)
